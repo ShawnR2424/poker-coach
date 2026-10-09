@@ -1,0 +1,5 @@
+{
+  "_about": "You 3-bet and face a 4-bet. Key is IP (you have position on the 4-bettor) or OOP. 'raise' is an all-in 5-bet at 100bb.",
+  "IP": { "raise": "KK+, AKs:0.75, AKo:0.25", "call": "QQ-JJ, AKs:0.25, AKo:0.75, AQs:0.5, TT:0.25", "size": "allin" },
+  "OOP": { "raise": "KK+, AKs, AKo:0.5", "call": "QQ, JJ:0.75, AKo:0.5, AQs:0.5", "size": "allin" }
+}

@@ -4,6 +4,7 @@ import { App } from './ui/App';
 import './ui/theme.css';
 import './ui/lab.css';
 import './ui/table/table.css';
+import './ui/play/play.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

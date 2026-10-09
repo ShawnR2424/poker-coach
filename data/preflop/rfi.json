@@ -1,0 +1,8 @@
+{
+  "_about": "Raise first in (everyone folded to you), 6-max 100bb. Approximate GTO. 'raise' is the open range; everything else folds. SB plays raise-or-fold. Sizes in big blinds.",
+  "UTG": { "raise": "22+, A2s+, K9s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo", "size": 2.5 },
+  "HJ": { "raise": "22+, A2s+, K7s+, Q9s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo", "size": 2.5 },
+  "CO": { "raise": "22+, A2s+, K4s+, Q6s+, J7s+, T7s+, 96s+, 85s+, 75s+, 64s+, 54s, A7o+, A5o, K9o+, Q9o+, J9o+, T9o", "size": 2.5 },
+  "BTN": { "raise": "22+, A2s+, K2s+, Q2s+, J4s+, T6s+, 96s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o+, K8o+, Q9o+, J8o+, T8o+, 98o, 87o", "size": 2.5 },
+  "SB": { "raise": "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A2o+, K8o+, Q9o+, J9o+, T9o, 98o", "size": 3 }
+}

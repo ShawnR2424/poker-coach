@@ -1,0 +1,18 @@
+{
+  "_about": "Less common preflop spots. 'squeeze' faces an open plus at least one caller. 'cold4bet' faces an open and a 3-bet you are not part of. 'vsJam' faces an all-in after you have raised. 'vsLimp' faces one or more limpers ('raise' isolates, 'call' over-limps; the BB checks instead of folding).",
+  "squeeze": {
+    "IP": { "raise": "QQ+, AKs, AKo, AQs:0.5, A5s:0.5, KQs:0.25", "call": "JJ-66, AQs:0.5, AJs, ATs, KQs:0.75, KJs, QJs, JTs, T9s, 98s, 87s:0.5", "size": 4, "perCaller": 1 },
+    "blinds": { "raise": "JJ+, AKs, AKo, AQs, A5s:0.5, A4s:0.5", "call": "TT-22, AJs-A2s, A5s:0.5, A4s:0.5, KQs-K9s, QJs-Q9s, JTs-J9s, T9s, T8s, 98s, 87s, 76s, 65s, 54s, AQo, AJo, KQo", "size": 5, "perCaller": 1 }
+  },
+  "cold4bet": { "raise": "KK+, AKs", "call": "QQ:0.5, JJ:0.25, AKo:0.25", "size": 2.3 },
+  "vsJam": { "raise": "", "call": "QQ+, AKs, AKo, JJ:0.5" },
+  "vsLimp": {
+    "HJ": { "raise": "77+, ATs+, KJs+, QJs, AJo+, KQo", "call": "" },
+    "CO": { "raise": "66+, A9s+, A5s-A4s, KTs+, QTs+, JTs, T9s, ATo+, KJo+", "call": "" },
+    "BTN": { "raise": "55+, A7s+, A5s-A2s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, ATo+, KJo+, QJo", "call": "44-22, 76s, 65s, 54s, A6s" },
+    "SB": { "raise": "77+, ATs+, KTs+, QJs, AJo+, KQo", "call": "66-22, A9s-A6s, K9s-K8s, QTs-Q9s, JTs, T9s, 98s, 87s, 76s, 65s" },
+    "BB": { "raise": "88+, ATs+, KJs+, AJo+, KQo", "call": "" },
+    "size": 4,
+    "perLimper": 1
+  }
+}

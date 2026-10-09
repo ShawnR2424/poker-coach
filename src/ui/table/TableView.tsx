@@ -43,7 +43,7 @@ export function TableView({ state, seats, hero }: Props) {
         return (
           <div key={s.index} className="seat-slot" style={style}>
             <div
-              className={`seat${s.folded ? ' folded' : ''}${s.isHero ? ' hero' : ''}${s.isAggressor ? ' aggressor' : ''}${s.badge.kind === 'yourturn' || s.badge.kind === 'toact' ? ' acting' : ''}`}
+              className={`seat${s.folded ? ' folded' : ''}${s.isHero ? ' hero' : ''}${s.isAggressor ? ' aggressor' : ''}${s.badge.kind === 'yourturn' ? ' acting' : ''}`}
               aria-label={`${s.isHero ? 'You, ' : ''}${s.position}, stack ${dollars(s.stack)}, ${s.badge.text || 'waiting'}`}
             >
               <div className="seat-top">
@@ -53,8 +53,11 @@ export function TableView({ state, seats, hero }: Props) {
               <span className="seat-stack num">{dollars(s.stack)}</span>
               {s.badge.text && <span className={`badge badge-${s.badge.kind}`}>{s.badge.text}</span>}
               {s.profile && !s.isHero && <span className="profile-tag">{s.profile}</span>}
-              {!s.folded && !s.isHero && (
+              {!s.folded && !s.isHero && !s.hole && (
                 <span className="card-backs" aria-hidden="true"><i /><i /></span>
+              )}
+              {!s.isHero && s.hole && (
+                <span className="shown-cards" aria-label="Shown cards">{s.hole.map((c) => <PlayingCard key={c} card={c} size="xs" />)}</span>
               )}
             </div>
             {s.committed > 0 && (
