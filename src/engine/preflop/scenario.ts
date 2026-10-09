@@ -35,7 +35,7 @@ const seatOf = (p: Position) => POSITIONS.indexOf(p);
 const PREFLOP_ORDER: Position[] = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const before = (a: Position, b: Position) => PREFLOP_ORDER.indexOf(a) < PREFLOP_ORDER.indexOf(b);
 
-const DEFAULT_MIX: Record<PracticeSpot, number> = { rfi: 25, vsOpen: 35, squeeze: 10, vs3bet: 20, vs4bet: 10 };
+export const DEFAULT_MIX: Record<PracticeSpot, number> = { rfi: 25, vsOpen: 35, squeeze: 10, vs3bet: 20, vs4bet: 10 };
 
 /** One scripted step: who acts and with which chart choice; their hand is drawn from that choice. */
 interface Step {

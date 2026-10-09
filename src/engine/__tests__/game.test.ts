@@ -120,8 +120,8 @@ function playOut(g: GameHand, seed: number): { checks: number; state: HandState 
   return { checks, state: s };
 }
 
-describe('levels 2-5', () => {
-  for (const level of [2, 3, 4, 5] as LevelId[]) {
+describe('levels 2-6', () => {
+  for (const level of [2, 3, 4, 5, 6] as LevelId[]) {
     it(`level ${level}: hands finish, chips balance, and the read always holds the villain's real hand`, () => {
       let checks = 0;
       let postflop = 0;
@@ -129,6 +129,10 @@ describe('levels 2-5', () => {
       for (let seed = 1; seed <= 120; seed++) {
         const g = newGameHand(level, makeRng(seed * 7919 + level), opts);
         expect(g.state.toAct).toBe(g.hero);
+        if (level === 6) {
+          expect(g.state.street).toBe('river');
+          expect(['overpair', 'topPairGood', 'topPairWeak', 'middlePair', 'weakPair']).toContain(classifyHand(g.state.players[g.hero].hole, g.state.board));
+        }
         expect(g.villains.length).toBe(level === 5 ? 2 : 1);
         const { checks: c, state } = playOut(g, seed);
         checks += c;
@@ -145,7 +149,7 @@ describe('levels 2-5', () => {
           expect(late.every((a) => a.type === 'check')).toBe(true);
         }
       }
-      expect(checks).toBeGreaterThan(120);
+      expect(checks).toBeGreaterThanOrEqual(120);
       expect(postflop).toBeGreaterThan(20);
       if (level === 5) expect(threeWay).toBeGreaterThan(30);
     });

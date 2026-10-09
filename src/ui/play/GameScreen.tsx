@@ -12,14 +12,17 @@ import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } 
 import { PROFILES } from '../../engine/postflop/model';
 import { narrowHand } from '../../engine/postflop/narrow';
 import { interactionNote, multiwaySituationFromState } from '../../engine/postflop/multiway';
-import { describeOption, gradePostflop, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
+import { describeOption, gradePostflop, leaksAtRisk, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
 import {
-  blockerCount, heroDecision, heroLineRead, nudge, opponentReads, playersBehind, preflopFeedback,
+  blockerCount, heroDecision, heroLineRead, nudge, opponentReads, playersBehind, preflopFeedback, preflopLeaksAtRisk,
   type Decision, type Feedback, type OpponentRead,
 } from '../../engine/preflop/coach';
 import { hasChart, spotFor } from '../../engine/preflop/spot';
 import { NUM_COMBOS } from '../../engine/range';
 import { makeRng, randomSeed } from '../../engine/rng';
+import { handLesson, levelProgress, openLeaks, totals } from '../../engine/session/session';
+import { currentHands, recordHand, useSessions } from '../session/store';
+import { dollars } from '../table/format';
 import { runClassEquity, runEquity } from '../../workers/equityClient';
 import {
   comboTableReason, MultiwayReadPanel, PostflopFeedbackPanel, PostflopReadPanel, useMultiwayRead, usePostflopRead, villainLine,
@@ -50,12 +53,49 @@ function loadLevel(): LevelId {
   }
 }
 
+const FOCUS_KEY = 'focusLeaks';
+function loadFocus(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+/** Running session totals on the Play screen, with curriculum progress for the current level. */
+function SessionStrip({ level, onLevel }: { level: LevelId; onLevel: (l: LevelId) => void }) {
+  const { current } = useSessions();
+  const t = totals(current.hands);
+  const open = openLeaks(current.hands).length;
+  const prog = levelProgress(current.hands, level);
+  const next = LEVEL_IDS.find((id) => id === level + 1);
+  const sign = (x: number) => (x > 0 ? '+' : x < 0 ? '−' : '');
+  return (
+    <div className="session-strip small">
+      <a href="#session" className="session-link">
+        <span className="eyebrow">Session</span>
+        <span className="num">{t.hands} hand{t.hands === 1 ? '' : 's'}</span>
+        <span className={`num ${t.net > 0 ? 'up' : t.net < 0 ? 'down' : ''}`}>{sign(t.net)}{dollars(Math.abs(t.net))} ({sign(t.netBB)}{Math.abs(t.netBB).toFixed(1)}bb)</span>
+        <span className="num">{open} open leak{open === 1 ? '' : 's'}</span>
+      </a>
+      <span className="muted">
+        Level {level}: {prog.recent ? `${prog.good} of your last ${prog.recent} decisions without a mistake` : 'no graded decisions yet'}
+      </span>
+      {prog.ready && next && (
+        <button type="button" className="primary" onClick={() => onLevel(next)}>Ready for level {next}: {LEVELS[next].name}</button>
+      )}
+    </div>
+  );
+}
+
 export function GameScreen() {
   const rngRef = useRef(makeRng(randomSeed()));
   const [lowStakes, setLowStakes] = useState(true);
   const [level, setLevel] = useState<LevelId>(loadLevel);
   const opts = useMemo(() => ({ lowStakes }), [lowStakes]);
-  const [game, setGame] = useState<GameHand>(() => newGameHand(loadLevel(), rngRef.current, { lowStakes: true }));
+  const [focusLeaks, setFocusLeaks] = useState(loadFocus);
+  const leaksFor = (on = focusLeaks) => (on ? openLeaks(currentHands()) : []);
+  const [game, setGame] = useState<GameHand>(() => newGameHand(loadLevel(), rngRef.current, { lowStakes: true }, leaksFor(loadFocus())));
   const [state, setState] = useState<HandState>(game.state);
   const hero = game.hero;
   const [phase, setPhase] = useState<Phase>('decide');
@@ -67,7 +107,7 @@ export function GameScreen() {
   const heroToAct = phase === 'decide' && state.toAct === hero;
 
   const nextHand = (lvl: LevelId = level) => {
-    const g = newGameHand(lvl, rngRef.current, opts);
+    const g = newGameHand(lvl, rngRef.current, opts, leaksFor());
     setGame(g);
     setState(advance(g, g.state, rngRef.current, opts));
     setPhase('decide');
@@ -75,6 +115,33 @@ export function GameScreen() {
     setLog([]);
     window.scrollTo({ top: 0 });
   };
+
+  const changeFocus = (on: boolean) => {
+    setFocusLeaks(on);
+    try { localStorage.setItem(FOCUS_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
+  };
+
+  // Record each finished hand in the session once.
+  const recorded = useRef<GameHand | null>(null);
+  useEffect(() => {
+    if (phase !== 'result' || recorded.current === game) return;
+    recorded.current = game;
+    const me = state.players[hero];
+    const decided = !!state.result || me.folded;
+    const net = state.result ? state.result.net[hero] : me.folded ? -me.total : 0;
+    const start = game.state;
+    recordHand({
+      at: new Date().toISOString(),
+      level: game.level,
+      spot: log[0]?.label ?? (start.street === 'preflop' ? spotFor(start, hero).label : `${STREET_LABEL[start.street]} ${formatCards(start.board)}`),
+      hand: formatCards(me.hole),
+      net,
+      bb: state.config.bb,
+      decided,
+      decisions: log,
+      lesson: handLesson(log, net, decided),
+    });
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeLevel = (lvl: LevelId) => {
     setLevel(lvl);
@@ -172,12 +239,16 @@ export function GameScreen() {
   const fbRef = useRef<HTMLElement>(null);
   useEffect(() => { if (phase === 'feedback' && pending?.kind === 'postflop') fbRef.current?.scrollIntoView({ block: 'start' }); }, [phase, pending]);
 
+  // Level 1 ends at the flop even when the hero is first to act there.
+  const phaseAfter = (s2: HandState): Phase =>
+    s2.toAct === hero && (LEVELS[game.level].postflop || s2.street === 'preflop') ? 'decide' : 'result';
+
   const act = (action: Action, label: string) => {
     if (isPreflop && !charted) {
       // A line the charts don't cover: play it, without a grade.
       const s2 = advance(game, applyAction(state, action), rngRef.current, opts);
       setState(s2);
-      setPhase(s2.toAct === hero ? 'decide' : 'result');
+      setPhase(phaseAfter(s2));
       return;
     }
     if (isPreflop) {
@@ -186,8 +257,9 @@ export function GameScreen() {
       const fb = preflopFeedback(state, hero, decision, action, Number.isNaN(heroEq) ? 0 : heroEq, blocker);
       setPending({ kind: 'preflop', decision, feedback: fb, action });
       setLog((l) => [...l, {
-        label: decision.spot.label, hand: decision.hand, you: label.toLowerCase(),
+        label: decision.spot.label, hand: formatCards(heroCards), you: label.toLowerCase(),
         verdict: fb.grade.verdict, heading: fb.grade.heading, tags: fb.grade.tags,
+        atRisk: preflopLeaksAtRisk(state, hero, decision),
       }]);
     } else {
       if (!analysis || !postSit) return;
@@ -197,6 +269,7 @@ export function GameScreen() {
       setLog((l) => [...l, {
         label: `${STREET_LABEL[state.street]} ${formatCards(state.board)}`, hand: formatCards(heroCards),
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
+        atRisk: leaksAtRisk(postSit, analysis),
       }]);
     }
     setPhase('feedback');
@@ -207,7 +280,7 @@ export function GameScreen() {
     const s2 = advance(game, applyAction(state, pending.action), rngRef.current, opts);
     setPending(null);
     setState(s2);
-    setPhase(s2.toAct === hero ? 'decide' : 'result');
+    setPhase(phaseAfter(s2));
   };
 
   const reveal = phase === 'result' ? new Set(state.players.map((_, i) => i).filter((i) => i !== hero && !state.players[i].folded)) : new Set<number>();
@@ -237,18 +310,24 @@ export function GameScreen() {
             {LEVEL_IDS.map((id) => (
               <option key={id} value={id}>{id} · {LEVELS[id].name}</option>
             ))}
-            <option value="6" disabled>6 · Thin value (coming)</option>
           </select>
         </label>
         <label className="toggle">
           <input id="lowstakes" type="checkbox" checked={lowStakes} onChange={(e) => setLowStakes(e.target.checked)} />
           Low-stakes adjustments
         </label>
+        <label className="toggle">
+          <input id="focusleaks" type="checkbox" checked={focusLeaks} onChange={(e) => changeFocus(e.target.checked)} />
+          Practice my leaks
+        </label>
         <button type="button" onClick={() => nextHand()}>New hand</button>
       </div>
+      <SessionStrip level={level} onLevel={changeLevel} />
+      {game.focus && <p className="focus-note small"><span className="eyebrow">Leak practice</span> This spot is where “{game.focus}” tends to show up.</p>}
       {level > 1 && (
         <p className="muted small level-note">
           {level === 2 ? 'You play preflop and the flop; the turn and river are checked down. ' : ''}
+          {LEVELS[level].riverOnly ? 'Earlier streets play themselves; you decide on the river with a medium-strength hand: bet thin for value, check, or catch a bluff. ' : ''}
           {isMultiway(level)
             ? 'Two opponents play on with you, so most flops are three-way; everyone else folds. '
             : 'Hands stay heads-up after preflop: players other than your opponent fold. '}
