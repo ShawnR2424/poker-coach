@@ -1,7 +1,7 @@
 // Promise wrapper around the equity worker, with a main-thread fallback if workers are unavailable.
 
 import { classEquities } from '../engine/classEquity';
-import { computeEquity, type EquityResult } from '../engine/equity';
+import { comboEquities, computeEquity, type EquityResult } from '../engine/equity';
 import type { HandClass, Range } from '../engine/range';
 import type { EquityJob, EquityReply } from './equity.worker';
 
@@ -53,6 +53,10 @@ function send(job: JobInput): Promise<EquityReply & { ok: true }> {
         const result = computeEquity({ hero: job.hero, board: job.board, villains: job.villains, iterations: job.iterations });
         return Promise.resolve({ id: 0, ok: true, kind: 'equity', result, ms: performance.now() - t0 });
       }
+      if (job.kind === 'comboEquity') {
+        const result = comboEquities(job.hero, job.board, job.range);
+        return Promise.resolve({ id: 0, ok: true, kind: 'comboEquity', result, ms: performance.now() - t0 });
+      }
       const m = classEquities(job.hero, job.board, job.range, job.iterations);
       return Promise.resolve({ id: 0, ok: true, kind: 'classEquity', result: [...m], ms: performance.now() - t0 });
     } catch (e) {
@@ -76,4 +80,11 @@ export async function runClassEquity(hero: number[], board: number[], range: Ran
   const r = await send({ kind: 'classEquity', hero, board, range: new Float32Array(range), iterations });
   if (r.kind !== 'classEquity') throw new Error('Unexpected reply');
   return new Map(r.result);
+}
+
+/** Hero equity against each combo of `range` (NaN where dead or unweighted). Flop or later. */
+export async function runComboEquity(hero: number[], board: number[], range: Range): Promise<Float32Array> {
+  const r = await send({ kind: 'comboEquity', hero, board, range: new Float32Array(range) });
+  if (r.kind !== 'comboEquity') throw new Error('Unexpected reply');
+  return r.result;
 }

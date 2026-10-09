@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Lab } from './Lab';
 import { GameScreen } from './play/GameScreen';
+import { SpotsScreen } from './spots/SpotsScreen';
 
-type Tab = 'table' | 'lab';
+type Tab = 'table' | 'spots' | 'lab';
 type Theme = 'system' | 'light' | 'dark';
 
-const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : 'table');
+const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : 'table');
 
 function loadTheme(): Theme {
   try {
@@ -35,7 +36,7 @@ export function App() {
 
   const go = (t: Tab) => {
     setTab(t);
-    try { history.replaceState(null, '', t === 'lab' ? '#lab' : '#table'); } catch { /* sandboxed */ }
+    try { history.replaceState(null, '', `#${t}`); } catch { /* sandboxed */ }
   };
 
   return (
@@ -44,6 +45,7 @@ export function App() {
         <p className="brand">Poker Coach <span className="approx">approximate GTO</span></p>
         <nav className="tabs" aria-label="Sections">
           <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Play</button>
+          <button type="button" className={tab === 'spots' ? 'on' : ''} aria-pressed={tab === 'spots'} onClick={() => go('spots')}>Postflop spots</button>
           <button type="button" className={tab === 'lab' ? 'on' : ''} aria-pressed={tab === 'lab'} onClick={() => go('lab')}>Engine lab</button>
         </nav>
         <label className="theme-pick">
@@ -55,7 +57,7 @@ export function App() {
           </select>
         </label>
       </header>
-      {tab === 'table' ? <GameScreen /> : <Lab />}
+      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : <Lab />}
     </>
   );
 }

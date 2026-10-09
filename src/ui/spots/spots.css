@@ -1,0 +1,37 @@
+/* Postflop practice spots. */
+.spot-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.spot-pick button { display: grid; gap: 2px; text-align: left; padding: 10px 12px; min-width: 0; }
+.spot-pick button.on { border-color: var(--felt); background: var(--felt-soft); }
+.spot-setup { max-width: 65ch; }
+
+.mix { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 2px 16px; font-size: 0.88rem; }
+.mix li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding: 2px 0; }
+
+.ev-wrap { display: grid; gap: 6px; min-width: 0; }
+.ev-wrap > table { display: block; overflow-x: auto; }
+.ev-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.ev-table th, .ev-table td { padding: 7px 8px; border-top: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.ev-table thead th { font-size: 0.75rem; font-weight: 700; color: var(--fg-muted); border-top: none; white-space: normal; vertical-align: bottom; min-width: 4.5em; }
+.ev-table .n { text-align: right; }
+.ev-table tbody th { font-weight: 600; }
+.ev-table tr.best { background: color-mix(in srgb, var(--good) 10%, transparent); }
+.ev-table tr.chosen th { box-shadow: inset 3px 0 0 var(--hero); }
+.ev-cell { position: relative; min-width: 8em; }
+.ev-bar { position: absolute; right: 8px; top: 50%; height: 6px; transform: translateY(8px); border-radius: 3px; background: var(--good); opacity: 0.55; max-width: calc(100% - 16px); }
+.ev-bar.neg { background: var(--bad); }
+.ev-val { font-weight: 700; }
+.tag { display: inline-block; margin-left: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 4px; padding: 1px 5px; vertical-align: 1px; }
+.best-tag { background: var(--good); color: var(--bg); }
+.fine-tag { background: var(--surface-2); color: var(--fg-muted); }
+.you-tag { background: var(--hero); color: var(--card-black); }
+.leaks { font-size: 0.92rem; }
+.fb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fb-actions .primary { padding: 10px 22px; }
+@media (max-width: 560px) {
+  .ev-table tbody th { white-space: normal; min-width: 7.5em; }
+  .ev-table .tag { margin: 2px 4px 0 0; }
+  .ev-table tbody th .tag:first-of-type { margin-left: 0; }
+  .ev-table tbody th { display: table-cell; }
+  .ev-table tbody th .tag { display: inline-block; }
+  .ev-cell { min-width: 5.5em; }
+}

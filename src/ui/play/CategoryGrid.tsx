@@ -11,10 +11,12 @@ interface Props<C extends string> {
   info: Record<C, { label: string; detail: string }>;
   order: C[];
   colorVar: Record<C, string>;
+  /** Hide the crossed-out legend entry when nothing can be removed. */
+  showRemoved?: boolean;
 }
 
 /** 13x13 grid colored by how each hand class fares against the hero. */
-export function CategoryGrid<C extends string>({ cells, removed, hero, info, order, colorVar }: Props<C>) {
+export function CategoryGrid<C extends string>({ cells, removed, hero, info, order, colorVar, showRemoved = true }: Props<C>) {
   const [sel, setSel] = useState<HandClass | null>(null);
   const heroClass = classOfCombo(hero[0], hero[1]);
   const selected = sel && cells ? cells.find((c) => c.cls === sel) : null;
@@ -44,7 +46,7 @@ export function CategoryGrid<C extends string>({ cells, removed, hero, info, ord
         {order.map((k) => (
           <li key={k}><i style={{ background: `var(${colorVar[k]})` }} />{info[k].label}</li>
         ))}
-        <li><i className="legend-cross" />Removed by the last action</li>
+        {showRemoved && <li><i className="legend-cross" />Removed by the last action</li>}
       </ul>
       <p className="cell-detail" aria-live="polite">
         {selected ? (
