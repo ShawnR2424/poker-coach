@@ -1,0 +1,45 @@
+/* Session review and the session strip on Play. */
+.session-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.session-head h1 { margin: 0; font-size: 1.5rem; text-wrap: balance; }
+.session-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.session-actions .confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.9rem; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.up { color: var(--good); }
+.down { color: var(--bad); }
+.panel h2 { margin: 0; font-size: 1.15rem; }
+.panel.empty { justify-items: start; }
+.panel.empty p { max-width: 65ch; margin: 0; }
+a.button { display: inline-block; text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; }
+a.button.primary { background: var(--felt); border-color: var(--felt); color: var(--felt-ink); font-weight: 700; }
+.table-scroll { overflow-x: auto; min-width: 0; }
+table.data { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+table.data th, table.data td { padding: 7px 8px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+table.data thead th { font-size: 0.75rem; color: var(--fg-muted); border-top: none; font-weight: 700; }
+table.data tbody th { font-weight: 600; }
+table.data .n { text-align: right; white-space: nowrap; }
+table.data tr.on { background: var(--felt-soft); }
+table.hands .lesson { min-width: 16em; max-width: 34em; }
+table.hands .verdicts { white-space: nowrap; letter-spacing: 1px; }
+.block { display: block; }
+.status.fixed { color: var(--good); font-weight: 700; }
+.status.open { color: var(--warn); font-weight: 700; }
+
+.session-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.session-link { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; color: inherit; text-decoration: none; font-weight: 600; }
+.session-link:hover { text-decoration: underline; }
+.session-strip .primary { padding: 6px 12px; }
+.focus-note { margin: 0; background: color-mix(in srgb, var(--warn) 14%, transparent); border-left: 3px solid var(--warn); border-radius: 6px; padding: 6px 10px; }
+/* Phone: each hand becomes a compact card instead of a wide row. */
+@media (max-width: 560px) {
+  table.hands thead { display: none; }
+  table.hands, table.hands tbody { display: block; }
+  table.hands tr { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  table.hands td { display: block; border: none; padding: 0; }
+  table.hands td:nth-child(1) { grid-row: span 2; }
+  table.hands td:nth-child(2) { grid-column: 2; }
+  table.hands td:nth-child(5) { grid-column: 3; grid-row: 1; }
+  table.hands td:nth-child(3) { grid-column: 3; grid-row: 2; text-align: right; }
+  table.hands td.verdicts { grid-column: 2; }
+  table.hands td.lesson { grid-column: 2 / 4; min-width: 0; max-width: none; }
+}

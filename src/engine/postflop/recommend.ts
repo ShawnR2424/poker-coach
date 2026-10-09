@@ -349,3 +349,14 @@ export const bbs = (chips: number, bb: number): string => {
   const x = chips / bb;
   return `${Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) < 1 ? x.toFixed(2) : x.toFixed(1)}bb`;
 };
+
+/** Leak tags a non-correct action could earn here: the spots where a leak can recur. */
+export function leaksAtRisk(sit: DecisionBasics, a: Analysis): string[] {
+  const out = new Set<string>();
+  for (const r of a.rows) {
+    const o = r.option;
+    const action = (o.kind === 'bet' || o.kind === 'raise' ? { type: o.kind, to: o.to! } : { type: o.kind }) as Action;
+    gradePostflop(sit, a, action).tags.forEach((t) => out.add(t));
+  }
+  return [...out];
+}

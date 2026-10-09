@@ -3,18 +3,11 @@ import { formatCards } from '../../engine/cards';
 import { describeScore } from '../../engine/evaluator';
 import type { HandState } from '../../engine/hand';
 import { comboIndex, NUM_COMBOS } from '../../engine/range';
+import type { DecisionRecord } from '../../engine/session/session';
 import { runEquity } from '../../workers/equityClient';
 import { bbs, dollars } from '../table/format';
 
-export interface DecisionLog {
-  label: string;
-  hand: string;
-  /** What the hero did, in a few words. */
-  you: string;
-  verdict: 'correct' | 'playable' | 'mistake';
-  heading: string;
-  tags: string[];
-}
+export type DecisionLog = DecisionRecord;
 
 const ICON = { correct: '✅', playable: '👍', mistake: '⚠️' } as const;
 const pct = (x: number) => `${Math.round(x * 100)}%`;

@@ -1,19 +1,21 @@
-// Practice levels and the hand loop for levels 2-5: generate a hand, let opponents act until
-// the hero must decide, and keep only the chosen opponents in (one on levels 2-4, two on level 5).
+// Practice levels and the hand loop: generate a hand, let opponents act until the hero must
+// decide, and keep only the chosen opponents in (one on levels 2-4 and 6, two on level 5).
+// New hands lean toward the spots where the hero's open leaks show up.
 
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { applyAction, legalActions, type HandState } from '../hand';
 import type { Card } from '../cards';
 import { CHARTS, getStrategy } from '../preflop/charts';
 import { botAction, type PreflopOptions } from '../preflop/policy';
-import { generatePreflopScenario, type PracticeSpot } from '../preflop/scenario';
+import { DEFAULT_MIX, generatePreflopScenario, type PracticeSpot } from '../preflop/scenario';
 import { randInt, type Rng } from '../rng';
-
-const PREFLOP_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 import { botPostflopAction } from '../postflop/bot';
+import { classifyHand, type PostflopClass } from '../postflop/classify';
 import { PROFILE_IDS, PROFILES, type ProfileId } from '../postflop/model';
 
-export type LevelId = 1 | 2 | 3 | 4 | 5;
+const PREFLOP_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+
+export type LevelId = 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface Level {
   id: LevelId;
@@ -24,6 +26,8 @@ export interface Level {
   postflop: boolean;
   /** After the flop betting, the rest is checked down. */
   stopAfterFlop: boolean;
+  /** Earlier streets play themselves; the hero decides only on the river, with a medium hand. */
+  riverOnly?: boolean;
 }
 
 const NO_MIX = { rfi: 0, vsOpen: 0, squeeze: 0, vs3bet: 0, vs4bet: 0 };
@@ -34,6 +38,7 @@ export const LEVELS: Record<LevelId, Level> = {
   3: { id: 3, name: 'Full hands heads-up', mix: { ...NO_MIX, rfi: 45, vsOpen: 55 }, postflop: true, stopAfterFlop: false },
   4: { id: 4, name: '3-bet and 4-bet pots', mix: { ...NO_MIX, vsOpen: 35, vs3bet: 45, vs4bet: 20 }, postflop: true, stopAfterFlop: false },
   5: { id: 5, name: 'Multiway pots', mix: { ...NO_MIX, rfi: 45, squeeze: 55 }, postflop: true, stopAfterFlop: false },
+  6: { id: 6, name: 'Thin value and bluff-catching', mix: { ...NO_MIX, rfi: 45, vsOpen: 55 }, postflop: true, stopAfterFlop: false, riverOnly: true },
 };
 
 export const LEVEL_IDS = Object.keys(LEVELS).map(Number) as LevelId[];
@@ -46,6 +51,69 @@ export interface GameHand {
   /** The opponents who stay in; everyone else folds when it is their turn. Empty on level 1. */
   villains: number[];
   profiles: Record<number, ProfileId>;
+  /** The open leak this hand was picked to practice, if any. */
+  focus: string | null;
+}
+
+/** Preflop spot types where each leak tends to show up, for leak-targeted practice. */
+export const LEAK_SPOTS: Record<string, PracticeSpot[]> = {
+  'opening too tight': ['rfi'],
+  'opening too loose': ['rfi'],
+  'oversized preflop raise': ['rfi', 'vsOpen', 'squeeze'],
+  'undersized preflop raise': ['rfi', 'vsOpen', 'squeeze'],
+  'calling too wide preflop': ['vsOpen', 'squeeze'],
+  'folding too much preflop': ['vsOpen', 'squeeze', 'vs3bet'],
+  'raising too light preflop': ['vsOpen', 'squeeze'],
+  'passive with a raising hand': ['vsOpen', 'squeeze', 'vs3bet'],
+  'defending too wide vs 3-bets': ['vs3bet'],
+  'calling 4-bets too wide': ['vs4bet'],
+  'sunk-cost call': ['vs3bet', 'vs4bet'],
+  'middle sizing at low stack-to-pot ratio': ['vs3bet', 'vs4bet'],
+  'donk bet into the preflop raiser': ['vsOpen'],
+  'raised top pair into a strong range': ['vs3bet', 'vsOpen'],
+};
+
+/**
+ * The level's spot mix with extra weight on spots where open leaks show up. Only spots the
+ * level already uses get extra weight, so a level keeps its character. Returns null when no
+ * open leak maps to this level's spots.
+ */
+export function biasedMix(level: LevelId, leaks: { tag: string; weight: number }[]): Record<PracticeSpot, number> | null {
+  const base: Record<PracticeSpot, number> = { ...DEFAULT_MIX, ...LEVELS[level].mix };
+  const W = Object.values(base).reduce((a, x) => a + x, 0);
+  const usable = leaks
+    .map((l) => ({ ...l, spots: (LEAK_SPOTS[l.tag] ?? []).filter((sp) => base[sp] > 0) }))
+    .filter((l) => l.spots.length);
+  const total = usable.reduce((a, l) => a + l.weight, 0);
+  if (!total) return null;
+  const out = { ...base };
+  for (const l of usable) for (const sp of l.spots) out[sp] += (W * l.weight) / total / l.spots.length;
+  return out;
+}
+
+/** The heaviest open leak that shows up in this spot type. */
+function focusFor(spot: PracticeSpot, leaks: { tag: string; weight: number }[]): string | null {
+  const hits = leaks.filter((l) => LEAK_SPOTS[l.tag]?.includes(spot)).sort((a, b) => b.weight - a.weight);
+  return hits[0]?.tag ?? null;
+}
+
+/** Hands that make river decisions about thin value and bluff-catching. */
+const RIVER_CLASSES = new Set<PostflopClass>(['overpair', 'topPairGood', 'topPairWeak', 'middlePair', 'weakPair']);
+
+/** Plays the hero's earlier streets with the bots' strategy and keeps the hand if it reaches a river decision with a medium hand. */
+function playToRiver(g: GameHand, rng: Rng, opts: PreflopOptions): GameHand | null {
+  let s = advance(g, g.state, rng, opts);
+  let guard = 0;
+  while (s.toAct === g.hero && s.street !== 'river' && guard++ < 20) {
+    const a = s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, PROFILES.regular);
+    s = advance(g, applyAction(s, a), rng, opts);
+  }
+  if (s.toAct !== g.hero || s.street !== 'river') return null;
+  const cls = classifyHand(s.players[g.hero].hole, s.board);
+  if (!RIVER_CLASSES.has(cls)) return null;
+  // Weak pairs reach the river most often; keep half so the other classes get their share.
+  if (cls === 'weakPair' && rng() < 0.5) return null;
+  return { ...g, state: s };
 }
 
 /** The opponent the hero is facing: the last preflop raiser, or a chosen defender when the hero is first in. */
@@ -92,49 +160,67 @@ function redeal(s: HandState, seat: number, weights: Range, rng: Rng): boolean {
   return false;
 }
 
-export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions): GameHand {
+/**
+ * A new hand at `level`. With open leaks, about half the hands lean toward the spots where
+ * those leaks show up, and `focus` names the leak being practiced.
+ */
+export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions, leaks: { tag: string; weight: number }[] = []): GameHand {
   const L = LEVELS[level];
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const sc = generatePreflopScenario(rng, { ...opts, mix: L.mix, heroContinues: L.postflop });
-    const { state, hero } = sc;
-    const profiles: Record<number, ProfileId> = {};
-    state.players.forEach((_, i) => { if (i !== hero) profiles[i] = PROFILE_IDS[randInt(rng, PROFILE_IDS.length)]; });
-    if (!L.postflop) return { state, hero, level, villains: [], profiles };
-    const heroPos = state.players[hero].position;
-    const behind = state.players
-      .map((p, i) => ({ p, i }))
-      .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[`${p.position}_vs_${heroPos}`]);
-
-    if (isMultiway(level)) {
-      const already = inAlready(state, hero);
-      if (already.length >= 2) return { state, hero, level, villains: already, profiles };
-      if (already.length > 0 || behind.length < 2) continue;
-      // Hero is first in: two players behind defend. The first flats the open; the second
-      // overcalls (the squeeze chart's call column), so the flop is usually three-way.
-      const order = [...behind].sort((a, b) => PREFLOP_ORDER.indexOf(a.p.position) - PREFLOP_ORDER.indexOf(b.p.position));
-      const first = order[randInt(rng, order.length - 1)];
-      const rest = order.filter((x) => PREFLOP_ORDER.indexOf(x.p.position) > PREFLOP_ORDER.indexOf(first.p.position));
-      const bb = rest.find(({ p }) => p.position === 'BB');
-      const second = bb && rng() < 0.5 ? bb : rest[randInt(rng, rest.length)];
-      const flat = sumWeights(getStrategy('vsOpen', `${first.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), true);
-      const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes), true);
-      if (!redeal(state, first.i, flat, rng) || !redeal(state, second.i, over, rng)) continue;
-      return { state, hero, level, villains: [first.i, second.i], profiles };
-    }
-
-    let villain = lastRaiser(state, hero);
-    if (villain === null) {
-      // Hero is first in: pick one player behind to defend, and give them a hand that continues.
-      if (!behind.length) continue;
-      const bb = behind.find(({ p }) => p.position === 'BB');
-      const pickd = bb && rng() < 0.5 ? bb : behind[randInt(rng, behind.length)];
-      const cont = sumWeights(getStrategy('vsOpen', `${pickd.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), false);
-      if (!redeal(state, pickd.i, cont, rng)) continue;
-      villain = pickd.i;
-    }
-    return { state, hero, level, villains: [villain], profiles };
+  const tries = L.riverOnly ? 200 : 30;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    const mix = leaks.length && rng() < 0.5 ? biasedMix(level, leaks) : null;
+    const g = tryHand(level, rng, opts, mix ?? L.mix);
+    if (!g) continue;
+    const { spot, ...hand } = g;
+    hand.focus = mix ? focusFor(spot, leaks) : null;
+    if (!L.riverOnly) return hand;
+    const r = playToRiver(hand, rng, opts);
+    if (r) return r;
   }
   throw new Error('Could not build a practice hand');
+}
+
+function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Record<PracticeSpot, number>>): (GameHand & { spot: PracticeSpot }) | null {
+  const L = LEVELS[level];
+  const sc = generatePreflopScenario(rng, { ...opts, mix, heroContinues: L.postflop });
+  const { state, hero, spot } = sc;
+  const base = { state, hero, level, profiles: {} as Record<number, ProfileId>, focus: null as string | null, spot };
+  const profiles = base.profiles;
+  state.players.forEach((_, i) => { if (i !== hero) profiles[i] = PROFILE_IDS[randInt(rng, PROFILE_IDS.length)]; });
+  if (!L.postflop) return { ...base, villains: [] };
+  const heroPos = state.players[hero].position;
+  const behind = state.players
+    .map((p, i) => ({ p, i }))
+    .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[`${p.position}_vs_${heroPos}`]);
+
+  if (isMultiway(level)) {
+    const already = inAlready(state, hero);
+    if (already.length >= 2) return { ...base, villains: already };
+    if (already.length > 0 || behind.length < 2) return null;
+    // Hero is first in: two players behind defend. The first flats the open; the second
+    // overcalls (the squeeze chart's call column), so the flop is usually three-way.
+    const order = [...behind].sort((a, b) => PREFLOP_ORDER.indexOf(a.p.position) - PREFLOP_ORDER.indexOf(b.p.position));
+    const first = order[randInt(rng, order.length - 1)];
+    const rest = order.filter((x) => PREFLOP_ORDER.indexOf(x.p.position) > PREFLOP_ORDER.indexOf(first.p.position));
+    const bb = rest.find(({ p }) => p.position === 'BB');
+    const second = bb && rng() < 0.5 ? bb : rest[randInt(rng, rest.length)];
+    const flat = sumWeights(getStrategy('vsOpen', `${first.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), true);
+    const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes), true);
+    if (!redeal(state, first.i, flat, rng) || !redeal(state, second.i, over, rng)) return null;
+    return { ...base, villains: [first.i, second.i] };
+  }
+
+  let villain = lastRaiser(state, hero);
+  if (villain === null) {
+    // Hero is first in: pick one player behind to defend, and give them a hand that continues.
+    if (!behind.length) return null;
+    const bb = behind.find(({ p }) => p.position === 'BB');
+    const pickd = bb && rng() < 0.5 ? bb : behind[randInt(rng, behind.length)];
+    const cont = sumWeights(getStrategy('vsOpen', `${pickd.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), false);
+    if (!redeal(state, pickd.i, cont, rng)) return null;
+    villain = pickd.i;
+  }
+  return { ...base, villains: [villain] };
 }
 
 /**

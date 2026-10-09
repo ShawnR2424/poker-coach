@@ -126,6 +126,21 @@ export function gradePreflop(d: Decision, action: Action, bb: number, allInTo?: 
   return { verdict, heading, chosen, chosenFreq, best: d.best, bestFreq, sizeNote, tags };
 }
 
+/** Leak tags a wrong preflop choice could earn here, including the sunk-cost call. */
+export function preflopLeaksAtRisk(s: HandState, hero: number, d: Decision): string[] {
+  const bb = s.config.bb;
+  const out = new Set<string>();
+  const actions: Action[] = [{ type: d.canCheck ? 'check' : 'fold' }];
+  if (d.toCall > 0) actions.push({ type: 'call' });
+  if (d.raiseTo) actions.push({ type: s.currentBet > 0 ? 'raise' : 'bet', to: d.raiseTo });
+  for (const a of actions) {
+    const g = gradePreflop(d, a, bb);
+    g.tags.forEach((t) => out.add(t));
+    if (g.verdict === 'mistake' && g.chosen === 'call' && s.players[hero].total >= 3 * bb) out.add('sunk-cost call');
+  }
+  return [...out];
+}
+
 // ---- Feedback ----
 
 export interface Feedback {
