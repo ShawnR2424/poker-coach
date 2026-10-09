@@ -1,56 +1,96 @@
 # Poker Coach
 
-A turn-by-turn 6-max No-Limit Hold'em trainer with approximate-GTO feedback. You play the hero seat; before every decision the app shows each opponent's likely range, then grades your action with computed math.
+Poker Coach is a browser-based trainer for 6-max No-Limit Hold'em at $0.25/$0.50 with 100bb stacks. You play the hero seat one decision at a time. Before each decision it shows what every opponent is likely to hold. After you act, it grades the decision with computed equity, pot odds and expected value, and explains the result.
 
-This is **approximate GTO**: static preflop charts and heuristic postflop range narrowing, not a live solver.
+> **Approximate GTO.** The preflop charts are static approximations and the postflop opponent model is a hand-class heuristic, not solver output. The trainer is built to teach sound reasoning (ranges, card removal, pot odds, sizing), not to reproduce a solver's exact frequencies. See [docs/model.md](docs/model.md) for what is modeled and what is not.
 
-## Status
+## Features
 
-- [x] **Milestone 1: engine.** Deck, hand evaluator, betting rules (min-raise, short all-ins, side pots, uncalled bets), range notation and 13x13 grid, card removal, equity (exact heads-up postflop, Monte Carlo preflop and multiway, in a Web Worker), pot odds, break-even fold %, bet EV, SPR. A small lab page exercises all of it.
-- [x] **Milestone 2: table UI.** Oval table with seats in clockwise order, hero fixed at bottom center, status badges, dealer button, aggressor outline, board and pot, hero strip with spot-dependent stat tiles, action timeline, range read layout, and action buttons with preset and custom sizes. Three hard-coded sample hands built with the real engine. Works at 380px and in light and dark.
-- [x] **Milestone 3: preflop.** Editable 6-max 100bb charts in `data/preflop/` (open, vs open, vs 3-bet, vs 4-bet, squeeze, cold 4-bet, vs all-in, vs limp) with a low-stakes adjustment layer. Level 1 practice: generated preflop spots that stop at a real decision, a range read per opponent with a 13x13 grid colored by matchup against your hand, grading with chart frequencies, computed equity and pot odds, and a chart grid showing which hands take each action. Opponents respond from the same charts.
-- [x] **Milestone 4: verdicts and EV.** Postflop hand classes, exact per-combo equity in the worker, an opponent response model in `data/postflop/actions.json` (bet, call and raise shares by hand class and bet size), and EV for every legal action and size. Verdicts are ✅ within max(0.25bb, 4% of pot) of the best EV, 👍 within max(1bb, 15%), ⚠️ otherwise, with "right idea, wrong size", leak tags, sunk-cost and results-oriented notes. The Postflop spots tab has four engine-built spots with a range read (grid by beats you / can outdraw you / pays you / missed) and an EV-by-size table.
-- [x] **Milestone 5: full hands.** Levels 2 (preflop + flop), 3 (full hands heads-up) and 4 (3-bet and 4-bet pots) in Play. Opponents play postflop from the same model used to narrow their range, with four editable styles in `data/postflop/profiles.json` (regular, nit, calling station, aggressive) shown on their seats. Every hero decision through the river gets a range read and a verdict, and the hand ends at a showdown with a decision review. Pots stay heads-up after preflop; multiway comes in milestone 6.
-- [x] **Milestone 6: multiway and the combo table.** Level 5 (multiway pots): two opponents play on, from an open with two callers or a squeeze spot. Multiway decisions get one range read per opponent, a note on how their actions interact (a caller sandwiched between the bettor and you, a player still to act behind), and equity against everyone. Bet EV treats each opponent's response as independent: everyone folds, some subset calls (equity against those callers), or someone raises (you fold). Every postflop read has a combo table (hand class, combos left, which of your cards or board cards removed the rest, result against you), open by default on rivers and in 4-bet pots, and crosses out grid cells that mostly dropped out with the opponent's latest action.
-- [x] **Milestone 7: session tracker and curriculum.** A Session tab with running profit and loss in $ and bb, bb per 100 hands, verdict split, every hand with its spot, verdicts, result and main lesson, and a leak table. A leak is marked fixed when its spot comes up again and is played without a mistake, and reopens if it shows up again. With "Practice my leaks" on, about half of new hands lean toward the preflop spots where open leaks show up. Level 6 (thin value and bluff-catching) plays the earlier streets for you and stops at a river decision with a medium-strength hand. Play shows the session totals and offers the next level after 20 decisions with at least 70% non-mistakes. Sessions are saved in the browser; starting a new one keeps the old one viewable.
-- [ ] 8. Optional Claude API explanations
+- **Range read before every decision.** Each opponent gets a 13x13 grid colored by how their hands fare against yours, a hand-class breakdown, and a combo table showing how many combos of each hand remain after card removal and which known cards removed the rest. Hands that drop out with an opponent's latest action are crossed out.
+- **Graded decisions.** Preflop decisions are graded against chart frequencies. Postflop decisions are graded by the EV each legal action and size gives up against the best one. Feedback covers equity, pot odds, sizing ("right idea, wrong size"), sunk-cost and results-oriented thinking.
+- **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
+- **Multiway pots**, with one read per opponent and a note on how their actions interact.
+- **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
+- **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up.
 
-## Run it
+## Practice levels
+
+| Level | Focus |
+|---|---|
+| 1 | Preflop only: opening, defending, 3-bets and 4-bets |
+| 2 | Preflop and the flop; the turn and river are checked down |
+| 3 | Full hands, heads-up after preflop |
+| 4 | 3-bet and 4-bet pots |
+| 5 | Multiway pots: an open with two callers, or a squeeze spot |
+| 6 | Thin value and bluff-catching: earlier streets play themselves, and you decide on the river with a medium-strength hand |
+
+After 20 decisions at a level with at least 70% non-mistakes, the Play screen offers the next level.
+
+The **Postflop spots** tab holds four hand-built practice spots, and the **Engine lab** tab exposes the evaluator, range parser and equity calculator directly.
+
+## Getting started
+
+Requires Node.js 22 or later.
 
 ```sh
 npm install
-npm run dev     # app at http://localhost:5173 (Table and Engine lab tabs)
-npm test        # engine tests (Vitest)
-npm run build   # typecheck + production build
+npm run dev        # start the app at http://localhost:5173
 ```
 
-## Layout
+| Command | What it does |
+|---|---|
+| `npm test` | Engine unit tests (Vitest) |
+| `npm run typecheck` | TypeScript check |
+| `npm run check` | Typecheck, then unit tests |
+| `npm run build` | Typecheck and production build into `dist/` |
+| `npm run smoke` | Build, then play hands on every level in a headless browser at phone and desktop widths. Needs a Playwright Chromium (`npx playwright install chromium`) |
+| `npm run gen:hand-rank` | Regenerate `data/hand-rank.json` |
+
+Continuous integration runs the typecheck, unit tests and smoke test on every pull request.
+
+## Editing the strategy data
+
+All strategy numbers are plain JSON, so you can adjust them without touching code:
+
+| File | Contents |
+|---|---|
+| `data/preflop/rfi.json`, `vs-open.json`, `vs-3bet.json`, `vs-4bet.json`, `other.json` | Preflop charts: raise and call frequencies per hand, plus sizes |
+| `data/preflop/lowstakes.json` | Low-stakes adjustments layered on the charts (fewer 4-bet bluffs, more calling) |
+| `data/postflop/actions.json` | Postflop behavior by hand class: betting, calling and raising shares, and equity realization |
+| `data/postflop/profiles.json` | How each opponent style scales that behavior |
+
+The unit tests check that every chart parses and round-trips through range notation. Close postflop spots can change verdict when `actions.json` is tuned, so run `npm test` after editing it.
+
+## Project layout
 
 ```
-src/engine/     framework-free poker logic, all amounts in integer chips (cents)
-  cards.ts        card ids 0..51, parsing and formatting
-  evaluator.ts    5-7 card evaluator
-  hand.ts         hand state machine: blinds, legal actions, streets, side pots, showdown
-  positions.ts    6-9 handed seat labels
-  range.ts        notation <-> weighted combos, 13x13 grid, card removal
-  equity.ts       hero equity vs weighted ranges
-  math.ts         pot odds, break-even fold %, bet EV, MDF, SPR
-  sizing.ts       preset bet and raise sizes for the action buttons
-  __tests__/
-src/workers/    equity Web Worker and its client
-src/engine/preflop/  chart loading, spot detection, range narrowing, scenarios, grading
-src/ui/         React UI (table/ = table pieces, play/ = practice screen)
-data/preflop/   preflop charts and the low-stakes layer (JSON, editable)
-data/hand-rank.json  starting hands by strength (npm run gen:hand-rank)
+src/engine/              Framework-free poker logic; all amounts are integer chips (cents)
+  cards.ts, evaluator.ts   Cards and the 5-7 card hand evaluator
+  hand.ts                  Hand state machine: blinds, legal actions, streets, side pots, showdown
+  range.ts, equity.ts      Range notation, card removal, exact and Monte Carlo equity
+  math.ts, sizing.ts       Pot odds, break-even fold %, bet EV, SPR, preset sizes
+  preflop/                 Charts, spot detection, scenarios, range narrowing, grading
+  postflop/                Hand classes, opponent model, narrowing, bots, EV, multiway, combo table
+  game/levels.ts           Practice levels, hand generation, leak-targeted spot mix, hand flow
+  session/session.ts       Session totals, leak tracking, curriculum progress, saved data
+src/workers/             Equity Web Worker and its client
+src/ui/                  React UI: table/, play/, spots/, session/, and the engine lab
+data/                    Editable strategy data (see above)
+scripts/                 Data generation and the browser smoke test
+docs/                    Model notes
 ```
 
-## Guarantees the tests check
+## What the tests guarantee
 
 - The evaluator agrees with an independent brute-force evaluator on 20,000 random hand pairs.
-- Every range survives text -> combos -> text -> combos unchanged, so the grid can't drift from the range text.
-- Combo counts exclude hero and board cards.
-- Chips balance on every step of 3,000 randomly played hands.
-- Break-even fold % gives exactly zero bet EV, and calling at the pot-odds equity gives exactly zero call EV.
-- Every chart parses, round-trips through text, and never puts more than 100% on a hand.
-- Every class with live combos in a range gets exactly one grid category, and category totals equal the range's live combo count.
-- Generated hands stop at the hero's decision, and every opponent raise comes from a hand their chart raises.
+- Chips balance on every step of 3,000 randomly played hands, and at the end of every practice hand on every level.
+- Every range round-trips through text, combos and back, so the grid cannot drift from the range text, and combo counts exclude the hero's cards and the board.
+- Break-even fold % gives exactly zero bet EV, and calling at the pot-odds price gives exactly zero call EV.
+- Multiway equity matches an exact enumeration of every hand and runout to within 1%, and the combo table matches the grid class by class.
+- An opponent's actual hand is always inside the range the trainer shows for them.
+- Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly.
+- Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
+
+## History
+
+Development went through seven milestones, each merged as its own pull request. See [CHANGELOG.md](CHANGELOG.md).

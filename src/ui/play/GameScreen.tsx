@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { preflopCategory, categorizeRange, type CellCategory, type PreflopCategory } from '../../engine/categories';
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
-import { advance, isMultiway, LEVEL_IDS, LEVELS, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
+import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
 import { applyAction, type Action, type HandState } from '../../engine/hand';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
 import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
@@ -109,8 +109,9 @@ export function GameScreen() {
   const nextHand = (lvl: LevelId = level) => {
     const g = newGameHand(lvl, rngRef.current, opts, leaksFor());
     setGame(g);
-    setState(advance(g, g.state, rngRef.current, opts));
-    setPhase('decide');
+    const s0 = advance(g, g.state, rngRef.current, opts);
+    setState(s0);
+    setPhase(heroDecides(g, s0) ? 'decide' : 'result');
     setPending(null);
     setLog([]);
     window.scrollTo({ top: 0 });
@@ -186,8 +187,8 @@ export function GameScreen() {
 
   // ---- Postflop read ----
   const liveVillains = useMemo(
-    () => game.villains.filter((v) => !state.players[v].folded),
-    [game.villains, state],
+    () => liveVillainsOf(game, state),
+    [game, state],
   );
   const postCtx = useMemo(() => {
     if (!heroToAct || isPreflop || !liveVillains.length) return null;
@@ -239,16 +240,20 @@ export function GameScreen() {
   const fbRef = useRef<HTMLElement>(null);
   useEffect(() => { if (phase === 'feedback' && pending?.kind === 'postflop') fbRef.current?.scrollIntoView({ block: 'start' }); }, [phase, pending]);
 
-  // Level 1 ends at the flop even when the hero is first to act there.
-  const phaseAfter = (s2: HandState): Phase =>
-    s2.toAct === hero && (LEVELS[game.level].postflop || s2.street === 'preflop') ? 'decide' : 'result';
+  const phaseAfter = (s2: HandState): Phase => (heroDecides(game, s2) ? 'decide' : 'result');
+
+  // A line the charts or the model don't cover: play it, without a grade.
+  const playUngraded = (action: Action) => {
+    const s2 = advance(game, applyAction(state, action), rngRef.current, opts);
+    setState(s2);
+    setPhase(phaseAfter(s2));
+  };
+  // Every hero turn must show something to act with; this guards against a turn no panel covers.
+  const covered = isPreflop ? !!decision || (!!spot && !charted) : !!(post || mwSit);
 
   const act = (action: Action, label: string) => {
     if (isPreflop && !charted) {
-      // A line the charts don't cover: play it, without a grade.
-      const s2 = advance(game, applyAction(state, action), rngRef.current, opts);
-      setState(s2);
-      setPhase(phaseAfter(s2));
+      playUngraded(action);
       return;
     }
     if (isPreflop) {
@@ -353,6 +358,15 @@ export function GameScreen() {
             hypothetical={hypothetical}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={heroEq === null} />
+        </>
+      )}
+      {heroToAct && !covered && (
+        <>
+          <section className="range-read">
+            <h2>No read for this spot</h2>
+            <p>The trainer has no range read for this decision, so it isn't graded. Play it and the hand continues.</p>
+          </section>
+          <ActionBar key={state.actions.length} state={state} onAct={playUngraded} />
         </>
       )}
       {heroToAct && isPreflop && spot && !charted && (

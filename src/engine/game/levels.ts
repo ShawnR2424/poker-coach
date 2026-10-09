@@ -224,6 +224,18 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Re
 }
 
 /**
+ * True when the hero has a decision to make in this state. False means the hand is over for
+ * practice purposes: it finished, or it reached the point where the level stops (level 1 stops
+ * at the flop even when the hero would act first there).
+ */
+export function heroDecides(g: GameHand, s: HandState): boolean {
+  return s.toAct === g.hero && (LEVELS[g.level].postflop || s.street === 'preflop');
+}
+
+/** Opponents still in the hand that the hero is playing against. */
+export const liveVillains = (g: GameHand, s: HandState): number[] => g.villains.filter((v) => !s.players[v].folded);
+
+/**
  * Lets everyone but the hero act until the hero must decide or the hand ends. On postflop
  * levels, players other than the chosen opponents fold (or check when that is free).
  * On level 2, the turn and river are checked down by everyone, the hero included.

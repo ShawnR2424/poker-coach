@@ -1,5 +1,6 @@
 // Scores every legal hero action after the flop by expected value, using per-combo equity
-// against the opponent's range and the class-based response model. Heads-up only.
+// against the opponent's range and the class-based response model. Heads-up; multiway.ts
+// handles pots with two or more opponents.
 //
 // EV is measured against folding now, so chips the hero already put in are sunk:
 //   check  R·eq·P

@@ -1,4 +1,4 @@
-// Milestone 1 engine lab: check the evaluator, range parsing, card removal, equity and pot math by hand.
+// Engine lab: check the evaluator, range parsing, card removal, equity and pot math by hand.
 
 import { useEffect, useMemo, useState } from 'react';
 import { parseCards, type Card } from '../engine/cards';
@@ -81,7 +81,7 @@ export function Lab() {
   return (
     <main className="lab">
       <header className="lab-head">
-        <p className="eyebrow">Poker Coach · Milestone 1</p>
+        <p className="eyebrow">Poker Coach · Engine lab</p>
         <h1>Engine lab</h1>
         <p className="muted">
           Enter a hand, a board and opponent ranges. Every number here comes straight from the tested engine:
