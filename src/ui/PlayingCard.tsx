@@ -2,7 +2,7 @@ import { RANKS, isRed, rankOf, suitOf, type Card } from '../engine/cards';
 
 const SUIT_GLYPHS = ['♣', '♦', '♥', '♠'];
 
-export function PlayingCard({ card, size = 'md', highlight = false }: { card: Card; size?: 'sm' | 'md'; highlight?: boolean }) {
+export function PlayingCard({ card, size = 'md', highlight = false }: { card: Card; size?: 'xs' | 'sm' | 'md'; highlight?: boolean }) {
   const rank = RANKS[rankOf(card)] === 'T' ? '10' : RANKS[rankOf(card)];
   return (
     <span
@@ -15,6 +15,6 @@ export function PlayingCard({ card, size = 'md', highlight = false }: { card: Ca
   );
 }
 
-export function CardSlot({ size = 'md' }: { size?: 'sm' | 'md' }) {
+export function CardSlot({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' }) {
   return <span className={`pcard pcard-${size} empty`} aria-hidden="true" />;
 }
