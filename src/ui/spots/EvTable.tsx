@@ -7,10 +7,12 @@ interface Props {
   bb: number;
   chosen: OptionRow | null;
   acceptable: OptionRow[];
+  /** Response columns mean "everyone folds" and "someone calls / raises". */
+  multiway?: boolean;
 }
 
 /** Every legal action with the opponent's predicted response and its expected value. */
-export function EvTable({ analysis, bb, chosen, acceptable }: Props) {
+export function EvTable({ analysis, bb, chosen, acceptable, multiway }: Props) {
   const max = Math.max(...analysis.rows.map((r) => Math.abs(r.ev)), 1);
   return (
     <div className="ev-wrap">
@@ -20,9 +22,9 @@ export function EvTable({ analysis, bb, chosen, acceptable }: Props) {
           <tr>
             <th scope="col">Action</th>
             <th scope="col" className="n">EV</th>
-            <th scope="col" className="n">They fold</th>
-            <th scope="col" className="n">Call</th>
-            <th scope="col" className="n">Raise</th>
+            <th scope="col" className="n">{multiway ? 'All fold' : 'They fold'}</th>
+            <th scope="col" className="n">{multiway ? 'Someone calls' : 'Call'}</th>
+            <th scope="col" className="n">{multiway ? 'Someone raises' : 'Raise'}</th>
             <th scope="col" className="n">Your equity when called</th>
             <th scope="col" className="n">Folds a bluff needs</th>
           </tr>
@@ -55,7 +57,7 @@ export function EvTable({ analysis, bb, chosen, acceptable }: Props) {
         </tbody>
       </table>
       <p className="muted small">
-        EV is measured against folding now, so chips already in the pot don't count. Responses come from the opponent model in data/postflop/actions.json.
+        EV is measured against folding now, so chips already in the pot don't count. Responses come from the opponent model in data/postflop/actions.json.{multiway ? ' With several opponents, each one responds on their own; if anyone raises, the model has you fold.' : ''}
       </p>
     </div>
   );

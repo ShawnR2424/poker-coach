@@ -12,7 +12,7 @@ import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
 import { Timeline } from '../table/Timeline';
 import { heroTiles, seatViews, timeline } from '../table/view';
-import { PostflopFeedbackPanel, PostflopReadPanel, usePostflopRead, villainLine } from './PostflopPanels';
+import { comboTableReason, PostflopFeedbackPanel, PostflopReadPanel, usePostflopRead, villainLine } from './PostflopPanels';
 
 export function SpotsScreen() {
   const [idx, setIdx] = useState(0);
@@ -24,7 +24,11 @@ export function SpotsScreen() {
     () => situationFromState(state, hero, villain, spot.villainRange, { heroRange: spot.heroRange, heroPreflopAggressor: spot.heroPreflopAggressor }),
     [spot], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const { analysis, breakdown, error } = usePostflopRead(sit, spot.villainRange);
+  const { analysis, breakdown, eqs, error } = usePostflopRead(sit, spot.villainRange);
+  const view = useMemo(
+    () => ({ title: `${state.players[villain].position} · ${villainLine(state.actions, villain)}`, range: spot.villainRange }),
+    [spot], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   useEffect(() => setFb(null), [spot]);
   const fbRef = useRef<HTMLElement>(null);
@@ -63,11 +67,12 @@ export function SpotsScreen() {
       {!fb && (
         <PostflopReadPanel
           sit={sit}
-          villainRange={spot.villainRange}
-          title={`${state.players[villain].position} · ${villainLine(state.actions, villain)}`}
+          view={view}
           analysis={analysis}
+          eqs={eqs}
           breakdown={breakdown}
           error={error}
+          comboReason={comboTableReason(sit.street, false)}
         />
       )}
       {!fb && <ActionBar key={idx} state={state} onAct={(a) => act(a)} disabled={!analysis} />}

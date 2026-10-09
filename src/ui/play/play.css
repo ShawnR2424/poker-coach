@@ -61,3 +61,6 @@ table.verdicts th { font-weight: 700; font-size: 0.8rem; color: var(--fg-muted);
   .play-bar label.inline select { flex: 1 1 0; width: 0; }
 }
 .level-note { max-width: 65ch; }
+/* Postflop: a class that mostly dropped out keeps its color, faded, under the cross. */
+.cell.cat.strong.crossed { filter: saturate(0.5); opacity: 0.6; }
+.cell.cat.strong.crossed::after { opacity: 0.95; }
