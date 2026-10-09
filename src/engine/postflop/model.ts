@@ -2,6 +2,7 @@
 // actions a player took and to predict how they respond to the hero's bets.
 
 import table from '../../../data/postflop/actions.json';
+import profileTable from '../../../data/postflop/profiles.json';
 import type { Card } from '../cards';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
@@ -16,6 +17,24 @@ export const ACTIONS = table as unknown as {
   realization: { inPosition: number; outOfPosition: number; byClass: ByClass };
 };
 
+export type ProfileId = 'regular' | 'nit' | 'station' | 'aggro';
+export interface Profile {
+  label: string;
+  short: string;
+  about: string;
+  betMult: number;
+  raiseMult: number;
+  continueAdd: number;
+}
+export const PROFILES = Object.fromEntries(
+  Object.entries(profileTable).filter(([k]) => !k.startsWith('_')),
+) as Record<ProfileId, Profile>;
+export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
+const DEFAULT: Profile = PROFILES.regular;
+
+/** Classes whose willingness to continue does not depend on the player's style. */
+const STYLE_FREE = new Set<PostflopClass>(['setPlus', 'twoPair']);
+
 /** Bets up to this fraction of the pot count as "small" when narrowing. */
 export const SMALL_BET_MAX = 0.5;
 
@@ -25,8 +44,9 @@ const clip01 = (x: number) => Math.min(1, Math.max(0, x));
  * How likely a hand class continues (calls or raises) facing a bet of `f` times the pot.
  * `beingRaised` is true when the player had bet and now faces a raise.
  */
-export function continueProb(cls: PostflopClass, f: number, beingRaised = false): number {
-  const p = clip01(ACTIONS.facingBet.base[cls] - ACTIONS.facingBet.slope[cls] * f);
+export function continueProb(cls: PostflopClass, f: number, beingRaised = false, profile: Profile = DEFAULT): number {
+  const add = STYLE_FREE.has(cls) ? 0 : profile.continueAdd;
+  const p = clip01(ACTIONS.facingBet.base[cls] + add - ACTIONS.facingBet.slope[cls] * f);
   return beingRaised ? p * ACTIONS.facingRaise.continue[cls] : p;
 }
 
@@ -36,17 +56,26 @@ export interface Response {
   raise: number;
 }
 
-export function responseFor(cls: PostflopClass, f: number, canRaise: boolean, beingRaised = false): Response {
-  const cont = continueProb(cls, f, beingRaised);
-  const raise = canRaise ? cont * ACTIONS.facingBet.raise[cls] : 0;
+export function responseFor(cls: PostflopClass, f: number, canRaise: boolean, beingRaised = false, profile: Profile = DEFAULT): Response {
+  const cont = continueProb(cls, f, beingRaised, profile);
+  const raise = canRaise ? cont * Math.min(1, ACTIONS.facingBet.raise[cls] * profile.raiseMult) : 0;
   return { fold: 1 - cont, call: cont - raise, raise };
 }
 
 /** `intoAggressor`: the opponent made the last bet or raise on the previous street. */
-export function firstToActFreq(cls: PostflopClass, intoAggressor = false): { check: number; small: number; big: number } {
+export function firstToActFreq(
+  cls: PostflopClass,
+  intoAggressor = false,
+  profile: Profile = DEFAULT,
+): { check: number; small: number; big: number } {
   const t = intoAggressor ? ACTIONS.leadIntoAggressor : ACTIONS.firstToAct;
-  const small = t.betSmall[cls];
-  const big = t.betBig[cls];
+  let small = t.betSmall[cls] * profile.betMult;
+  let big = t.betBig[cls] * profile.betMult;
+  if (small + big > 1) {
+    const k = 1 / (small + big);
+    small *= k;
+    big *= k;
+  }
   return { check: clip01(1 - small - big), small, big };
 }
 
@@ -63,8 +92,8 @@ export function comboClasses(board: readonly Card[], dead: readonly Card[]): (Po
 
 export type PostflopMove =
   | { kind: 'check'; intoAggressor?: boolean }
-  | { kind: 'bet'; f: number; intoAggressor?: boolean }
-  | { kind: 'call'; f: number; beingRaised?: boolean }
+  | { kind: 'bet'; f: number; intoAggressor?: boolean; allIn?: boolean }
+  | { kind: 'call'; f: number; beingRaised?: boolean; canRaise?: boolean }
   | { kind: 'raise'; f: number; beingRaised?: boolean }
   | { kind: 'checkBehind' };
 
@@ -72,7 +101,7 @@ export type PostflopMove =
  * Keeps each combo at the probability that its class takes `move`. `f` is the bet faced
  * (or made) divided by the pot before it. Weights multiply, like preflop narrowing.
  */
-export function narrowPostflop(range: Range, board: readonly Card[], move: PostflopMove): Range {
+export function narrowPostflop(range: Range, board: readonly Card[], move: PostflopMove, profile: Profile = DEFAULT): Range {
   const out = new Float32Array(NUM_COMBOS);
   const boardSet = new Set(board);
   for (let i = 0; i < NUM_COMBOS; i++) {
@@ -83,21 +112,22 @@ export function narrowPostflop(range: Range, board: readonly Card[], move: Postf
     let p: number;
     switch (move.kind) {
       case 'check':
-        p = firstToActFreq(cls, move.intoAggressor).check;
+        p = firstToActFreq(cls, move.intoAggressor, profile).check;
         break;
       case 'checkBehind':
-        p = firstToActFreq(cls).check;
+        p = firstToActFreq(cls, false, profile).check;
         break;
       case 'bet': {
-        const fr = firstToActFreq(cls, move.intoAggressor);
-        p = move.f <= SMALL_BET_MAX ? fr.small : fr.big;
+        const fr = firstToActFreq(cls, move.intoAggressor, profile);
+        // An all-in bet can come from either size once the stack is short, so it keeps both shares.
+        p = move.allIn ? fr.small + fr.big : move.f <= SMALL_BET_MAX ? fr.small : fr.big;
         break;
       }
       case 'call':
-        p = responseFor(cls, move.f, true, move.beingRaised).call;
+        p = responseFor(cls, move.f, move.canRaise !== false, move.beingRaised, profile).call;
         break;
       case 'raise':
-        p = responseFor(cls, move.f, true, move.beingRaised).raise;
+        p = responseFor(cls, move.f, true, move.beingRaised, profile).raise;
         break;
     }
     out[i] = range[i] * p;

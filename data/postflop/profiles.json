@@ -1,0 +1,35 @@
+{
+  "_about": "Opponent styles. Each one adjusts the postflop tables in actions.json: betMult scales how often hands bet when first to act, raiseMult scales raises when facing a bet, and continueAdd is added to the chance that one-pair hands, draws and air keep going when facing a bet (sets and two pair are unchanged). Preflop, every profile uses the low-stakes pool charts for now.",
+  "regular": {
+    "label": "Regular",
+    "short": "REG",
+    "about": "Plays close to the default model: bets for value and some bluffs, folds weak hands to big bets.",
+    "betMult": 1.0,
+    "raiseMult": 1.0,
+    "continueAdd": 0.0
+  },
+  "nit": {
+    "label": "Nit",
+    "short": "NIT",
+    "about": "Tight and cautious. Bets and raises less, folds more, so their bets and raises are strong.",
+    "betMult": 0.7,
+    "raiseMult": 0.6,
+    "continueAdd": -0.15
+  },
+  "station": {
+    "label": "Calling station",
+    "short": "STATION",
+    "about": "Loose and passive. Rarely bets or raises without a strong hand but calls with almost any pair or draw.",
+    "betMult": 0.5,
+    "raiseMult": 0.35,
+    "continueAdd": 0.25
+  },
+  "aggro": {
+    "label": "Aggressive",
+    "short": "AGGRO",
+    "about": "Bets and raises often, including bluffs, and gives up less easily.",
+    "betMult": 1.5,
+    "raiseMult": 2.0,
+    "continueAdd": 0.05
+  }
+}

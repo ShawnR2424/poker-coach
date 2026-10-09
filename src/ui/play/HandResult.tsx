@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { formatCards } from '../../engine/cards';
 import { describeScore } from '../../engine/evaluator';
 import type { HandState } from '../../engine/hand';
-import type { Grade } from '../../engine/preflop/coach';
 import { comboIndex, NUM_COMBOS } from '../../engine/range';
 import { runEquity } from '../../workers/equityClient';
 import { bbs, dollars } from '../table/format';
@@ -10,13 +9,17 @@ import { bbs, dollars } from '../table/format';
 export interface DecisionLog {
   label: string;
   hand: string;
-  grade: Grade;
+  /** What the hero did, in a few words. */
+  you: string;
+  verdict: 'correct' | 'playable' | 'mistake';
+  heading: string;
+  tags: string[];
 }
 
 const ICON = { correct: '✅', playable: '👍', mistake: '⚠️' } as const;
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function HandResult({ state, hero, log, onNext }: { state: HandState; hero: number; log: DecisionLog[]; onNext: () => void }) {
+export function HandResult({ state, hero, log, onNext, stopNote }: { state: HandState; hero: number; log: DecisionLog[]; onNext: () => void; stopNote?: string }) {
   const me = state.players[hero];
   const bb = state.config.bb;
   const opponents = state.players.map((p, i) => ({ p, i })).filter(({ p, i }) => i !== hero && !p.folded);
@@ -33,11 +36,11 @@ export function HandResult({ state, hero, log, onNext }: { state: HandState; her
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const net = state.result ? state.result.net[hero] : -me.total;
-  const allGood = log.every((d) => d.grade.verdict !== 'mistake');
+  const allGood = log.every((d) => d.verdict !== 'mistake');
   const takeaways: string[] = [];
-  const mistakes = log.filter((d) => d.grade.verdict === 'mistake');
-  if (mistakes.length) takeaways.push(`${mistakes[0].label} with ${mistakes[0].hand}: ${mistakes[0].grade.heading.toLowerCase()}. ${mistakes[0].grade.tags[0] ? `Leak to watch: ${mistakes[0].grade.tags[0]}.` : ''}`);
-  else if (log.length) takeaways.push('Every decision this hand was in the chart.');
+  const mistakes = log.filter((d) => d.verdict === 'mistake');
+  if (mistakes.length) takeaways.push(`${mistakes[0].label} with ${mistakes[0].hand}: ${mistakes[0].heading.toLowerCase()}. ${mistakes[0].tags[0] ? `Leak to watch: ${mistakes[0].tags[0]}.` : ''}`);
+  else if (log.length) takeaways.push('No mistakes this hand.');
   if (state.result && net < 0 && allGood) takeaways.push('You lost chips, but your decisions were sound. Judge the decision, not the result.');
   if (state.result && net > 0 && mistakes.length) takeaways.push('You won this pot, but that does not make the mistake right. Over many hands it costs money.');
 
@@ -47,7 +50,7 @@ export function HandResult({ state, hero, log, onNext }: { state: HandState; her
   } else if (state.result) {
     headline = net > 0 ? `You win ${dollars(net)} (${bbs(net, bb)})` : net < 0 ? `You lose ${dollars(-net)} (${bbs(-net, bb)})` : 'You break even';
   } else {
-    headline = 'Preflop is over. Level 1 stops at the flop.';
+    headline = stopNote ?? 'The hand stops here.';
   }
 
   return (
@@ -83,8 +86,8 @@ export function HandResult({ state, hero, log, onNext }: { state: HandState; her
               <tr key={k}>
                 <td>{d.label}</td>
                 <td className="num">{d.hand}</td>
-                <td>{d.grade.chosen === 'raise' ? 'raise' : d.grade.chosen === 'call' ? 'call' : 'fold / check'}</td>
-                <td><span aria-hidden="true">{ICON[d.grade.verdict]}</span> {d.grade.heading}</td>
+                <td>{d.you}</td>
+                <td><span aria-hidden="true">{ICON[d.verdict]}</span> {d.heading}</td>
               </tr>
             ))}
           </tbody>

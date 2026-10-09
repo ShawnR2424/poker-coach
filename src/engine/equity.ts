@@ -221,33 +221,56 @@ export function comboEquities(hero: readonly Card[], board: readonly Card[], ran
   board.forEach((c, i) => { cards[2 + i] = c; vcards[2 + i] = c; });
   const base = 2 + board.length;
   const deck: number[] = [];
-  for (let i = 0; i < NUM_COMBOS; i++) {
-    if (!(range[i] > 0)) continue;
-    const [a, b] = COMBO_CARDS[i];
+  for (let c = 0; c < 52; c++) if (!dead[c]) deck.push(c);
+
+  // The hero's score depends only on the runout, so score every runout once.
+  const heroScore = new Int32Array(need === 2 ? 52 * 52 : 52);
+  if (need === 0) heroScore[0] = evaluate(cards, 7);
+  else if (need === 1) {
+    for (const x of deck) { cards[base] = x; heroScore[x] = evaluate(cards, 7); }
+  } else {
+    for (let i = 0; i < deck.length; i++) {
+      cards[base] = deck[i];
+      for (let j = i + 1; j < deck.length; j++) {
+        cards[base + 1] = deck[j];
+        heroScore[deck[i] * 52 + deck[j]] = evaluate(cards, 7);
+      }
+    }
+  }
+
+  for (let k = 0; k < NUM_COMBOS; k++) {
+    if (!(range[k] > 0)) continue;
+    const [a, b] = COMBO_CARDS[k];
     if (dead[a] || dead[b]) continue;
     vcards[0] = a;
     vcards[1] = b;
-    deck.length = 0;
-    for (let c = 0; c < 52; c++) if (!dead[c] && c !== a && c !== b) deck.push(c);
     let share = 0, n = 0;
-    const tally = () => {
-      const h = evaluate(cards, 7), v = evaluate(vcards, 7);
+    const tally = (h: number) => {
+      const v = evaluate(vcards, 7);
       share += h > v ? 1 : h === v ? 0.5 : 0;
       n++;
     };
-    if (need === 0) tally();
+    if (need === 0) tally(heroScore[0]);
     else if (need === 1) {
-      for (const x of deck) { cards[base] = vcards[base] = x; tally(); }
+      for (const x of deck) {
+        if (x === a || x === b) continue;
+        vcards[base] = x;
+        tally(heroScore[x]);
+      }
     } else {
-      for (let x = 0; x < deck.length; x++) {
-        cards[base] = vcards[base] = deck[x];
-        for (let y = x + 1; y < deck.length; y++) {
-          cards[base + 1] = vcards[base + 1] = deck[y];
-          tally();
+      for (let i = 0; i < deck.length; i++) {
+        const x = deck[i];
+        if (x === a || x === b) continue;
+        vcards[base] = x;
+        for (let j = i + 1; j < deck.length; j++) {
+          const y = deck[j];
+          if (y === a || y === b) continue;
+          vcards[base + 1] = y;
+          tally(heroScore[x * 52 + y]);
         }
       }
     }
-    out[i] = share / n;
+    out[k] = share / n;
   }
   return out;
 }

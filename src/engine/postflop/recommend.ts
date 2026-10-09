@@ -14,7 +14,7 @@ import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
 import { classifyHand, STRONG_CLASSES, type PostflopClass } from './classify';
-import { realization, responseFor } from './model';
+import { realization, responseFor, type Profile } from './model';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
 
@@ -47,6 +47,8 @@ export interface PostflopSituation {
   heroPreflopAggressor: boolean;
   /** True when no one has bet yet on this street and the hero acts first. */
   heroFirstToAct: boolean;
+  /** The opponent's style; the default model when not set. */
+  villainProfile?: Profile;
 }
 
 export interface OptionRow {
@@ -93,7 +95,7 @@ export function situationFromState(
   hero: number,
   villain: number,
   villainRange: Range,
-  extra: { heroRange?: Range; heroPreflopAggressor: boolean },
+  extra: { heroRange?: Range; heroPreflopAggressor: boolean; villainProfile?: Profile },
 ): PostflopSituation {
   if (s.street === 'preflop') throw new Error('Postflop only');
   const legal = legalActions(s);
@@ -124,6 +126,7 @@ export function situationFromState(
     heroInvested: h.total,
     heroPreflopAggressor: extra.heroPreflopAggressor,
     heroFirstToAct: s.currentBet === 0 && streetActs.length === 0,
+    villainProfile: extra.villainProfile,
   };
 }
 
@@ -190,7 +193,7 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
     let foldW = 0, callW = 0, raiseW = 0, callEqW = 0;
     let evFold = 0, evCall = 0, raiseCallEv = 0;
     for (let k = 0; k < idx.length; k++) {
-      const resp = responseFor(cls[k], f, canRaise, beingRaised);
+      const resp = responseFor(cls[k], f, canRaise, beingRaised, sit.villainProfile);
       foldW += w[k] * resp.fold;
       callW += w[k] * resp.call;
       raiseW += w[k] * resp.raise;
