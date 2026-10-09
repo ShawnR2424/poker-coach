@@ -7,6 +7,7 @@ import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
 import { applyAction, type Action, type HandState } from '../../engine/hand';
+import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
 import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
 import { PROFILES } from '../../engine/postflop/model';
@@ -28,6 +29,7 @@ import {
   comboTableReason, MultiwayReadPanel, PostflopFeedbackPanel, PostflopReadPanel, useMultiwayRead, usePostflopRead, villainLine,
   type OpponentView,
 } from '../spots/PostflopPanels';
+import { CoachVoice } from '../coach/CoachVoice';
 import { ActionBar } from '../table/ActionBar';
 import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
@@ -40,8 +42,8 @@ import { RangeReadPanel, type ReadView } from './RangeReadPanel';
 type Phase = 'decide' | 'feedback' | 'result';
 
 type Pending =
-  | { kind: 'preflop'; decision: Decision; feedback: Feedback; action: Action }
-  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean };
+  | { kind: 'preflop'; decision: Decision; feedback: Feedback; action: Action; facts: CoachFacts }
+  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean; concept: string; facts: CoachFacts };
 
 const LEVEL_KEY = 'level';
 function loadLevel(): LevelId {
@@ -260,7 +262,7 @@ export function GameScreen() {
       if (!decision || heroEq === null) return;
       const blocker = reads.length && !hypothetical ? blockerCount(reads[0].range, heroCards) : null;
       const fb = preflopFeedback(state, hero, decision, action, Number.isNaN(heroEq) ? 0 : heroEq, blocker);
-      setPending({ kind: 'preflop', decision, feedback: fb, action });
+      setPending({ kind: 'preflop', decision, feedback: fb, action, facts: preflopFacts(decision, fb, label.toLowerCase(), formatCards(heroCards)) });
       setLog((l) => [...l, {
         label: decision.spot.label, hand: formatCards(heroCards), you: label.toLowerCase(),
         verdict: fb.grade.verdict, heading: fb.grade.heading, tags: fb.grade.tags,
@@ -270,7 +272,9 @@ export function GameScreen() {
       if (!analysis || !postSit) return;
       const grade = gradePostflop(postSit, analysis, action);
       const fb = postflopFeedback(postSit, analysis, grade, [], [], { multiway });
-      setPending({ kind: 'postflop', fb, analysis, sit: postSit, action, multiway });
+      const concept = multiway ? multiwayConcept(analysis) : conceptFor(postSit, analysis);
+      const facts = postflopFacts(`${STREET_LABEL[state.street]} ${formatCards(state.board)}`, formatCards(heroCards), analysis, fb, concept, postSit.bb, multiway);
+      setPending({ kind: 'postflop', fb, analysis, sit: postSit, action, multiway, concept, facts });
       setLog((l) => [...l, {
         label: `${STREET_LABEL[state.street]} ${formatCards(state.board)}`, hand: formatCards(heroCards),
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
@@ -406,7 +410,7 @@ export function GameScreen() {
         </>
       )}
       {phase === 'feedback' && pending?.kind === 'preflop' && (
-        <FeedbackPanel fb={pending.feedback} decision={pending.decision} onContinue={cont} />
+        <FeedbackPanel fb={pending.feedback} decision={pending.decision} onContinue={cont} voice={<CoachVoice facts={pending.facts} />} />
       )}
       {phase === 'feedback' && pending?.kind === 'postflop' && (
         <PostflopFeedbackPanel
@@ -414,8 +418,9 @@ export function GameScreen() {
           fb={pending.fb}
           analysis={pending.analysis}
           bb={pending.sit.bb}
-          concept={pending.multiway ? multiwayConcept(pending.analysis) : conceptFor(pending.sit, pending.analysis)}
+          concept={pending.concept}
           multiway={pending.multiway}
+          voice={<CoachVoice facts={pending.facts} />}
         >
           <button type="button" className="primary" onClick={cont}>Continue</button>
         </PostflopFeedbackPanel>

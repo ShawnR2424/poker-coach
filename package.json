@@ -14,6 +14,7 @@
     "check": "tsc && vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

@@ -1,17 +1,19 @@
 // Postflop practice spots: the range read, an action, then a verdict with the EV-by-size table.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseCards } from '../../engine/cards';
+import { formatCards, parseCards } from '../../engine/cards';
+import { postflopFacts } from '../../engine/coach/explain';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import type { Action } from '../../engine/hand';
 import { postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
 import { gradePostflop, situationFromState } from '../../engine/postflop/recommend';
 import { buildSpot, POSTFLOP_SPOTS } from '../../engine/postflop/spots';
+import { CoachVoice } from '../coach/CoachVoice';
 import { ActionBar } from '../table/ActionBar';
 import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
 import { Timeline } from '../table/Timeline';
-import { heroTiles, seatViews, timeline } from '../table/view';
+import { heroTiles, seatViews, STREET_LABEL, timeline } from '../table/view';
 import { comboTableReason, PostflopFeedbackPanel, PostflopReadPanel, usePostflopRead, villainLine } from './PostflopPanels';
 
 export function SpotsScreen() {
@@ -78,7 +80,14 @@ export function SpotsScreen() {
       {!fb && <ActionBar key={idx} state={state} onAct={(a) => act(a)} disabled={!analysis} />}
 
       {fb && analysis && (
-        <PostflopFeedbackPanel ref={fbRef} fb={fb} analysis={analysis} bb={sit.bb} concept={def.concept}>
+        <PostflopFeedbackPanel
+          ref={fbRef}
+          fb={fb}
+          analysis={analysis}
+          bb={sit.bb}
+          concept={def.concept}
+          voice={<CoachVoice facts={postflopFacts(`${STREET_LABEL[state.street]} ${formatCards(state.board)}`, formatCards(heroCards), analysis, fb, def.concept, sit.bb)} />}
+        >
           <button type="button" onClick={() => setFb(null)}>Try this spot again</button>
           <button type="button" className="primary" onClick={() => go((idx + 1) % POSTFLOP_SPOTS.length)}>Next spot</button>
         </PostflopFeedbackPanel>

@@ -12,6 +12,7 @@ Poker Coach is a browser-based trainer for 6-max No-Limit Hold'em at $0.25/$0.50
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up.
+- **Optional coaching voice from Claude.** Off by default. With your own Claude API key, each graded decision also gets a short explanation written by Claude from the trainer's computed facts. See [Coach voice](#coach-voice).
 
 ## Practice levels
 
@@ -48,6 +49,17 @@ npm run dev        # start the app at http://localhost:5173
 
 Continuous integration runs the typecheck, unit tests and smoke test on every pull request.
 
+## Coach voice
+
+The **Settings** tab can switch on explanations written by Claude Opus 5.5 through the Claude API. It is off by default, and the trainer works fully without it: every number, verdict and explanation on the feedback panel is computed by the trainer either way.
+
+- **Your key, your browser.** Paste your own API key from the Claude Console. It is stored in this browser's local storage and sent only to `api.anthropic.com`, directly from the page. Requests are billed to your account.
+- **Only computed facts are sent.** The request carries the spot, your cards, your action, the verdict, the trainer's reasons, the EV table and the key concept. Opponents' cards are never sent. The fixed instructions are shown under Settings.
+- **No invented numbers.** Claude is told to use only the numbers it is given. A reply containing any number that is not in the facts is not shown.
+- **Network access.** The page must be able to reach `api.anthropic.com`. Run the app locally (`npm run dev`) or host it somewhere that allows that; embedded previews with a strict content policy will show a "could not reach" note instead.
+
+`src/engine/coach/explain.ts` builds the facts and checks replies, and its tests check the prompt against real decisions from every level.
+
 ## Editing the strategy data
 
 All strategy numbers are plain JSON, so you can adjust them without touching code:
@@ -73,8 +85,9 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   postflop/                Hand classes, opponent model, narrowing, bots, EV, multiway, combo table
   game/levels.ts           Practice levels, hand generation, leak-targeted spot mix, hand flow
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
+  coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
-src/ui/                  React UI: table/, play/, spots/, session/, and the engine lab
+src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
 data/                    Editable strategy data (see above)
 scripts/                 Data generation and the browser smoke test
 docs/                    Model notes
@@ -90,7 +103,8 @@ docs/                    Model notes
 - An opponent's actual hand is always inside the range the trainer shows for them.
 - Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
+- The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 
 ## History
 
-Development went through seven milestones, each merged as its own pull request. See [CHANGELOG.md](CHANGELOG.md).
+Development went through eight milestones, each merged as its own pull request. See [CHANGELOG.md](CHANGELOG.md).

@@ -260,16 +260,19 @@ interface FeedbackProps {
   bb: number;
   concept: string;
   multiway?: boolean;
+  /** Optional coaching prose from Claude, shown under the trainer's reasons. */
+  voice?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(function PostflopFeedbackPanel({ fb, analysis, bb, concept, multiway, children }, ref) {
+export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(function PostflopFeedbackPanel({ fb, analysis, bb, concept, multiway, voice, children }, ref) {
   return (
     <section ref={ref} className={`feedback verdict-${fb.grade.verdict}`} aria-labelledby="pf-fb">
       <p className="verdict-badge"><span aria-hidden="true">{BADGE[fb.grade.verdict].icon}</span> {BADGE[fb.grade.verdict].label}</p>
       <h2 id="pf-fb">{fb.grade.heading}</h2>
       <ul className="why">{fb.bullets.map((b) => <li key={b}>{b}</li>)}</ul>
       {fb.sunkCost && <p className="sunk">{fb.sunkCost}</p>}
+      {voice}
       <div>
         <p className="eyebrow">EV by action and size</p>
         <EvTable analysis={analysis} bb={bb} chosen={fb.grade.chosen} acceptable={fb.grade.acceptable} multiway={multiway} />
