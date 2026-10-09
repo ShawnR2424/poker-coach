@@ -1,0 +1,13 @@
+{
+  "_about": "Low-stakes adjustment layer, applied on top of the baseline charts when 'Low-stakes adjustments' is on. 'pool' changes how opponents play; 'hero' changes what is recommended to you. Each rule moves a share ('scale') of the 'from' action's weight to the 'to' action for the listed hands. 'spot' matches chart names: rfi, vsOpen, vs3bet, vs4bet, squeeze, cold4bet, vsJam, vsLimp.",
+  "pool": [
+    { "spot": "vs3bet", "from": "raise", "to": "fold", "hands": "A5s-A2s, K9s, Q9s, KJs", "scale": 0.8, "note": "Low-stakes players rarely 4-bet bluff." },
+    { "spot": "vsOpen", "from": "raise", "to": "call", "hands": "A5s-A2s, K9s, K5s, Q9s, J8s, 76s, 65s, 54s, KJs, AJs, KQs, AQo", "scale": 0.6, "note": "They 3-bet light less and flat more." },
+    { "spot": "vs3bet", "from": "fold", "to": "call", "hands": "88-22, ATs-A6s, KTs, QTs, J9s, 87s, 76s, 65s, AJo, KQo", "scale": 0.5, "note": "They call 3-bets too wide with speculative hands." }
+  ],
+  "hero": [
+    { "spot": "vs4bet", "from": "call", "to": "fold", "hands": "JJ, TT, AQs", "scale": 0.5, "note": "Low-stakes 4-bets are value-heavy, so fold more of your marginal hands." },
+    { "spot": "vs3bet", "from": "raise", "to": "fold", "hands": "A5s-A2s, K9s, Q9s, KJs", "scale": 0.5, "note": "Low-stakes 3-bets are value-heavy, so 4-bet bluff less." }
+  ],
+  "sizes": { "isoExtraBB": 1 }
+}

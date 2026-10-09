@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Lab } from './Lab';
-import { TableScreen } from './table/TableScreen';
+import { GameScreen } from './play/GameScreen';
 
 type Tab = 'table' | 'lab';
 type Theme = 'system' | 'light' | 'dark';
@@ -43,7 +43,7 @@ export function App() {
       <header className="topbar">
         <p className="brand">Poker Coach <span className="approx">approximate GTO</span></p>
         <nav className="tabs" aria-label="Sections">
-          <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Table</button>
+          <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Play</button>
           <button type="button" className={tab === 'lab' ? 'on' : ''} aria-pressed={tab === 'lab'} onClick={() => go('lab')}>Engine lab</button>
         </nav>
         <label className="theme-pick">
@@ -55,7 +55,7 @@ export function App() {
           </select>
         </label>
       </header>
-      {tab === 'table' ? <TableScreen /> : <Lab />}
+      {tab === 'table' ? <GameScreen /> : <Lab />}
     </>
   );
 }
