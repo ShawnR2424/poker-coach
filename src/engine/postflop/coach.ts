@@ -117,3 +117,28 @@ export function classMix(range: Float32Array, board: readonly Card[], dead: read
   }
   return [...by].map(([cls, combos]) => ({ cls, combos, share: total > 0 ? combos / total : 0 })).sort((x, y) => y.share - x.share);
 }
+
+/** The idea behind the best play, for decisions that come from real hands rather than set spots. */
+export function conceptFor(sit: PostflopSituation, a: Analysis): string {
+  const best = a.best.option.kind;
+  const facing = a.facts.potOdds !== null;
+  if (facing && best === 'call') {
+    return 'Pot odds. A call only has to win often enough to pay for itself: compare your equity, adjusted for how much of it you can realize, with the price.';
+  }
+  if (facing && best === 'fold') {
+    return 'Folding costs nothing more. When your equity is below what the price asks and a raise will not fold out enough better hands, letting the hand go is the profitable play.';
+  }
+  if (facing && best === 'raise') {
+    return (a.best.eqWhenCalled ?? 0) >= 0.5
+      ? 'Raising for value. When the hands that continue are mostly worse than yours, build the pot now.'
+      : 'Semi-bluffing. A raise wins when they fold and still has outs when they call, which can beat calling.';
+  }
+  if (best === 'check') {
+    return sit.street === 'river'
+      ? 'Showdown value. On the river, betting only helps if worse hands call or better hands fold; when neither happens enough, check.'
+      : 'Pot control. When a bet mostly gets called by better hands and folds out worse ones, checking keeps the pot small and your equity alive.';
+  }
+  return (a.best.eqWhenCalled ?? 0) >= 0.5
+    ? 'Value betting. Bet when the hands that call are mostly worse than yours; size to what they will still call.'
+    : 'Fold equity. A bet that folds out enough hands is profitable even when it is behind when called.';
+}

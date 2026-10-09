@@ -19,6 +19,8 @@ export interface ScenarioOptions extends PreflopOptions {
   /** Relative weights for each spot type. */
   mix?: Partial<Record<PracticeSpot, number>>;
   stacksBB?: number;
+  /** Deal the hero only hands their chart plays (for levels that continue after preflop). */
+  heroContinues?: boolean;
 }
 
 export interface Scenario {
@@ -186,7 +188,12 @@ function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario
   const hole: (Card[] | null)[] = POSITIONS.map(() => null);
 
   // The hero's hand: interesting for the decision they will face.
-  const heroCombo = drawCombo(interestingWeights(heroKind, heroKey, opts), dead, rng);
+  let heroWeights = interestingWeights(heroKind, heroKey, opts);
+  if (opts.heroContinues) {
+    const st = getStrategy(heroKind, heroKey, 'hero', opts.lowStakes);
+    heroWeights = heroWeights.map((w, i) => w * Math.min(1, st.raise[i] + st.call[i]));
+  }
+  const heroCombo = drawCombo(heroWeights, dead, rng);
   if (!heroCombo) return null;
   // If the hero acts earlier in the script, their hand must also fit those earlier actions.
   hole[heroSeat] = heroCombo;

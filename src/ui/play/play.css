@@ -54,3 +54,10 @@
 table.verdicts th { font-weight: 700; font-size: 0.8rem; color: var(--fg-muted); }
 .shown-cards { display: flex; gap: 2px; margin-top: 2px; }
 .cell.cat.crossed::after { opacity: 0.35; }
+.play-bar label.inline { min-width: 0; max-width: 100%; }
+.play-bar label.inline select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+@media (max-width: 560px) {
+  .play-bar label.inline { flex: 1 1 100%; }
+  .play-bar label.inline select { flex: 1 1 0; width: 0; }
+}
+.level-note { max-width: 65ch; }
