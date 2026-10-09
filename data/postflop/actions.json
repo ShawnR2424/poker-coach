@@ -1,0 +1,128 @@
+{
+  "_about": "Postflop behavior by hand class, used to narrow ranges and to predict how opponents respond to your bets. Classes: setPlus (sets, trips, straights, flushes and better that use a hole card), twoPair, overpair, topPairGood (kicker T or better), topPairWeak, middlePair, weakPair, strongDraw (flush draw or open-ender), weakDraw (gutshot or two overcards), air. Values describe a low-stakes regular-ish default; milestone 5 adds per-profile copies.",
+  "firstToAct": {
+    "_about": "Share of each class that bets small (up to half pot) or big (more than half pot) when first to act or checked to. The rest checks.",
+    "betSmall": {
+      "setPlus": 0.45,
+      "twoPair": 0.5,
+      "overpair": 0.6,
+      "topPairGood": 0.55,
+      "topPairWeak": 0.45,
+      "middlePair": 0.3,
+      "weakPair": 0.2,
+      "strongDraw": 0.4,
+      "weakDraw": 0.25,
+      "air": 0.2
+    },
+    "betBig": {
+      "setPlus": 0.45,
+      "twoPair": 0.45,
+      "overpair": 0.35,
+      "topPairGood": 0.3,
+      "topPairWeak": 0.15,
+      "middlePair": 0.05,
+      "weakPair": 0.02,
+      "strongDraw": 0.3,
+      "weakDraw": 0.08,
+      "air": 0.1
+    }
+  },
+  "facingBet": {
+    "_about": "Chance to continue facing a bet of size f (bet divided by the pot before the bet): base - slope * f, clipped to 0..1. 'raise' is the share of continuing hands that raise; the rest call.",
+    "base": {
+      "setPlus": 1.0,
+      "twoPair": 1.0,
+      "overpair": 1.0,
+      "topPairGood": 1.0,
+      "topPairWeak": 0.95,
+      "middlePair": 0.85,
+      "weakPair": 0.6,
+      "strongDraw": 0.95,
+      "weakDraw": 0.5,
+      "air": 0.12
+    },
+    "slope": {
+      "setPlus": 0.0,
+      "twoPair": 0.0,
+      "overpair": 0.05,
+      "topPairGood": 0.1,
+      "topPairWeak": 0.3,
+      "middlePair": 0.45,
+      "weakPair": 0.45,
+      "strongDraw": 0.25,
+      "weakDraw": 0.35,
+      "air": 0.08
+    },
+    "raise": {
+      "setPlus": 0.3,
+      "twoPair": 0.2,
+      "overpair": 0.08,
+      "topPairGood": 0.04,
+      "topPairWeak": 0.02,
+      "middlePair": 0.01,
+      "weakPair": 0.0,
+      "strongDraw": 0.12,
+      "weakDraw": 0.02,
+      "air": 0.03
+    }
+  },
+  "realization": {
+    "_about": "Share of raw equity a hand is expected to realize before the river: the position value times the hand-class factor (draws and nutted hands realize more, weak pairs and air less). On the river, or once all-in, equity is realized fully.",
+    "inPosition": 0.95,
+    "outOfPosition": 0.85,
+    "byClass": {
+      "setPlus": 1.1,
+      "twoPair": 1.05,
+      "overpair": 1.0,
+      "topPairGood": 1.0,
+      "topPairWeak": 0.95,
+      "middlePair": 0.85,
+      "weakPair": 0.8,
+      "strongDraw": 1.15,
+      "weakDraw": 1.0,
+      "air": 0.7
+    }
+  },
+  "leadIntoAggressor": {
+    "_about": "First to act on a street when the opponent was the last aggressor (for example the big blind on the flop after calling an open). Most hands check to the raiser; these are the shares that lead small or big instead.",
+    "betSmall": {
+      "setPlus": 0.08,
+      "twoPair": 0.1,
+      "overpair": 0.05,
+      "topPairGood": 0.06,
+      "topPairWeak": 0.06,
+      "middlePair": 0.05,
+      "weakPair": 0.03,
+      "strongDraw": 0.08,
+      "weakDraw": 0.04,
+      "air": 0.03
+    },
+    "betBig": {
+      "setPlus": 0.06,
+      "twoPair": 0.06,
+      "overpair": 0.03,
+      "topPairGood": 0.02,
+      "topPairWeak": 0.01,
+      "middlePair": 0.0,
+      "weakPair": 0.0,
+      "strongDraw": 0.04,
+      "weakDraw": 0.01,
+      "air": 0.02
+    }
+  },
+  "facingRaise": {
+    "_about": "Multiplier on the continue chance when the player had bet and is now facing a raise. Raises are stronger than bets, so one-pair hands give up more often.",
+    "continue": {
+      "setPlus": 1.0,
+      "twoPair": 1.0,
+      "overpair": 0.9,
+      "topPairGood": 0.75,
+      "topPairWeak": 0.5,
+      "middlePair": 0.3,
+      "weakPair": 0.15,
+      "strongDraw": 0.7,
+      "weakDraw": 0.25,
+      "air": 0.05
+    }
+  }
+}

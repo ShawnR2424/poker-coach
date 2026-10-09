@@ -5,6 +5,7 @@ import './ui/theme.css';
 import './ui/lab.css';
 import './ui/table/table.css';
 import './ui/play/play.css';
+import './ui/spots/spots.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

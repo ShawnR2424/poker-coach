@@ -203,3 +203,51 @@ function monteCarlo(req: EquityRequest, dead: Uint8Array, samplers: Sampler[]): 
     exact: false,
   };
 }
+
+/**
+ * Hero equity against every single combo of `range`, enumerated exactly (flop or later).
+ * Entries for combos with no weight or a dead card are NaN. The weighted average of the
+ * result equals computeEquity's heads-up answer.
+ */
+export function comboEquities(hero: readonly Card[], board: readonly Card[], range: Range): Float32Array {
+  if (board.length < 3) throw new Error('Per-combo equity needs a flop');
+  const dead = validate({ hero, board, villains: [range] });
+  const out = new Float32Array(NUM_COMBOS).fill(NaN);
+  const need = 5 - board.length;
+  const cards = new Int32Array(7);
+  const vcards = new Int32Array(7);
+  cards[0] = hero[0];
+  cards[1] = hero[1];
+  board.forEach((c, i) => { cards[2 + i] = c; vcards[2 + i] = c; });
+  const base = 2 + board.length;
+  const deck: number[] = [];
+  for (let i = 0; i < NUM_COMBOS; i++) {
+    if (!(range[i] > 0)) continue;
+    const [a, b] = COMBO_CARDS[i];
+    if (dead[a] || dead[b]) continue;
+    vcards[0] = a;
+    vcards[1] = b;
+    deck.length = 0;
+    for (let c = 0; c < 52; c++) if (!dead[c] && c !== a && c !== b) deck.push(c);
+    let share = 0, n = 0;
+    const tally = () => {
+      const h = evaluate(cards, 7), v = evaluate(vcards, 7);
+      share += h > v ? 1 : h === v ? 0.5 : 0;
+      n++;
+    };
+    if (need === 0) tally();
+    else if (need === 1) {
+      for (const x of deck) { cards[base] = vcards[base] = x; tally(); }
+    } else {
+      for (let x = 0; x < deck.length; x++) {
+        cards[base] = vcards[base] = deck[x];
+        for (let y = x + 1; y < deck.length; y++) {
+          cards[base + 1] = vcards[base + 1] = deck[y];
+          tally();
+        }
+      }
+    }
+    out[i] = share / n;
+  }
+  return out;
+}

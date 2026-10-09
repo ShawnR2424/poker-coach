@@ -1,0 +1,119 @@
+// Words for the postflop range read and feedback. Every number in the text comes from the
+// analysis (recommend.ts) or the category breakdown (categories.ts).
+
+import { evaluate } from '../evaluator';
+import type { Card } from '../cards';
+import { COMBO_CARDS, NUM_COMBOS } from '../range';
+import { classifyHand, POSTFLOP_CLASS_LABEL, type PostflopClass } from './classify';
+import type { PostflopBreakdown } from './categories';
+import { bbs, describeOption, type Analysis, type OptionRow, type PostflopGrade, type PostflopSituation } from './recommend';
+
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`;
+
+/** A pre-decision hint that points at the read without naming the answer. */
+export function postflopNudge(a: Analysis, br: PostflopBreakdown): string {
+  const share = (k: 'beats' | 'draws' | 'pays' | 'missed') => (br.live > 0 ? (br.totals.get(k) ?? 0) / br.live : 0);
+  const parts: string[] = [];
+  parts.push(`${pct(share('beats'))} of their range beats you now, ${pct(share('draws'))} can still outdraw you, ${pct(share('pays'))} are worse hands that can pay, and ${pct(share('missed'))} have little.`);
+  if (a.facts.potOdds !== null) {
+    parts.push(`Compare your equity with the ${pct1(a.facts.potOdds)} the price asks for, and ask whether a raise folds out enough of the hands that beat you.`);
+  } else {
+    parts.push('Ask which of those groups calls a bet, and whether those hands are better or worse than yours.');
+  }
+  if (a.facts.spr < 3) parts.push(`The stack-to-pot ratio is only ${a.facts.spr.toFixed(1)}, so think about how much of your stack one bet commits.`);
+  return parts.join(' ');
+}
+
+export interface PostflopFeedback {
+  grade: PostflopGrade;
+  bullets: string[];
+  sunkCost: string | null;
+  outcome: string | null;
+}
+
+function rowLine(r: OptionRow, bb: number): string {
+  const name = describeOption(r.option).toLowerCase();
+  if (r.fold === undefined) return `${name} (${bbs(r.ev, bb)})`;
+  return `${name} (${bbs(r.ev, bb)}; they fold ${pct(r.fold)} and you have ${pct(r.eqWhenCalled ?? 0)} when called)`;
+}
+
+export function postflopFeedback(
+  sit: PostflopSituation,
+  a: Analysis,
+  grade: PostflopGrade,
+  villainHole: readonly Card[],
+  fullBoard: readonly Card[],
+): PostflopFeedback {
+  const f = a.facts;
+  const bb = sit.bb;
+  const bullets: string[] = [];
+  bullets.push(`Your hand is in the "${POSTFLOP_CLASS_LABEL[f.heroClass].toLowerCase()}" group, with ${pct(f.equity)} equity against their range.`);
+  if (f.potOdds !== null) {
+    const callRow = a.rows.find((r) => r.option.kind === 'call');
+    bullets.push(
+      `Calling needs ${pct1(f.potOdds)}. ${sit.street === 'river' ? 'On the river your equity is final' : `Before the river you can expect to realize about ${pct(f.realization)} of it`}, so a call is worth ${callRow ? bbs(callRow.ev, bb) : 'n/a'}.`,
+    );
+  }
+  const chosen = grade.chosen, best = grade.best;
+  if (chosen !== best && grade.verdict === 'correct') {
+    bullets.push(`The top play is ${rowLine(best, bb)}. Yours, ${rowLine(chosen, bb)}, is within ${bbs(grade.loss, bb)} of it, close enough to count as correct.`);
+  } else if (chosen !== best) {
+    bullets.push(`The best play is ${rowLine(best, bb)}. You chose ${rowLine(chosen, bb)}, which gives up ${bbs(grade.loss, bb)}.`);
+  } else {
+    const runnerUp = a.rows.filter((r) => r !== best).sort((x, y) => y.ev - x.ev)[0];
+    bullets.push(`Your play is the best one: ${rowLine(best, bb)}.${runnerUp ? ` Next best is ${describeOption(runnerUp.option).toLowerCase()} at ${bbs(runnerUp.ev, bb)}.` : ''}`);
+  }
+  if (chosen.breakEvenBluff !== undefined && chosen.fold !== undefined) {
+    bullets.push(`As a pure bluff this size needs ${pct(chosen.breakEvenBluff)} folds; the model expects ${pct(chosen.fold)}.`);
+  }
+  if (f.heroStrong !== null) {
+    const lead = f.heroStrong > f.villainStrong + 0.03 ? 'You have the nut advantage' : f.villainStrong > f.heroStrong + 0.03 ? 'They have the nut advantage' : 'Neither side has a clear nut advantage';
+    bullets.push(`${lead}: two pair or better is ${pct(f.heroStrong)} of your range and ${pct(f.villainStrong)} of theirs.`);
+  }
+  bullets.push(`Stack-to-pot ratio: ${f.spr.toFixed(1)}.${f.spr < 3 ? ' Below 3, a strong one-pair hand is usually committed once it bets.' : ''}`);
+  if (grade.sizeNote) bullets.push(grade.sizeNote);
+
+  const behind = sit.heroBehind;
+  const sunkCost =
+    chosen.option.kind === 'call' && grade.verdict === 'mistake' && sit.heroInvested >= 0.25 * (sit.heroInvested + behind)
+      ? `You have ${bbs(sit.heroInvested, bb)} in the pot already, but that money is gone either way. Only the next call matters, and it loses ${bbs(-chosen.ev, bb)}.`
+      : chosen.option.kind === 'fold' && grade.verdict === 'correct' && sit.heroInvested >= 0.25 * (sit.heroInvested + behind)
+        ? `Folding after putting ${bbs(sit.heroInvested, bb)} in can feel bad, but those chips are already spent. Folding loses nothing more.`
+        : null;
+
+  let outcome: string | null = null;
+  if (chosen.option.kind !== 'fold' && fullBoard.length === 5) {
+    const h = evaluate([...sit.hero, ...fullBoard]);
+    const v = evaluate([...villainHole, ...fullBoard]);
+    const result = h > v ? 'would win' : h === v ? 'would split' : 'would lose';
+    outcome = `This time they held ${villainHole.map(cardText).join(' ')}, and at a showdown on this board you ${result}. `;
+    outcome += grade.verdict === 'correct'
+      ? result === 'would lose'
+        ? 'A good decision can still lose a single hand; it wins over all the hands they could have.'
+        : 'The result matches the decision this time.'
+      : result === 'would win'
+        ? 'Winning this one does not make the play right; across their whole range it loses money.'
+        : 'Judge the play by the range, not by this one hand.';
+  }
+  return { grade, bullets, sunkCost, outcome };
+}
+
+const cardText = (c: Card) => '23456789TJQKA'[c >> 2] + '♣♦♥♠'[c & 3];
+
+/** Share of a range in each hand class, largest first, ignoring dead cards. */
+export function classMix(range: Float32Array, board: readonly Card[], dead: readonly Card[]): { cls: PostflopClass; share: number; combos: number }[] {
+  const d = new Set([...board, ...dead]);
+  const by = new Map<PostflopClass, number>();
+  let total = 0;
+  for (let i = 0; i < NUM_COMBOS; i++) {
+    const w = range[i];
+    if (!(w > 0)) continue;
+    const [a, b] = COMBO_CARDS[i];
+    if (d.has(a) || d.has(b)) continue;
+    const k = classifyHand([a, b], board);
+    by.set(k, (by.get(k) ?? 0) + w);
+    total += w;
+  }
+  return [...by].map(([cls, combos]) => ({ cls, combos, share: total > 0 ? combos / total : 0 })).sort((x, y) => y.share - x.share);
+}
