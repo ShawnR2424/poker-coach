@@ -51,6 +51,12 @@ export interface PostflopSituation {
   villainProfile?: Profile;
 }
 
+/** The parts of a decision that grading and feedback need, shared by heads-up and multiway spots. */
+export type DecisionBasics = Pick<
+  PostflopSituation,
+  'hero' | 'board' | 'street' | 'pot' | 'bb' | 'heroBehind' | 'heroInvested' | 'heroFirstToAct' | 'heroInPosition' | 'heroPreflopAggressor'
+>;
+
 export interface OptionRow {
   option: HeroOption;
   /** Expected value in chips, relative to folding. */
@@ -89,15 +95,8 @@ export interface Analysis {
 
 const sum = (xs: Iterable<number>) => { let s = 0; for (const x of xs) s += x; return s; };
 
-/** Builds the situation for `hero` facing `villain` from a live hand state. */
-export function situationFromState(
-  s: HandState,
-  hero: number,
-  villain: number,
-  villainRange: Range,
-  extra: { heroRange?: Range; heroPreflopAggressor: boolean; villainProfile?: Profile },
-): PostflopSituation {
-  if (s.street === 'preflop') throw new Error('Postflop only');
+/** Every legal action for the player to act, with the preset bet and raise sizes. */
+export function heroOptions(s: HandState): HeroOption[] {
   const legal = legalActions(s);
   const options: HeroOption[] = [];
   if (legal.fold) options.push({ kind: 'fold', label: 'Fold' });
@@ -107,6 +106,19 @@ export function situationFromState(
     const a = p.action as Extract<Action, { to: number }>;
     options.push({ kind: a.type, to: a.to, label: p.label, allIn: p.allIn });
   }
+  return options;
+}
+
+/** Builds the situation for `hero` facing `villain` from a live hand state. */
+export function situationFromState(
+  s: HandState,
+  hero: number,
+  villain: number,
+  villainRange: Range,
+  extra: { heroRange?: Range; heroPreflopAggressor: boolean; villainProfile?: Profile },
+): PostflopSituation {
+  if (s.street === 'preflop') throw new Error('Postflop only');
+  const options = heroOptions(s);
   const h = s.players[hero], v = s.players[villain];
   const streetActs = s.actions.filter((a) => a.street === s.street);
   return {
@@ -289,7 +301,7 @@ export function rowForAction(a: Analysis, action: Action): OptionRow {
   return row;
 }
 
-export function gradePostflop(sit: PostflopSituation, a: Analysis, action: Action): PostflopGrade {
+export function gradePostflop(sit: DecisionBasics, a: Analysis, action: Action): PostflopGrade {
   const chosen = rowForAction(a, action);
   const best = a.best;
   const m = margins(sit.pot, sit.bb);

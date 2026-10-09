@@ -2,6 +2,7 @@
 
 import { classEquities } from '../engine/classEquity';
 import { comboEquities, computeEquity, type EquityResult } from '../engine/equity';
+import { analyzeMultiway, type MultiwayResult, type MultiwaySituation } from '../engine/postflop/multiway';
 import type { HandClass, Range } from '../engine/range';
 import type { EquityJob, EquityReply } from './equity.worker';
 
@@ -57,6 +58,9 @@ function send(job: JobInput): Promise<EquityReply & { ok: true }> {
         const result = comboEquities(job.hero, job.board, job.range);
         return Promise.resolve({ id: 0, ok: true, kind: 'comboEquity', result, ms: performance.now() - t0 });
       }
+      if (job.kind === 'multiway') {
+        return Promise.resolve({ id: 0, ok: true, kind: 'multiway', result: analyzeMultiway(job.sit), ms: performance.now() - t0 });
+      }
       const m = classEquities(job.hero, job.board, job.range, job.iterations);
       return Promise.resolve({ id: 0, ok: true, kind: 'classEquity', result: [...m], ms: performance.now() - t0 });
     } catch (e) {
@@ -86,5 +90,12 @@ export async function runClassEquity(hero: number[], board: number[], range: Ran
 export async function runComboEquity(hero: number[], board: number[], range: Range): Promise<Float32Array> {
   const r = await send({ kind: 'comboEquity', hero, board, range: new Float32Array(range) });
   if (r.kind !== 'comboEquity') throw new Error('Unexpected reply');
+  return r.result;
+}
+
+/** EV of every hero action and per-opponent combo equities for a multiway decision. */
+export async function runMultiway(sit: MultiwaySituation): Promise<MultiwayResult> {
+  const r = await send({ kind: 'multiway', sit });
+  if (r.kind !== 'multiway') throw new Error('Unexpected reply');
   return r.result;
 }

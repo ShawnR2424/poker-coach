@@ -35,3 +35,20 @@
   .ev-table tbody th .tag { display: inline-block; }
   .ev-cell { min-width: 5.5em; }
 }
+
+/* Per-opponent change line and combo table. */
+.change { background: var(--surface-2); border-radius: 8px; padding: 6px 10px; margin: 0; }
+.combo-table { border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; min-width: 0; }
+.combo-table summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.combo-table[open] summary { border-bottom: 1px solid var(--line); }
+.combo-table > p { margin: 6px 0 10px; }
+.combo-scroll { max-height: 22rem; overflow: auto; }
+.combo-scroll table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+.combo-scroll th, .combo-scroll td { padding: 5px 6px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+.combo-scroll thead th { position: sticky; top: 0; background: var(--surface); border-top: none; font-size: 0.75rem; color: var(--fg-muted); z-index: 1; }
+.combo-scroll .n { text-align: right; white-space: nowrap; }
+.combo-scroll tbody th { font-weight: 600; white-space: nowrap; }
+.combo-scroll tr.gone { color: var(--fg-muted); }
+.combo-scroll .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+.ct { font-weight: 600; margin-right: 2px; }
+.ct.red { color: var(--bad); }

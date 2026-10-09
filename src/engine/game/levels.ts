@@ -1,5 +1,5 @@
-// Practice levels and the hand loop for levels 2-4: generate a hand, let opponents act until
-// the hero must decide, and keep postflop pots heads-up.
+// Practice levels and the hand loop for levels 2-5: generate a hand, let opponents act until
+// the hero must decide, and keep only the chosen opponents in (one on levels 2-4, two on level 5).
 
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { applyAction, legalActions, type HandState } from '../hand';
@@ -8,10 +8,12 @@ import { CHARTS, getStrategy } from '../preflop/charts';
 import { botAction, type PreflopOptions } from '../preflop/policy';
 import { generatePreflopScenario, type PracticeSpot } from '../preflop/scenario';
 import { randInt, type Rng } from '../rng';
+
+const PREFLOP_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 import { botPostflopAction } from '../postflop/bot';
 import { PROFILE_IDS, PROFILES, type ProfileId } from '../postflop/model';
 
-export type LevelId = 1 | 2 | 3 | 4;
+export type LevelId = 1 | 2 | 3 | 4 | 5;
 
 export interface Level {
   id: LevelId;
@@ -31,14 +33,18 @@ export const LEVELS: Record<LevelId, Level> = {
   2: { id: 2, name: 'Preflop + flop', mix: { ...NO_MIX, rfi: 45, vsOpen: 55 }, postflop: true, stopAfterFlop: true },
   3: { id: 3, name: 'Full hands heads-up', mix: { ...NO_MIX, rfi: 45, vsOpen: 55 }, postflop: true, stopAfterFlop: false },
   4: { id: 4, name: '3-bet and 4-bet pots', mix: { ...NO_MIX, vsOpen: 35, vs3bet: 45, vs4bet: 20 }, postflop: true, stopAfterFlop: false },
+  5: { id: 5, name: 'Multiway pots', mix: { ...NO_MIX, rfi: 45, squeeze: 55 }, postflop: true, stopAfterFlop: false },
 };
+
+export const LEVEL_IDS = Object.keys(LEVELS).map(Number) as LevelId[];
+export const isMultiway = (level: LevelId) => level === 5;
 
 export interface GameHand {
   state: HandState;
   hero: number;
   level: LevelId;
-  /** The one opponent who stays in; everyone else folds when it is their turn. Null on level 1. */
-  villain: number | null;
+  /** The opponents who stay in; everyone else folds when it is their turn. Empty on level 1. */
+  villains: number[];
   profiles: Record<number, ProfileId>;
 }
 
@@ -47,6 +53,19 @@ function lastRaiser(s: HandState, hero: number): number | null {
   const r = s.actions.filter((a) => a.street === 'preflop' && (a.type === 'raise' || a.type === 'bet') && a.player !== hero);
   return r.length ? r[r.length - 1].player : null;
 }
+
+/** Opponents who have put chips in voluntarily before the hero's decision (an opener and its callers). */
+function inAlready(s: HandState, hero: number): number[] {
+  const seats = s.actions.filter((a) => a.street === 'preflop' && (a.type === 'raise' || a.type === 'call' || a.type === 'bet') && a.player !== hero).map((a) => a.player);
+  return [...new Set(seats)].filter((i) => !s.players[i].folded);
+}
+
+const isBlind = (pos: string) => pos === 'SB' || pos === 'BB';
+const sumWeights = (st: { raise: Range; call: Range }, callOnly: boolean) => {
+  const out = new Float32Array(NUM_COMBOS);
+  for (let i = 0; i < NUM_COMBOS; i++) out[i] = st.call[i] + (callOnly ? 0 : st.raise[i]);
+  return out;
+};
 
 /** Swaps a player's hole cards for a combo drawn from `weights`, keeping the deck consistent. */
 function redeal(s: HandState, seat: number, weights: Range, rng: Rng): boolean {
@@ -80,32 +99,47 @@ export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions): Gam
     const { state, hero } = sc;
     const profiles: Record<number, ProfileId> = {};
     state.players.forEach((_, i) => { if (i !== hero) profiles[i] = PROFILE_IDS[randInt(rng, PROFILE_IDS.length)]; });
-    if (!L.postflop) return { state, hero, level, villain: null, profiles };
+    if (!L.postflop) return { state, hero, level, villains: [], profiles };
+    const heroPos = state.players[hero].position;
+    const behind = state.players
+      .map((p, i) => ({ p, i }))
+      .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[`${p.position}_vs_${heroPos}`]);
+
+    if (isMultiway(level)) {
+      const already = inAlready(state, hero);
+      if (already.length >= 2) return { state, hero, level, villains: already, profiles };
+      if (already.length > 0 || behind.length < 2) continue;
+      // Hero is first in: two players behind defend. The first flats the open; the second
+      // overcalls (the squeeze chart's call column), so the flop is usually three-way.
+      const order = [...behind].sort((a, b) => PREFLOP_ORDER.indexOf(a.p.position) - PREFLOP_ORDER.indexOf(b.p.position));
+      const first = order[randInt(rng, order.length - 1)];
+      const rest = order.filter((x) => PREFLOP_ORDER.indexOf(x.p.position) > PREFLOP_ORDER.indexOf(first.p.position));
+      const bb = rest.find(({ p }) => p.position === 'BB');
+      const second = bb && rng() < 0.5 ? bb : rest[randInt(rng, rest.length)];
+      const flat = sumWeights(getStrategy('vsOpen', `${first.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), true);
+      const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes), true);
+      if (!redeal(state, first.i, flat, rng) || !redeal(state, second.i, over, rng)) continue;
+      return { state, hero, level, villains: [first.i, second.i], profiles };
+    }
 
     let villain = lastRaiser(state, hero);
     if (villain === null) {
       // Hero is first in: pick one player behind to defend, and give them a hand that continues.
-      const heroPos = state.players[hero].position;
-      const behind = state.players
-        .map((p, i) => ({ p, i }))
-        .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[`${p.position}_vs_${heroPos}`]);
       if (!behind.length) continue;
       const bb = behind.find(({ p }) => p.position === 'BB');
       const pickd = bb && rng() < 0.5 ? bb : behind[randInt(rng, behind.length)];
-      const st = getStrategy('vsOpen', `${pickd.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes);
-      const cont = new Float32Array(NUM_COMBOS);
-      for (let i = 0; i < NUM_COMBOS; i++) cont[i] = st.raise[i] + st.call[i];
+      const cont = sumWeights(getStrategy('vsOpen', `${pickd.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), false);
       if (!redeal(state, pickd.i, cont, rng)) continue;
       villain = pickd.i;
     }
-    return { state, hero, level, villain, profiles };
+    return { state, hero, level, villains: [villain], profiles };
   }
   throw new Error('Could not build a practice hand');
 }
 
 /**
  * Lets everyone but the hero act until the hero must decide or the hand ends. On postflop
- * levels, players other than the villain fold (or check when that is free) so pots stay heads-up.
+ * levels, players other than the chosen opponents fold (or check when that is free).
  * On level 2, the turn and river are checked down by everyone, the hero included.
  */
 export function advance(g: GameHand, s: HandState, rng: Rng, opts: PreflopOptions): HandState {
@@ -120,7 +154,7 @@ export function advance(g: GameHand, s: HandState, rng: Rng, opts: PreflopOption
     }
     if (i === g.hero) break;
     if (!L.postflop && s.street !== 'preflop') break; // level 1 stops at the flop
-    if (g.villain !== null && i !== g.villain) {
+    if (g.villains.length && !g.villains.includes(i)) {
       s = applyAction(s, legalActions(s).check ? { type: 'check' } : { type: 'fold' });
       continue;
     }

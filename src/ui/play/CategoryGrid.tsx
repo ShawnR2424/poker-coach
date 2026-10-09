@@ -24,7 +24,7 @@ export function CategoryGrid<C extends string>({ cells, removed, hero, info, ord
     <div className="grid-wrap">
       <div className="range-grid" role="grid" aria-label="Opponent range by matchup">
         {(cells ?? []).map((c) => {
-          const crossed = removed.has(c.cls) && !c.category;
+          const crossed = removed.has(c.cls);
           const style = c.category ? { background: `var(${colorVar[c.category]})` } : undefined;
           return (
             <button
@@ -54,6 +54,7 @@ export function CategoryGrid<C extends string>({ cells, removed, hero, info, ord
             <>
               <strong>{selected.cls}</strong>: <span className="num">{fmt(selected.combos)}</span> combos after card removal.
               You have <span className="num">{Math.round(selected.heroEquity! * 100)}%</span> against it ({info[selected.category].label.toLowerCase()}).
+              {removed.has(selected.cls) && ' Most of it dropped out with the last action.'}
             </>
           ) : removed.has(selected.cls) ? (
             <><strong>{selected.cls}</strong> was in their range before the last action and is now gone.</>

@@ -93,6 +93,13 @@ describe('postflop bots', () => {
   });
 });
 
+/** Players still in when the flop was dealt (0 if there was no flop). */
+function flopLive(s: HandState): number {
+  if (s.board.length < 3) return 0;
+  const out = new Set(s.actions.filter((a) => a.street === 'preflop' && a.type === 'fold').map((a) => a.player));
+  return s.players.length - out.size;
+}
+
 /** Plays the hero with the same bots, checking the villain read at every hero decision. */
 function playOut(g: GameHand, seed: number): { checks: number; state: HandState } {
   const rng = makeRng(seed);
@@ -100,9 +107,10 @@ function playOut(g: GameHand, seed: number): { checks: number; state: HandState 
   let checks = 0;
   let guard = 0;
   while (s.toAct === g.hero && guard++ < 30) {
-    if (g.villain !== null && !s.players[g.villain].folded) {
-      const v = s.players[g.villain];
-      const { range } = narrowHand(s, g.villain, 'pool', opts, PROFILES[g.profiles[g.villain]]);
+    for (const vi of g.villains) {
+      if (s.players[vi].folded) continue;
+      const v = s.players[vi];
+      const { range } = narrowHand(s, vi, 'pool', opts, PROFILES[g.profiles[vi]]);
       expect(range[comboIndex(v.hole[0], v.hole[1])], `villain hand missing from read, seed ${seed}`).toBeGreaterThan(0);
       checks++;
     }
@@ -112,23 +120,26 @@ function playOut(g: GameHand, seed: number): { checks: number; state: HandState 
   return { checks, state: s };
 }
 
-describe('levels 2-4', () => {
-  for (const level of [2, 3, 4] as LevelId[]) {
+describe('levels 2-5', () => {
+  for (const level of [2, 3, 4, 5] as LevelId[]) {
     it(`level ${level}: hands finish, chips balance, and the read always holds the villain's real hand`, () => {
       let checks = 0;
       let postflop = 0;
+      let threeWay = 0;
       for (let seed = 1; seed <= 120; seed++) {
         const g = newGameHand(level, makeRng(seed * 7919 + level), opts);
         expect(g.state.toAct).toBe(g.hero);
-        expect(g.villain).not.toBeNull();
+        expect(g.villains.length).toBe(level === 5 ? 2 : 1);
         const { checks: c, state } = playOut(g, seed);
         checks += c;
         expect(state.toAct).toBeNull();
         expect(state.result).not.toBeNull();
         expect(state.result!.net.reduce((a, x) => a + x, 0)).toBe(0);
         const live = state.players.filter((p) => !p.folded).length;
-        expect(live).toBeLessThanOrEqual(2);
-        if (state.board.length >= 3 && live === 2) postflop++;
+        expect(live).toBeLessThanOrEqual(g.villains.length + 1);
+        if (state.board.length >= 3 && live >= 2) postflop++;
+        // Multiway: count hands that saw a flop three-way.
+        if (level === 5 && flopLive(state) === 3) threeWay++;
         if (LEVELS[level].stopAfterFlop) {
           const late = state.actions.filter((a) => a.street === 'turn' || a.street === 'river');
           expect(late.every((a) => a.type === 'check')).toBe(true);
@@ -136,6 +147,7 @@ describe('levels 2-4', () => {
       }
       expect(checks).toBeGreaterThan(120);
       expect(postflop).toBeGreaterThan(20);
+      if (level === 5) expect(threeWay).toBeGreaterThan(30);
     });
   }
 });

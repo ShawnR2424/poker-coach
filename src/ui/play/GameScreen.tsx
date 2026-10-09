@@ -5,13 +5,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { preflopCategory, categorizeRange, type CellCategory, type PreflopCategory } from '../../engine/categories';
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
-import { advance, LEVELS, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
+import { advance, isMultiway, LEVEL_IDS, LEVELS, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
 import { applyAction, type Action, type HandState } from '../../engine/hand';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
-import { conceptFor, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
+import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
 import { PROFILES } from '../../engine/postflop/model';
 import { narrowHand } from '../../engine/postflop/narrow';
-import { describeOption, gradePostflop, situationFromState, type Analysis, type PostflopSituation } from '../../engine/postflop/recommend';
+import { interactionNote, multiwaySituationFromState } from '../../engine/postflop/multiway';
+import { describeOption, gradePostflop, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
 import {
   blockerCount, heroDecision, heroLineRead, nudge, opponentReads, playersBehind, preflopFeedback,
   type Decision, type Feedback, type OpponentRead,
@@ -20,7 +21,10 @@ import { hasChart, spotFor } from '../../engine/preflop/spot';
 import { NUM_COMBOS } from '../../engine/range';
 import { makeRng, randomSeed } from '../../engine/rng';
 import { runClassEquity, runEquity } from '../../workers/equityClient';
-import { PostflopFeedbackPanel, PostflopReadPanel, usePostflopRead, villainLine } from '../spots/PostflopPanels';
+import {
+  comboTableReason, MultiwayReadPanel, PostflopFeedbackPanel, PostflopReadPanel, useMultiwayRead, usePostflopRead, villainLine,
+  type OpponentView,
+} from '../spots/PostflopPanels';
 import { ActionBar } from '../table/ActionBar';
 import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
@@ -34,13 +38,13 @@ type Phase = 'decide' | 'feedback' | 'result';
 
 type Pending =
   | { kind: 'preflop'; decision: Decision; feedback: Feedback; action: Action }
-  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: PostflopSituation; action: Action };
+  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean };
 
 const LEVEL_KEY = 'level';
 function loadLevel(): LevelId {
   try {
     const v = Number(localStorage.getItem(LEVEL_KEY));
-    return v === 2 || v === 3 || v === 4 ? v : 1;
+    return (LEVEL_IDS as number[]).includes(v) ? (v as LevelId) : 1;
   } catch {
     return 1;
   }
@@ -84,9 +88,9 @@ export function GameScreen() {
   const reads: OpponentRead[] = useMemo(() => {
     if (!heroToAct || !isPreflop) return [];
     const all = hypothetical ? playersBehind(state, hero, opts) : opponentReads(state, hero, opts);
-    // Heads-up levels: only the villain plays on, so only their read matters.
-    return game.villain === null ? all : all.filter((r) => r.seat === game.villain);
-  }, [state, hero, opts, hypothetical, heroToAct, isPreflop, game.villain]);
+    // Only the opponents who play on matter for the read.
+    return game.villains.length ? all.filter((r) => game.villains.includes(r.seat)) : all;
+  }, [state, hero, opts, hypothetical, heroToAct, isPreflop, game.villains]);
   const [heroEq, setHeroEq] = useState<number | null>(null);
   const [cells, setCells] = useState<Map<number, CellCategory<PreflopCategory>[]>>(new Map());
 
@@ -114,21 +118,56 @@ export function GameScreen() {
   const decision = useMemo(() => (spot && hasChart(spot) ? heroDecision(state, hero, opts) : null), [state, hero, opts, spot?.key, spot?.kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Postflop read ----
-  const villain = game.villain;
-  const villainProfile = villain !== null ? PROFILES[game.profiles[villain]] : undefined;
-  const post = useMemo(() => {
-    if (!heroToAct || isPreflop || villain === null || state.players[villain].folded) return null;
-    const villainRange = narrowHand(state, villain, 'pool', opts, villainProfile).range;
-    const heroRange = narrowHand(state, hero, 'baseline', opts).range;
+  const liveVillains = useMemo(
+    () => game.villains.filter((v) => !state.players[v].folded),
+    [game.villains, state],
+  );
+  const postCtx = useMemo(() => {
+    if (!heroToAct || isPreflop || !liveVillains.length) return null;
     const pre = state.actions.filter((a) => a.street === 'preflop' && a.type === 'raise');
-    const sit = situationFromState(state, hero, villain, villainRange, {
-      heroRange,
-      heroPreflopAggressor: pre.length > 0 && pre[pre.length - 1].player === hero,
-      villainProfile,
+    const views: (OpponentView & { seat: number })[] = liveVillains.map((seat) => {
+      const profile = PROFILES[game.profiles[seat]];
+      const n = narrowHand(state, seat, 'pool', opts, profile);
+      return {
+        seat,
+        title: `${state.players[seat].position} · ${villainLine(state.actions, seat)}`,
+        profile,
+        range: n.range,
+        lastStep: n.steps.length && n.steps[n.steps.length - 1].street === state.street ? n.steps[n.steps.length - 1] : undefined,
+      };
     });
-    return { sit, villainRange };
-  }, [state, heroToAct, isPreflop, villain, villainProfile, hero, opts]);
-  const { analysis, breakdown, error } = usePostflopRead(post?.sit ?? null, post?.villainRange ?? null);
+    return {
+      views,
+      heroRange: narrowHand(state, hero, 'baseline', opts).range,
+      heroPreflopAggressor: pre.length > 0 && pre[pre.length - 1].player === hero,
+      comboReason: comboTableReason(state.street, pre.length >= 3),
+    };
+  }, [state, heroToAct, isPreflop, liveVillains, game.profiles, hero, opts]);
+  const multiway = !!postCtx && postCtx.views.length > 1;
+
+  const post = useMemo(() => {
+    if (!postCtx || multiway) return null;
+    const v = postCtx.views[0];
+    return situationFromState(state, hero, v.seat, v.range, {
+      heroRange: postCtx.heroRange,
+      heroPreflopAggressor: postCtx.heroPreflopAggressor,
+      villainProfile: v.profile,
+    });
+  }, [postCtx, multiway]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hu = usePostflopRead(post, post?.villainRange ?? null);
+
+  const mwSit = useMemo(() => {
+    if (!postCtx || !multiway) return null;
+    return multiwaySituationFromState(state, hero, postCtx.views, {
+      heroRange: postCtx.heroRange,
+      heroPreflopAggressor: postCtx.heroPreflopAggressor,
+    });
+  }, [postCtx, multiway]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mw = useMultiwayRead(mwSit);
+  const mwNote = useMemo(() => (mwSit ? interactionNote(state, hero, liveVillains) : ''), [mwSit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const postSit: DecisionBasics | null = post ?? mwSit;
+  const analysis = multiway ? mw.result?.analysis ?? null : hu.analysis;
 
   const fbRef = useRef<HTMLElement>(null);
   useEffect(() => { if (phase === 'feedback' && pending?.kind === 'postflop') fbRef.current?.scrollIntoView({ block: 'start' }); }, [phase, pending]);
@@ -151,10 +190,10 @@ export function GameScreen() {
         verdict: fb.grade.verdict, heading: fb.grade.heading, tags: fb.grade.tags,
       }]);
     } else {
-      if (!analysis || !post) return;
-      const grade = gradePostflop(post.sit, analysis, action);
-      const fb = postflopFeedback(post.sit, analysis, grade, [], []);
-      setPending({ kind: 'postflop', fb, analysis, sit: post.sit, action });
+      if (!analysis || !postSit) return;
+      const grade = gradePostflop(postSit, analysis, action);
+      const fb = postflopFeedback(postSit, analysis, grade, [], [], { multiway });
+      setPending({ kind: 'postflop', fb, analysis, sit: postSit, action, multiway });
       setLog((l) => [...l, {
         label: `${STREET_LABEL[state.street]} ${formatCards(state.board)}`, hand: formatCards(heroCards),
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
@@ -195,10 +234,9 @@ export function GameScreen() {
         <label className="inline">
           Level
           <select id="level" value={level} onChange={(e) => changeLevel(Number(e.target.value) as LevelId)}>
-            {([1, 2, 3, 4] as LevelId[]).map((id) => (
+            {LEVEL_IDS.map((id) => (
               <option key={id} value={id}>{id} · {LEVELS[id].name}</option>
             ))}
-            <option value="5" disabled>5 · Multiway (coming)</option>
             <option value="6" disabled>6 · Thin value (coming)</option>
           </select>
         </label>
@@ -211,7 +249,10 @@ export function GameScreen() {
       {level > 1 && (
         <p className="muted small level-note">
           {level === 2 ? 'You play preflop and the flop; the turn and river are checked down. ' : ''}
-          Hands stay heads-up after preflop: players other than your opponent fold. Seat tags show each opponent's style.
+          {isMultiway(level)
+            ? 'Two opponents play on with you, so most flops are three-way; everyone else folds. '
+            : 'Hands stay heads-up after preflop: players other than your opponent fold. '}
+          Seat tags show each opponent's style.
         </p>
       )}
 
@@ -244,16 +285,29 @@ export function GameScreen() {
           <ActionBar key={state.actions.length} state={state} onAct={act} />
         </>
       )}
-      {heroToAct && !isPreflop && post && villain !== null && (
+      {heroToAct && !isPreflop && post && postCtx && (
         <>
           <PostflopReadPanel
-            sit={post.sit}
-            villainRange={post.villainRange}
-            title={`${state.players[villain].position} · ${villainLine(state.actions, villain)}`}
-            profile={villainProfile}
-            analysis={analysis}
-            breakdown={breakdown}
-            error={error}
+            sit={post}
+            view={postCtx.views[0]}
+            analysis={hu.analysis}
+            eqs={hu.eqs}
+            breakdown={hu.breakdown}
+            error={hu.error}
+            comboReason={postCtx.comboReason}
+          />
+          <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
+        </>
+      )}
+      {heroToAct && !isPreflop && mwSit && postCtx && (
+        <>
+          <MultiwayReadPanel
+            sit={mwSit}
+            views={postCtx.views}
+            note={mwNote}
+            result={mw.result}
+            error={mw.error}
+            comboReason={postCtx.comboReason}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
         </>
@@ -262,7 +316,14 @@ export function GameScreen() {
         <FeedbackPanel fb={pending.feedback} decision={pending.decision} onContinue={cont} />
       )}
       {phase === 'feedback' && pending?.kind === 'postflop' && (
-        <PostflopFeedbackPanel ref={fbRef} fb={pending.fb} analysis={pending.analysis} bb={pending.sit.bb} concept={conceptFor(pending.sit, pending.analysis)}>
+        <PostflopFeedbackPanel
+          ref={fbRef}
+          fb={pending.fb}
+          analysis={pending.analysis}
+          bb={pending.sit.bb}
+          concept={pending.multiway ? multiwayConcept(pending.analysis) : conceptFor(pending.sit, pending.analysis)}
+          multiway={pending.multiway}
+        >
           <button type="button" className="primary" onClick={cont}>Continue</button>
         </PostflopFeedbackPanel>
       )}
