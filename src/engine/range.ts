@@ -223,6 +223,61 @@ export function formatRange(range: Range): string {
   return [...parts, ...singles].join(', ');
 }
 
+/** Kept share, relative to the most-kept class, that puts a class in the approximate range text. */
+export const RANGE_TEXT_CORE = 0.5;
+export const RANGE_TEXT_PARTIAL = 0.15;
+
+export interface RangeSummary {
+  /** Classes kept at RANGE_TEXT_CORE or more of the top kept share, in standard notation. */
+  core: string;
+  /** Classes kept at RANGE_TEXT_PARTIAL up to RANGE_TEXT_CORE of it. */
+  partial: string;
+  coreClasses: Set<HandClass>;
+  partialClasses: Set<HandClass>;
+  /** The highest kept share of any class: the scale the thresholds apply to. */
+  top: number;
+}
+
+/** Share of a class's live combos a weighted range keeps, or null when every combo is dead. */
+export function keptShareOf(range: Range, cls: HandClass, dead: ReadonlySet<Card>): number | null {
+  let w = 0, n = 0;
+  for (const i of CLASS_COMBOS.get(cls)!) {
+    const [a, b] = COMBO_CARDS[i];
+    if (dead.has(a) || dead.has(b)) continue;
+    n++;
+    w += range[i];
+  }
+  return n ? w / n : null;
+}
+
+/**
+ * A weighted range (after postflop narrowing, say) as approximate standard notation: the
+ * classes it holds most of, and the classes it holds less often. Each class is scored by the
+ * share of its live combos the range keeps, relative to the most-kept class, so card removal
+ * doesn't thin a class and several streets of narrowing don't empty the text.
+ */
+export function summarizeRange(range: Range, dead: readonly Card[]): RangeSummary {
+  const d = new Set(dead);
+  const kept = new Map<HandClass, number>();
+  for (const cls of ALL_CLASSES) {
+    const k = keptShareOf(range, cls, d);
+    if (k !== null && k > 0) kept.set(cls, k);
+  }
+  const top = Math.max(0, ...kept.values());
+  const coreClasses = new Set<HandClass>(), partialClasses = new Set<HandClass>();
+  for (const [cls, k] of kept) {
+    if (k >= RANGE_TEXT_CORE * top) coreClasses.add(cls);
+    else if (k >= RANGE_TEXT_PARTIAL * top) partialClasses.add(cls);
+  }
+  return {
+    core: compressClasses(coreClasses).join(', '),
+    partial: compressClasses(partialClasses).join(', '),
+    coreClasses,
+    partialClasses,
+    top,
+  };
+}
+
 // ---- Card removal and counting ----
 
 /** Copy of the range with every combo that uses a dead card removed. */

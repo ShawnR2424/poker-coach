@@ -42,6 +42,10 @@ set or better, two pair, overpair, top pair with a good kicker, top pair with a 
 
 The model works with these classes rather than individual combos. That keeps it editable by hand, at the cost of treating, say, every top pair with a good kicker alike.
 
+### Range text
+
+Before the flop an opponent's range is written exactly, since chart weights are whole hand classes. After the flop the narrowed weights differ combo by combo, so the read writes an approximation instead. For each hand class it takes the share of the class's live combos (board and hero's cards removed) that is still in the range, relative to the class with the highest share. Classes at half of that or more are listed as the hands the range "still holds most of"; classes from 15% to half are listed as "some of". Classes below 15% are left out of the text but still appear in the grid. The relative scale matters because several streets of narrowing leave every class at a small absolute weight.
+
 ### Opponent behavior
 
 `data/postflop/actions.json` gives, for each class:

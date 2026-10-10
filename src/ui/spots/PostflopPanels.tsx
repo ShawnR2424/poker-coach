@@ -11,7 +11,7 @@ import type { Profile } from '../../engine/postflop/model';
 import type { MultiwayResult, MultiwaySituation } from '../../engine/postflop/multiway';
 import type { PostflopStep } from '../../engine/postflop/narrow';
 import { analyze, type Analysis, type DecisionBasics, type PostflopSituation } from '../../engine/postflop/recommend';
-import type { HandClass, Range } from '../../engine/range';
+import { summarizeRange, type HandClass, type Range } from '../../engine/range';
 import { runComboEquity, runMultiway } from '../../workers/equityClient';
 import { CategoryGrid } from '../play/CategoryGrid';
 import { dollars } from '../table/format';
@@ -111,6 +111,7 @@ export function OpponentPanel({ view, sit, eqs, breakdown, comboReason }: Oppone
   const step = view.lastStep;
   const removed = useMemo(() => (step ? droppedClasses(step.before, step.after, dead) : NO_REMOVED), [step, dead]);
   const rows = useMemo(() => (eqs ? comboTable(view.range, sit.hero, sit.board, eqs) : null), [eqs, view.range, sit]);
+  const text = useMemo(() => summarizeRange(view.range, dead), [view.range, dead]);
   const live = breakdown?.live ?? 0;
   return (
     <article className="opp">
@@ -118,6 +119,12 @@ export function OpponentPanel({ view, sit, eqs, breakdown, comboReason }: Oppone
       {view.profile && (
         <p className="tendency"><span className="eyebrow">{view.profile.label}</span> {view.profile.about}</p>
       )}
+      <div className="range-text">
+        <p className="eyebrow">Approximate range now</p>
+        <p>Still holds most of <code>{text.core || 'no hands'}</code></p>
+        {text.partial && <p className="small muted">and some of <code>{text.partial}</code></p>}
+        <p className="small muted">Measured against the hand it holds most of. The grid also shows hands left at lower weight.</p>
+      </div>
       {step && <p className="change small">{stepLine(step.move.kind, step.street, keptShare(step.before, step.after, dead))}</p>}
       <p className="muted small num">
         {live ? `${live.toFixed(1)} weighted combos after card removal` : 'Weighing combos…'}
