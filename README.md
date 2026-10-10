@@ -93,7 +93,7 @@ src/workers/             Equity Web Worker and its client
 src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
 data/                    Editable strategy data (see above)
 scripts/                 Data generation and the browser smoke test
-docs/                    Model notes
+docs/                    Model notes and spec coverage
 ```
 
 ## What the tests guarantee
@@ -110,6 +110,10 @@ docs/                    Model notes
 - A practice hand for a postflop leak stops at a decision where that leak's tag is one a wrong action would earn, and plays on normally from there. The hand-flow test also runs every level with every leak open.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
+
+## Spec coverage
+
+[docs/spec-coverage.md](docs/spec-coverage.md) maps each part of the original brief to the code that implements it and the tests that check it.
 
 ## History
 

@@ -2,6 +2,10 @@
 
 Each milestone was merged as its own pull request.
 
+## Spec coverage page
+
+- Added [docs/spec-coverage.md](docs/spec-coverage.md), which maps each section of the original brief to the code that implements it and the tests or smoke checks that guard it.
+
 ## Opponent ranges in notation after the flop
 
 - Each opponent panel after the flop now writes the narrowed range in standard notation, as the preflop read does: the hands it still holds most of, then the ones it holds some of. Hands left at low weight stay in the grid but are left out of the text, and the panel says so.
