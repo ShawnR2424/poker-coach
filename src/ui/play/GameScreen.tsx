@@ -24,6 +24,7 @@ import { hasChart, spotFor } from '../../engine/preflop/spot';
 import { NUM_COMBOS } from '../../engine/range';
 import { makeRng, randomSeed } from '../../engine/rng';
 import { handLesson, levelProgress, openLeaks, totals } from '../../engine/session/session';
+import { replayOf } from '../../engine/session/replay';
 import { currentHands, recordHand, useSessions } from '../session/store';
 import { dollars } from '../table/format';
 import { runClassEquity, runEquity } from '../../workers/equityClient';
@@ -46,6 +47,9 @@ type Phase = 'decide' | 'feedback' | 'result';
 type Pending =
   | { kind: 'preflop'; decision: Decision; feedback: Feedback; action: Action; facts: CoachFacts }
   | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean; concept: string; facts: CoachFacts; split: RangeActions | null; chosenSplit: RangeAction };
+
+/** Actions taken so far, not counting the blinds: a decision's step in the hand replay. */
+const stepOf = (s: HandState) => s.actions.filter((a) => a.type !== 'post').length;
 
 const LEVEL_KEY = 'level';
 function loadLevel(): LevelId {
@@ -168,6 +172,7 @@ export function GameScreen() {
       decided,
       decisions: log,
       lesson: handLesson(log, net, decided),
+      replay: replayOf(state, hero, game.villains, game.profiles, lowStakes),
     });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -299,6 +304,7 @@ export function GameScreen() {
         label: decision.spot.label, hand: formatCards(heroCards), you: label.toLowerCase(),
         verdict: fb.grade.verdict, heading: fb.grade.heading, tags: fb.grade.tags,
         atRisk: preflopLeaksAtRisk(state, hero, decision),
+        step: stepOf(state),
       }]);
     } else {
       if (!analysis || !postSit || !postCtx) return;
@@ -312,6 +318,7 @@ export function GameScreen() {
         label: `${STREET_LABEL[state.street]} ${formatCards(state.board)}`, hand: formatCards(heroCards),
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
         atRisk: leaksAtRisk(postSit, analysis),
+        step: stepOf(state),
       }]);
     }
     setPhase('feedback');

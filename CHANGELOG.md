@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## Hand replay
+
+- Each hand in the Session tab has a Replay button. The replay steps through the hand one action at a time with the table, board, timeline and every opponent's cards. Buttons jump to each of your graded decisions, marked with the verdict, and each decision shows what you chose, its leak tag and the opponents' ranges at that point.
+- Each hand is saved as a compact record (seats, stacks, hole cards, board and actions, about 1-2 KB) and rebuilt with the hand engine, so the replay shows exactly what was played. The newest 500 hands keep their records, which keeps saved sessions well inside the browser's storage limit. Hands played before this change have no record and show no Replay button.
+- Tests replay hands at every level at 6-max and 9 handed and check them against the hand as played. The smoke test opens every hand's replay, steps through several from start to end and checks for horizontal scroll at both widths.
+
 ## Opponent ranges in notation after the flop
 
 - Each opponent panel after the flop now writes the narrowed range in standard notation, as the preflop read does: the hands it still holds most of, then the ones it holds some of. Hands left at low weight stay in the grid but are left out of the text, and the panel says so.

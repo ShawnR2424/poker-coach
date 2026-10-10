@@ -11,6 +11,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
+- **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
 - **Optional coaching voice from Claude.** Off by default. With your own Claude API key, each graded decision also gets a short explanation written by Claude from the trainer's computed facts. See [Coach voice](#coach-voice).
 
@@ -88,6 +89,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   game/levels.ts           Practice levels, hand generation, leak-targeted spot mix, hand flow
   game/drills.ts           Practice hands that reach the spot of a postflop leak
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
+  session/replay.ts        Compact hand records and the replay that rebuilds each hand from them
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
 src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
@@ -108,6 +110,7 @@ docs/                    Model notes
 - After the flop, the split of the hero's range across the available actions always accounts for the whole range, and the line read agrees with what the hero did. If the hero took a line the charts never take, the read says there is no range rather than showing one.
 - The approximate range text after the flop is valid notation for exactly the hands it names, names nothing the grid leaves empty, and leaves out only hands the grid holds at low weight. This is checked on every practice spot and on real decisions at every postflop level.
 - A practice hand for a postflop leak stops at a decision where that leak's tag is one a wrong action would earn, and plays on normally from there. The hand-flow test also runs every level with every leak open.
+- A saved hand replays to exactly the actions, board, stacks and result that were played, at every level and table size, and the hero's decisions fall on the replay's steps. The smoke test opens the replay of every hand in the session.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { leakStats, totals, type Session } from '../../engine/session/session';
 import { LEVELS, type LevelId } from '../../engine/game/levels';
 import { dollars } from '../table/format';
+import { ReplayView } from './ReplayView';
 import { newSession, useSessions } from './store';
 import './session.css';
 
@@ -76,6 +77,8 @@ export function SessionScreen() {
 }
 
 function SessionView({ session }: { session: Session }) {
+  const [replayN, setReplayN] = useState<number | null>(null);
+  const replaying = session.hands.find((h) => h.n === replayN && h.replay) ?? null;
   const t = totals(session.hands);
   const leaks = leakStats(session.hands);
   const hands = [...session.hands].reverse();
@@ -143,6 +146,8 @@ function SessionView({ session }: { session: Session }) {
         )}
       </section>
 
+      {replaying && <ReplayView key={`${session.id}-${replaying.n}`} hand={replaying} onClose={() => setReplayN(null)} />}
+
       <section className="panel" aria-labelledby="hands-h">
         <h2 id="hands-h">Hands</h2>
         <div className="table-scroll">
@@ -155,6 +160,7 @@ function SessionView({ session }: { session: Session }) {
                 <th scope="col">Verdicts</th>
                 <th scope="col" className="n">Result</th>
                 <th scope="col">Lesson</th>
+                <th scope="col"><span className="sr-only">Replay</span></th>
               </tr>
             </thead>
             <tbody>
@@ -174,6 +180,13 @@ function SessionView({ session }: { session: Session }) {
                     {h.decided ? money(h.net) : <span className="muted">not played out</span>}
                   </td>
                   <td className="lesson">{h.lesson}</td>
+                  <td>
+                    {h.replay && (
+                      <button type="button" onClick={() => { setReplayN(h.n); window.scrollTo({ top: 0 }); }} aria-label={`Replay hand ${h.n}`}>
+                        Replay
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

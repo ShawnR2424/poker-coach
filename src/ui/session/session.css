@@ -43,3 +43,20 @@ table.hands .verdicts { white-space: nowrap; letter-spacing: 1px; }
   table.hands td.verdicts { grid-column: 2; }
   table.hands td.lesson { grid-column: 2 / 4; min-width: 0; max-width: none; }
 }
+
+/* Hand replay. */
+.replay { display: grid; gap: 12px; min-width: 0; }
+.replay-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 8px; }
+.replay-head h2 { margin: 0; }
+.replay-steps, .replay-nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.replay-steps button.on { border-color: var(--felt); background: var(--felt-soft); }
+.replay-nav { display: grid; grid-template-columns: repeat(4, auto) 1fr; }
+.replay-nav .muted { margin: 0 4px; }
+@media (max-width: 480px) {
+  .replay-nav { grid-template-columns: repeat(4, 1fr); }
+  .replay-nav .muted { grid-column: 1 / -1; grid-row: 1; justify-self: start; }
+}
+.replay-decision { display: grid; gap: 6px; border-radius: 8px; padding: 10px 12px; background: var(--surface-2); }
+.replay-decision p { margin: 0; }
+.replay-decision .range-text { display: grid; gap: 2px; }
+.replay-result { margin: 0; }
