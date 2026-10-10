@@ -1,5 +1,5 @@
 {
-  "_about": "Postflop behavior by hand class, used to narrow ranges and to predict how opponents respond to your bets. Classes: setPlus (sets, trips, straights, flushes and better that use a hole card), twoPair, overpair, topPairGood (kicker T or better), topPairWeak, middlePair, weakPair, strongDraw (flush draw or open-ender), weakDraw (gutshot or two overcards), air. Values describe a low-stakes regular-ish default; milestone 5 adds per-profile copies.",
+  "_about": "Postflop behavior by hand class, used to narrow ranges and to predict how opponents respond to your bets. Classes: setPlus (sets, trips, straights, flushes and better that use a hole card), twoPair, overpair, topPairGood (kicker T or better), topPairWeak, middlePair, weakPair, strongDraw (flush draw or open-ender), weakDraw (gutshot or two overcards), air. Values describe a low-stakes regular; profiles.json scales them for each opponent style.",
   "firstToAct": {
     "_about": "Share of each class that bets small (up to half pot) or big (more than half pot) when first to act or checked to. The rest checks.",
     "betSmall": {
