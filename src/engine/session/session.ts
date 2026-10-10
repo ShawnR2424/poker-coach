@@ -26,6 +26,8 @@ export interface DecisionRecord {
   move?: PostflopMove;
   /** The trainer's best action at that decision, which the hero's moves are compared with. */
   bestMove?: PostflopMove;
+  /** In a close spot, how often the trainer's mix takes each action (absent when one action is best). */
+  bestMix?: Partial<Record<PostflopMove, number>>;
   /** EV given up against the best action at a postflop decision, in big blinds (0 when it was best). */
   lossBB?: number;
 }

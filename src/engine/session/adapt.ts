@@ -6,7 +6,7 @@
 
 import table from '../../../data/postflop/adapt.json';
 import type { Profile } from '../postflop/model';
-import type { HandRecord } from './session';
+import type { DecisionRecord, HandRecord } from './session';
 
 export type PostflopMove = 'fold' | 'call' | 'raise' | 'check' | 'bet';
 
@@ -66,20 +66,26 @@ const FACING = new Set<PostflopMove>(['fold', 'call', 'raise']);
  * trainer's best play took the same action in those same spots.
  */
 export function heroTendencies(hands: readonly HandRecord[], window = T.window): HeroTendencies {
-  const facing: [PostflopMove, PostflopMove][] = [];
-  const free: [PostflopMove, PostflopMove][] = [];
+  type Pair = [PostflopMove, DecisionRecord];
+  const facing: Pair[] = [];
+  const free: Pair[] = [];
   for (const h of hands) {
     for (const d of h.decisions) {
       if (!d.move || !d.bestMove) continue;
-      (FACING.has(d.move) ? facing : free).push([d.move, d.bestMove]);
+      (FACING.has(d.move) ? facing : free).push([d.move, d]);
     }
   }
-  const rate = (xs: [PostflopMove, PostflopMove][], m: PostflopMove): Rate => {
+  // In a mixed spot the best play takes each action its share of the time.
+  const bestShare = (d: DecisionRecord, m: PostflopMove) => (d.bestMix ? d.bestMix[m] ?? 0 : d.bestMove === m ? 1 : 0);
+  const rate = (xs: Pair[], m: PostflopMove): Rate => {
     const last = xs.slice(-window);
-    return { you: last.filter(([y]) => y === m).length, best: last.filter(([, b]) => b === m).length, of: last.length };
-  };
+    return { you: last.filter(([y]) => y === m).length, best: last.reduce((t, [, d]) => t + bestShare(d, m), 0), of: last.length };
+  }
   return { foldToBet: rate(facing, 'fold'), betWhenFree: rate(free, 'bet') };
 }
+
+/** A count of decisions; mixed spots make the best play's count fractional. */
+export const countText = (x: number) => (Math.abs(x - Math.round(x)) < 1e-6 ? String(Math.round(x)) : `about ${Math.round(x)}`);
 
 /** How far the hero's rate is from the best play's, as a share of the decisions. */
 export const gapOf = (r: Rate) => (r.of ? (r.you - r.best) / r.of : 0);
@@ -90,7 +96,7 @@ export function adaptationFor(t: HeroTendencies): Adaptation | null {
   let bluffMult = 1, continueAdd = 0;
   const { foldToBet: f, betWhenFree: b } = t;
   if (f.of >= T.minSample) {
-    const facts = `You folded to ${f.you} of your last ${f.of} bets, where the best play folds ${f.best}`;
+    const facts = `You folded to ${f.you} of your last ${f.of} bets, where the best play folds ${countText(f.best)}`;
     if (gapOf(f) > T.gap) {
       bluffMult = T.overfolds.bluffMult;
       adjustments.push({ kind: 'overfolds', text: `${facts}, so opponents bluff more. Their bets hold more air and weak draws, which makes calling with a fair hand better.` });
@@ -100,7 +106,7 @@ export function adaptationFor(t: HeroTendencies): Adaptation | null {
     }
   }
   if (b.of >= T.minSample) {
-    const facts = `You bet ${b.you} of your last ${b.of} times when nobody had bet, where the best play bets ${b.best}`;
+    const facts = `You bet ${b.you} of your last ${b.of} times when nobody had bet, where the best play bets ${countText(b.best)}`;
     if (gapOf(b) > T.gap) {
       continueAdd = T.betsOften.continueAdd;
       adjustments.push({ kind: 'betsOften', text: `${facts}, so opponents call your bets with weaker hands. Bluffs work less and thinner value bets work more.` });

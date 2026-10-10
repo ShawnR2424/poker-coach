@@ -56,7 +56,8 @@ export function postflopFacts(
     const parts = [`EV ${r.ev > 0 ? '+' : ''}${bbs(r.ev, bb)}`];
     if (r.fold !== undefined) parts.push(`${multiway ? 'everyone folds' : 'they fold'} ${pct(r.fold)}`);
     if (r.eqWhenCalled !== undefined) parts.push(`your equity when called ${pct(r.eqWhenCalled)}`);
-    const marks = [r === analysis.best && 'best', r === fb.grade.chosen && 'your choice'].filter(Boolean);
+    const part = fb.grade.mix.length > 1 ? fb.grade.mix.find((p) => p.row === r) : undefined;
+    const marks = [part ? `mix ${pct(part.freq)}` : r === analysis.best && 'best', r === fb.grade.chosen && 'your choice'].filter(Boolean);
     return `${describeOption(r.option)}: ${parts.join(', ')}${marks.length ? ` (${marks.join(', ')})` : ''}`;
   });
   return {

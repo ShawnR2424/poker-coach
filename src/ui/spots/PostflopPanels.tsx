@@ -316,7 +316,7 @@ export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(func
       {voice}
       <div>
         <p className="eyebrow">EV by action and size</p>
-        <EvTable analysis={analysis} bb={bb} chosen={fb.grade.chosen} acceptable={fb.grade.acceptable} multiway={multiway} />
+        <EvTable analysis={analysis} bb={bb} chosen={fb.grade.chosen} acceptable={fb.grade.acceptable} mix={fb.grade.mix} multiway={multiway} />
       </div>
       {split && <RangeActionsTable split={split} chosen={chosenSplit} />}
       {fb.outcome && <p className="alt">{fb.outcome}</p>}

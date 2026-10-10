@@ -15,7 +15,7 @@ import { PROFILES } from '../../engine/postflop/model';
 import { postflopHeroLine, rangeActionOf, rangeActions, type RangeAction, type RangeActions } from '../../engine/postflop/heroRange';
 import { currentContext, narrowHand } from '../../engine/postflop/narrow';
 import { interactionNote, multiwaySituationFromState } from '../../engine/postflop/multiway';
-import { describeOption, gradePostflop, leaksAtRisk, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
+import { describeOption, gradePostflop, leaksAtRisk, mixMoves, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
 import {
   blockerCount, heroDecision, heroLineRead, nudge, opponentReads, playersBehind, preflopFeedback, preflopLeaksAtRisk,
   type Decision, type Feedback, type OpponentRead,
@@ -348,6 +348,7 @@ export function GameScreen() {
         step: stepOf(state),
         move: action.type as PostflopMove,
         bestMove: analysis.best.option.kind,
+        ...(mixMoves(grade.mix) ? { bestMix: mixMoves(grade.mix)! } : {}),
         lossBB: grade.loss / postSit.bb,
       }]);
     }

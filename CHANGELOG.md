@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Mixed postflop play
+
+- Close postflop spots are now played as a mix. Every kind of action whose EV is within the correct margin of the best becomes part of the mix, weighted toward the better one, and the frequencies are shown in 5% steps. In a seeded sample of 300 level 3 hands, 98 of 595 heads-up postflop decisions were mixed.
+- Every part of a mix is graded correct. The heading says it is a mixed spot, the feedback lists the mix with the EVs behind it, and the EV table tags each part with its frequency (Mix 55%) instead of Best and Also fine. The practice spot "River bluff-catch with top pair" is now call 55%, raise 45%.
+- Adaptive opponents count a mixed spot by its share when comparing the hero's folds and bets with the best play.
+- The frequencies are a teaching heuristic for how close the options are, not solver output; `docs/model.md` explains how they are set.
+- New `mixed.test.ts` checks pure and mixed spots, the weighting, 5% steps, grading and feedback, adaptive counting and how often spots are mixed in play. The smoke test checks that a practice spot shows its mix.
+
 ## Rake-aware charts
 
 - With the rake on, every preflop chart gets a rake layer (`data/preflop/rake.json`), for the hero's recommendations, the opponents and the range reads alike. The rake is taken only from pots that see a flop, so the layer taxes hands that win small pots after the flop:
