@@ -1,0 +1,16 @@
+/* Settings and the Claude coach voice. */
+.settings-screen h1 { margin: 0; font-size: 1.5rem; text-wrap: balance; }
+.settings-screen .panel p { margin: 0; max-width: 65ch; }
+.settings-screen .panel h2 { margin: 0; font-size: 1.15rem; }
+.switch { display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; }
+.switch input { width: 20px; height: 20px; accent-color: var(--felt); flex: none; }
+.note { font-size: 0.9rem; color: var(--warn); }
+.note.ok { color: var(--good); }
+.key-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.key-row input { flex: 1 1 220px; min-width: 0; font-family: var(--font-mono); }
+.key-mask { font-family: var(--font-mono); background: var(--surface-2); border-radius: 6px; padding: 6px 10px; overflow-wrap: anywhere; }
+.settings-screen summary { cursor: pointer; font-weight: 600; }
+.prompt { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 0.8rem; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+
+.coach-voice { border-left: 3px solid var(--felt); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
+.coach-voice p { margin: 0; }

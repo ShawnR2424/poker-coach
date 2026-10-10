@@ -23,7 +23,7 @@
   border-radius: 4px;
   padding: 1px 6px;
 }
-.tabs { display: flex; gap: 4px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
 .tabs button { border-color: transparent; background: transparent; padding: 6px 10px; }
 .tabs button.on { background: var(--felt-soft); color: var(--fg); font-weight: 700; }
 .theme-pick select { width: auto; padding: 5px 8px; }
