@@ -7,7 +7,7 @@ import { classifyHand, straightOuts } from '../postflop/classify';
 import { comboCategory, categorizePostflop, POSTFLOP_ORDER } from '../postflop/categories';
 import { narrowPostflop, responseFor } from '../postflop/model';
 import { analyze, gradePostflop, margins, situationFromState, type OptionRow, type PostflopSituation } from '../postflop/recommend';
-import { buildSpot, POSTFLOP_SPOTS, type AnswerKind } from '../postflop/spots';
+import { buildSpot, POSTFLOP_SPOTS, type AnswerKind, type PostflopSpotDef } from '../postflop/spots';
 import type { Action } from '../hand';
 import { pot } from '../hand';
 import { narrowHand } from '../postflop/narrow';
@@ -235,6 +235,34 @@ describe('practice spots', () => {
       }
     });
   }
+});
+
+describe('facing a bet with a bluff-catcher', () => {
+  // A pair that beats only bluffs should call a small river bet, not turn into a bluff-raise.
+  // Raising wins only if better hands fold, and players at these stakes rarely fold a pair to
+  // one raise (facingRaise in actions.json).
+  const def: PostflopSpotDef = {
+    id: 'river-weak-pair', title: '', setup: '', concept: '', hero: 'BB', villain: 'BTN', heroCards: '8h7h', villainCards: 'AsJd',
+    board: 'Kc7d2s 9c 4h', stacksBB: 100, answer: { best: [], mistakes: [] },
+    script: [
+      ['BTN', { type: 'raise', to: 125 }], ['BB', { type: 'call' }], ['BB', { type: 'check' }], ['BTN', { type: 'bet', to: 90 }],
+      ['BB', { type: 'call' }], ['BB', { type: 'check' }], ['BTN', { type: 'check' }], ['BB', { type: 'check' }], ['BTN', { type: 'bet', to: 150 }],
+    ],
+  };
+
+  it('calling a small river bet with a weak pair is not a mistake', () => {
+    const sp = buildSpot(def);
+    const sit = situationFromState(sp.state, sp.hero, sp.villain, sp.villainRange, { heroRange: sp.heroRange, heroPreflopAggressor: sp.heroPreflopAggressor });
+    const a = analyze(sit, comboEquities(sit.hero, sit.board, sp.villainRange));
+    expect(gradePostflop(sit, a, { type: 'call' }).verdict).not.toBe('mistake');
+  });
+
+  it('a player who bet keeps most of their pairs against one raise', () => {
+    for (const cls of ['topPairGood', 'topPairWeak'] as const) {
+      expect(responseFor(cls, 0.3, true, true).fold).toBeLessThan(0.3);
+    }
+    expect(responseFor('air', 0.3, true, true).fold).toBeGreaterThan(0.9);
+  });
 });
 
 describe('narrowing through a whole hand', () => {

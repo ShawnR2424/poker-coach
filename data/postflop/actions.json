@@ -117,17 +117,17 @@
     "betSize": 0.66
   },
   "facingRaise": {
-    "_about": "Multiplier on the continue chance when the player had bet and is now facing a raise. Raises are stronger than bets, so one-pair hands give up more often.",
+    "_about": "Multiplier on the continue chance when the player had bet and is now facing a raise. Raises are stronger than bets, so one-pair hands give up somewhat more often, but players at these stakes rarely fold a pair to a single raise.",
     "continue": {
       "setPlus": 1.0,
       "twoPair": 1.0,
-      "overpair": 0.9,
-      "topPairGood": 0.75,
-      "topPairWeak": 0.5,
-      "middlePair": 0.3,
-      "weakPair": 0.15,
-      "strongDraw": 0.7,
-      "weakDraw": 0.25,
+      "overpair": 1.0,
+      "topPairGood": 0.95,
+      "topPairWeak": 0.85,
+      "middlePair": 0.6,
+      "weakPair": 0.45,
+      "strongDraw": 0.85,
+      "weakDraw": 0.35,
       "air": 0.05
     }
   }

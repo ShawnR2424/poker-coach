@@ -53,7 +53,8 @@ Before the flop an opponent's range is written exactly, since chart weights are 
 - how often it bets small or big when first to act or checked to;
 - how often it continues facing a bet, as a straight line that falls as the bet grows relative to the pot;
 - what share of continuing hands raise;
-- how they respond to an overbet. Past 1.5 times the pot the straight line stops: hands that barely mind bet size (sets, two pair, overpairs, good top pairs) keep calling a huge overbet or shove at close to their rate against a big bet, while weak pairs, draws and air give up.
+- how much less often it continues when it bet and now faces a raise. One-pair hands give up somewhat more often against a raise than against a bet, but players at these stakes rarely fold a pair to a single raise, so turning a pair into a bluff-raise rarely beats calling;
+- how it responds to an overbet. Past 1.5 times the pot the straight line stops: hands that barely mind bet size (sets, two pair, overpairs, good top pairs) keep calling a huge overbet or shove at close to their rate against a big bet, while weak pairs, draws and air give up.
 
 `data/postflop/profiles.json` scales those numbers for four opponent styles: regular, nit, calling station and aggressive. All of these values are estimates of a typical low-stakes pool, not measured from hand histories or taken from a solver.
 

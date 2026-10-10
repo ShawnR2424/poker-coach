@@ -55,7 +55,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
   },
   {
     id: 'bb-turn-draw',
-    concept: 'Semi-bluffing. A raise wins two ways: they fold now, or you hit one of your outs. Calling only wins the second way, so strong draws often earn more by raising than by calling.',
+    concept: 'Semi-bluffing. A raise wins two ways: they fold now, or you hit one of your outs. Calling only wins the second way, but a turn barrel from the cutoff keeps most of its pairs against a raise, so calling and raising come out close. Both beat folding a draw this strong.',
     title: 'Combo draw facing a turn bet',
     setup: 'You defended the big blind against a cutoff open, called a small flop bet, and the 9 on the turn gave you an open-ender to go with your flush draw. Now you face a two-thirds pot bet.',
     hero: 'BB',
@@ -73,7 +73,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['BB', { type: 'check' }],
       ['CO', { type: 'bet', to: 300 }],
     ],
-    answer: { best: ['raise'], mistakes: [] },
+    answer: { best: ['call', 'raise'], mistakes: ['allIn'] },
   },
   {
     id: 'btn-river-catch',
