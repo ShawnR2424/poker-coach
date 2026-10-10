@@ -9,8 +9,8 @@ import {
   ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, NUM_COMBOS, cellOf, comboIndex, type HandClass, type Range,
 } from '../range';
 import { randInt, type Rng } from '../rng';
-import { CHARTS, classFrequencies, getStrategy, type Choice, type SpotKind } from './charts';
-import { botAction, choiceToAction, depthOf, type PreflopOptions } from './policy';
+import { CHARTS, classFrequencies, type Choice, type SpotKind } from './charts';
+import { botAction, choiceToAction, chartStrategy, type PreflopOptions } from './policy';
 import { spotFor } from './spot';
 
 export type PracticeSpot = 'rfi' | 'vsOpen' | 'squeeze' | 'vs3bet' | 'vs4bet';
@@ -103,7 +103,7 @@ function drawCombo(weights: Range, dead: Set<Card>, rng: Rng): [Card, Card] | nu
 }
 
 function choiceWeights(kind: SpotKind, key: string, choice: Choice, opts: PreflopOptions): Range {
-  const s = getStrategy(kind, key, 'pool', opts.lowStakes, depthOf(opts));
+  const s = chartStrategy(kind, key, 'pool', opts);
   if (choice === 'raise') return s.raise;
   if (choice === 'call') return s.call;
   const out = new Float32Array(NUM_COMBOS);
@@ -116,7 +116,7 @@ function choiceWeights(kind: SpotKind, key: string, choice: Choice, opts: Preflo
  * a range get most of the weight, clear folds very little.
  */
 export function interestingWeights(kind: SpotKind, key: string, opts: PreflopOptions): Range {
-  const s = getStrategy(kind, key, 'hero', opts.lowStakes, depthOf(opts));
+  const s = chartStrategy(kind, key, 'hero', opts);
   const dominant = new Map<HandClass, Choice>();
   const mixed = new Set<HandClass>();
   for (const cls of ALL_CLASSES) {
@@ -253,7 +253,7 @@ function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario
   // The hero's hand: interesting for the decision they will face.
   let heroWeights = interestingWeights(heroKind, heroKey, opts);
   if (opts.heroContinues) {
-    const st = getStrategy(heroKind, heroKey, 'hero', opts.lowStakes, depthOf(opts));
+    const st = chartStrategy(heroKind, heroKey, 'hero', opts);
     heroWeights = heroWeights.map((w, i) => w * Math.min(1, st.raise[i] + st.call[i]));
   }
   const heroCombo = drawCombo(heroWeights, dead, rng);
@@ -288,7 +288,7 @@ function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario
       plannedHands.push({ seat, weights: choiceWeights(spotHere.kind, spotHere.key, choice, opts) });
     } else if (seat === heroSeat) {
       // Hero's earlier action must be consistent with their hand.
-      const st = getStrategy(spotHere.kind, spotHere.key, 'hero', opts.lowStakes, depthOf(opts));
+      const st = chartStrategy(spotHere.kind, spotHere.key, 'hero', opts);
       const ci = comboIndex(heroCombo[0], heroCombo[1]);
       const f = choice === 'raise' ? st.raise[ci] : choice === 'call' ? st.call[ci] : 1 - st.raise[ci] - st.call[ci];
       if (f <= 0) return null;

@@ -8,6 +8,7 @@ import vs4betJson from '../../../data/preflop/vs-4bet.json';
 import otherJson from '../../../data/preflop/other.json';
 import lowstakesJson from '../../../data/preflop/lowstakes.json';
 import depthJson from '../../../data/preflop/depth.json';
+import rakeJson from '../../../data/preflop/rake.json';
 import { CLASS_COMBOS, NUM_COMBOS, parseRange, type HandClass, type Range } from '../range';
 import type { Position } from '../positions';
 
@@ -48,6 +49,8 @@ interface Rule {
   hands: string;
   scale: number;
   note: string;
+  /** Chart keys the rule is limited to (a trailing '*' matches any ending); every key when absent. */
+  keys?: string[];
 }
 
 const strip = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_')));
@@ -93,14 +96,27 @@ const SAME_SIZES: DepthSizes = { rfiMax: 99, raiseScale: 1, fourBetScale: 1, fou
 export const depthRules = (depth: Depth): Rule[] => (depth === 100 ? [] : DEPTH_LAYER[depth].rules);
 export const depthSizes = (depth: Depth): DepthSizes => (depth === 100 ? SAME_SIZES : DEPTH_LAYER[depth].sizes);
 
+/** Rules for a table with a rake (5% capped at 3bb on the Play tab). */
+export const RAKE_RULES = rakeJson.rules as Rule[];
+
+/** A key pattern is a chart key, or a prefix ending in '*' ("BB_vs_*"). */
+const keyMatches = (pattern: string, key: string) => (pattern.endsWith('*') ? key.startsWith(pattern.slice(0, -1)) : key === pattern);
+const ruleFits = (rule: Rule, kind: SpotKind, key: string) =>
+  rule.spot === kind && (!rule.keys || rule.keys.some((k) => keyMatches(k, key)));
+
+/** The note of the rake rule that changes `combo` in this chart entry, if one does. */
+export function rakeNoteFor(kind: SpotKind, key: string, combo: number): string | null {
+  return RAKE_RULES.find((r) => ruleFits(r, kind, key) && parseRange(r.hands)[combo] > 0)?.note ?? null;
+}
+
 const cache = new Map<string, Strategy>();
 
 /**
- * Strategy for a chart entry at a stack depth, with the depth layer applied for everyone and the
- * low-stakes layer for `audience` applied when `lowStakes` is on.
+ * Strategy for a chart entry at a stack depth, with the depth layer and (when `raked`) the rake
+ * layer applied for everyone, then the low-stakes layer for `audience` when `lowStakes` is on.
  */
-export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'baseline', lowStakes = true, depth: Depth = 100): Strategy {
-  const ck = `${kind}|${key}|${audience}|${lowStakes}|${depth}`;
+export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'baseline', lowStakes = true, depth: Depth = 100, raked = false): Strategy {
+  const ck = `${kind}|${key}|${audience}|${lowStakes}|${depth}|${raked}`;
   const hit = cache.get(ck);
   if (hit) return hit;
   const entry = CHARTS[kind][key];
@@ -108,13 +124,13 @@ export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'b
   const raise = parseRange(entry.raise);
   const call = parseRange(entry.call ?? '');
   const notes: string[] = [];
-  for (const rule of depthRules(depth)) {
-    if (rule.spot !== kind) continue;
+  for (const rule of [...depthRules(depth), ...(raked ? RAKE_RULES : [])]) {
+    if (!ruleFits(rule, kind, key)) continue;
     if (applyRule(raise, call, rule)) notes.push(rule.note);
   }
   if (lowStakes && audience !== 'baseline') {
     for (const rule of LOWSTAKES[audience]) {
-      if (rule.spot !== kind) continue;
+      if (!ruleFits(rule, kind, key)) continue;
       if (applyRule(raise, call, rule)) notes.push(rule.note);
     }
   }

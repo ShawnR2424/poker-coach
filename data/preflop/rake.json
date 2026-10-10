@@ -1,0 +1,48 @@
+{
+  "_about": "Rake layer, applied to every chart when the table has a rake (the Play tab's 5% capped at 3bb), after the stack depth layer and before the low-stakes layer. Rules have the same form as lowstakes.json: each moves a share ('scale') of one action's weight to another for the listed hands. 'keys' limits a rule to chart entries whose key matches one of them (a trailing '*' matches any ending); without it the rule applies to every entry of its spot. The rake is taken only from pots that see a flop, so it taxes hands that win small pots after the flop and leaves pots won before the flop alone: the blinds defend tighter, thin cold calls and the weakest steals fold more, and the big blind 3-bets a little more of its best calls. All values are estimates, not solver output.",
+  "rules": [
+    {
+      "spot": "vsOpen",
+      "keys": ["BB_vs_*"],
+      "from": "call",
+      "to": "fold",
+      "hands": "K5s-K2s, Q6s-Q2s, J6s-J4s, T6s, 95s, 85s, 84s, 74s, 64s, 63s, 53s, 43s, A6o-A2o, K8o-K5o, Q9o-Q8o, J8o, T8o, 97o, 98o, 87o, 76o",
+      "scale": 0.6,
+      "note": "The rake comes out of every pot that sees a flop, so the big blind defends fewer weak offsuit and low suited hands."
+    },
+    {
+      "spot": "vsOpen",
+      "keys": ["BB_vs_*"],
+      "from": "call",
+      "to": "raise",
+      "hands": "99-77, ATs, KJs, QJs, AJo, KQo",
+      "scale": 0.25,
+      "note": "Pots won before the flop are not raked, so the big blind 3-bets a little more of its best calling hands."
+    },
+    {
+      "spot": "vsOpen",
+      "keys": ["HJ_vs_*", "CO_vs_*", "BTN_vs_*", "EP_vs_*", "UTG_vs_*"],
+      "from": "call",
+      "to": "fold",
+      "hands": "66-22, A9s-A6s, K9s, Q9s, J9s, T8s, 87s, 76s, 65s, 54s, ATo, KJo",
+      "scale": 0.4,
+      "note": "Cold calls with small pairs, suited connectors and weak aces win mostly small pots after the flop, which the rake taxes, so make fewer of them."
+    },
+    {
+      "spot": "rfi",
+      "from": "raise",
+      "to": "fold",
+      "hands": "K4s-K2s, Q5s-Q2s, J5s-J4s, T6s, 96s, 85s, 74s, 63s, 53s, 43s, A4o-A2o, K8o, Q9o, J8o, T8o, 98o, 87o",
+      "scale": 0.4,
+      "note": "When the weakest steals get called, the pot is raked, so open a little tighter from the late seats."
+    },
+    {
+      "spot": "vsLimp",
+      "from": "call",
+      "to": "fold",
+      "hands": "66-22, A9s-A6s, K9s-K8s, QTs-Q9s, JTs, T9s, 98s, 87s, 76s, 65s, 54s",
+      "scale": 0.5,
+      "note": "Limped pots are small and still pay rake, so over-limp half as often."
+    }
+  ]
+}

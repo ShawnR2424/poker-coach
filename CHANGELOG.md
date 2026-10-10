@@ -2,6 +2,18 @@
 
 Each milestone was merged as its own pull request.
 
+## Rake-aware charts
+
+- With the rake on, every preflop chart gets a rake layer (`data/preflop/rake.json`), for the hero's recommendations, the opponents and the range reads alike. The rake is taken only from pots that see a flop, so the layer taxes hands that win small pots after the flop:
+  - the big blind defends fewer weak offsuit and low suited hands, and 3-bets a little more of its best calls, since pots won before the flop are not raked;
+  - cold calls with small pairs, suited connectors and weak aces fold more;
+  - the weakest steals from the late seats fold more, and over-limps are halved;
+  - 3-bet, 4-bet and all-in charts do not change, since those pots reach the 3bb cap quickly.
+- At 100bb the button opens 42.9% of hands instead of 48.1%, and the big blind defends 39.8% instead of 50.7% against a button open; UTG and hijack opens are unchanged.
+- The preflop feedback says when the rake moved the chart's play with your hand, and why.
+- Rules can now be limited to some chart keys (`keys`, such as `BB_vs_*`). Every chart lookup goes through `chartStrategy`, which applies the depth, rake and low-stakes layers from the table options; replays read the rake from the hand's own settings.
+- New `rakeCharts.test.ts` checks that every rule reaches a chart, that raked strategies stay valid at every depth and audience, that the layer only tightens and leaves 3-bet and 4-bet charts alone, where it tightens most, and the feedback note.
+
 ## Range quizzes
 
 - New Quizzes tab. Each quiz deals a 6-max, 100bb line: an opponent opens and you call, or you open and they call or 3-bet and you call. You paint their range on the 13x13 grid (tap a hand, drag across a stretch, or use the keyboard), then a flop comes and you estimate your equity against that range with a slider.

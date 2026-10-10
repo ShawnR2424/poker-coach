@@ -141,7 +141,15 @@ With two or more opponents still in:
 
 - With the rake on, the house takes 5% of each pot, rounded down to the chip and capped at 3bb, when the flop has been dealt. A hand that ends before the flop pays none. Pots won without a showdown after the flop are raked. Chips only one player could win, such as an uncalled all-in excess, are not raked, and the rake is shared over the main and side pots in proportion to their size, with any odd chip from the main pot.
 - After the flop, the EV of each option values every pot the hero can win after the rake comes out of it: a pot of P is worth P minus its rake. Value from later streets keeps 95% of each further chip while the pot is below the cap and all of it once the cap is reached, judged at the pot the hand goes on with. Folding is still worth zero, so the rake makes thin calls and thin value bets worth less and never makes any option worth more.
-- The preflop charts are the same with and without the rake. A raked game favours slightly tighter play, mostly from the blinds, which the charts do not reflect.
+- With the rake on, everyone plays rake-adjusted preflop charts: the hero's recommendations, the opponents and the range reads alike. The layer in `data/preflop/rake.json` applies after the stack depth layer and before the low-stakes one. Because only pots that see a flop are raked, it taxes hands that make their money in small pots after the flop and leaves pots won before the flop alone:
+  - The big blind defends fewer weak offsuit and low suited hands (60% of them fold), and 3-bets a quarter of its best calls (99-77, ATs, KJs, QJs, AJo, KQo) instead of flatting.
+  - Cold calls in position with small pairs, suited connectors, weak suited aces, ATo and KJo fold 40% of the time.
+  - The weakest steals from the cutoff, button and small blind fold 40% of the time; early-position opens do not change.
+  - Over-limps behind limpers are halved.
+  - 3-bet, 4-bet, squeeze and all-in charts do not change: those pots reach the 3bb cap quickly, so the rake costs them little.
+  - At 100bb the button opens 42.9% of hands instead of 48.1%, the small blind 39.8% instead of 43.0%, and the big blind defends 39.8% instead of 50.7% against a button open and 41.3% instead of 54.1% against a small-blind open; UTG and hijack opens are unchanged.
+- When the rake moved the chart's play with the hero's hand by 5% or more, the preflop feedback says so, with the reason.
+- These are estimates of the direction and rough size of a rake's effect, not solver output for this exact rake.
 - Imported hands are graded without the rake, since each site's rake differs; their results come from what the history says was collected, so they are after the site's rake.
 
 ## Session tracking
