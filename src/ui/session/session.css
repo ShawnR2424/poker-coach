@@ -73,3 +73,30 @@ table.hands .verdicts { white-space: nowrap; letter-spacing: 1px; }
 .file-pick:focus-within { outline: 2px solid var(--felt); outline-offset: 2px; }
 .skipped summary { cursor: pointer; font-weight: 600; }
 .skipped ul { margin: 6px 0 0; padding-left: 1.2em; }
+
+/* Progress across sessions. */
+.progress { display: grid; gap: 16px; }
+.progress > p { margin: 0; }
+.chart { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.chart figcaption { font-size: 0.9rem; }
+.chart-box { position: relative; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .tick { fill: var(--fg-muted); font-size: 11px; font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+.chart .bar-label { fill: var(--fg); font-size: 11px; font-family: var(--font-body); }
+.chart .session-line { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.6; }
+.chart .trend-line { fill: none; stroke: var(--felt); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .trend-end { fill: var(--felt); stroke: var(--surface); stroke-width: 2; }
+.chart .crosshair { stroke: var(--fg-muted); stroke-width: 1; pointer-events: none; }
+.chart .ev-bar { fill: var(--felt); }
+.chart .ev-bar.on { fill: color-mix(in srgb, var(--felt) 75%, var(--fg)); }
+.chart-tip {
+  position: absolute; top: 0; transform: translateX(-50%); pointer-events: none; max-width: min(18rem, 90%);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 0.8rem;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--fg) 15%, transparent);
+}
+table.leak-grid td.n { min-width: 2.6em; text-align: center; }
+table.leak-grid .heat-1 { background: color-mix(in srgb, var(--felt) 15%, var(--surface)); }
+table.leak-grid .heat-2 { background: color-mix(in srgb, var(--felt) 30%, var(--surface)); }
+table.leak-grid .heat-3 { background: color-mix(in srgb, var(--felt) 45%, var(--surface)); }
+table.leak-grid .heat-4 { background: color-mix(in srgb, var(--felt) 60%, var(--surface)); font-weight: 700; }

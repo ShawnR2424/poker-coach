@@ -2,6 +2,18 @@
 
 Each milestone was merged as its own pull request.
 
+## Progress charts
+
+- The Session tab has a Progress panel covering every saved session in the order they were played:
+  - **Mistake rate**, a line of the share of mistakes over the latest 50 graded decisions after each hand, with a dashed line where each new session started.
+  - **EV given up after the flop**, a bar per session of the big blinds of EV given up against the best play per 100 hands.
+  - **Leaks by session**, a table of the six most frequent leaks with how often each showed up per 100 graded decisions in each session, shaded by frequency, and whether it is fixed now.
+  - The same per-session numbers in a table, and a tooltip on each chart.
+- Each postflop decision now records the EV it gave up against the best play, in big blinds, at the practice table and in imported hands. Hands saved before this change have no such record, so the EV chart counts each session from the first hand that has one.
+- The charts draw at their real width, so their labels stay legible on a phone.
+- New `progress.test.ts` checks session order, the mistake rate and its window, EV given up per 100 hands, and leaks by session on hand-built sessions. The smoke test checks the panel, the line, a bar for the session just played, the hover tooltip and the table after the hands it plays.
+- Pages: the app is published at https://shawnr2424.github.io/poker-coach/ and redeployed on every merge to main.
+
 ## Install as an app
 
 - The trainer is now a progressive web app. Opened from a web address, it can be installed to a phone's home screen or a computer's dock, opens in its own window, and works offline: hands, spots, sessions, replays and imports all run without a connection. The Claude coach voice still needs one.

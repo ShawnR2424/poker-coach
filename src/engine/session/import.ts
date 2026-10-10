@@ -370,6 +370,7 @@ export function gradeReplay(r: HandReplay): DecisionRecord[] {
         out.push({
           label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
           atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
+          lossBB: g.loss / sit.bb,
         });
       } else {
         const sit = multiwaySituationFromState(s, r.hero, views, { heroRange, heroPreflopAggressor });
@@ -378,6 +379,7 @@ export function gradeReplay(r: HandReplay): DecisionRecord[] {
         out.push({
           label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
           atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
+          lossBB: g.loss / sit.bb,
         });
       }
     } catch {

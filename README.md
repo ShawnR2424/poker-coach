@@ -14,6 +14,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Rake.** An optional rake of 5% capped at 3bb comes out of every pot that sees a flop. Results are after rake, and the postflop best play counts what you keep, so thin calls and thin value bets are worth less.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
+- **Progress charts.** The Session tab charts your mistake rate over the latest 50 graded decisions across every saved session, the EV you gave up after the flop per 100 hands in each session, and how often each of your most frequent leaks showed up in each session, with the same numbers in a table.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
 - **Import your own hands.** Paste hand histories from PokerStars or GGPoker (or open a saved .txt file) on the Import tab. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt and every decision you made is graded with the same charts and postflop model as the Play tab. Save them as a session to get the Session tab's leaks and a replay of each hand; their leaks then steer leak-targeted practice. A Try sample hands button shows how it works.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
@@ -64,7 +65,7 @@ The production build is a progressive web app: `public/manifest.webmanifest` nam
 
 Browsers only install an app served over HTTPS (or from `localhost`), so it has to be opened from a web address:
 
-- **GitHub Pages.** `.github/workflows/pages.yml` builds and publishes the app on every push to main once Pages is switched on (Settings > Pages > Source: GitHub Actions). It is skipped until then.
+- **GitHub Pages.** The app is published at <https://shawnr2424.github.io/poker-coach/>. `.github/workflows/pages.yml` builds and publishes it on every push to main while Pages is switched on (Settings > Pages > Source: GitHub Actions), and is skipped when it is off.
 - **Any static host.** Upload the contents of `dist/` after `npm run build`.
 - **Locally.** `npm run build && npm run preview` serves the build on `localhost`, which browsers also let you install.
 
@@ -109,6 +110,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   game/levels.ts           Practice levels, hand generation, leak-targeted spot mix, hand flow
   game/drills.ts           Practice hands that reach the spot of a postflop leak
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
+  session/progress.ts      Mistake-rate trend, EV given up per session and leaks by session, across saved sessions
   session/replay.ts        Compact hand records and the replay that rebuilds each hand from them
   session/adapt.ts         The hero's postflop tendencies and how opponents adjust to them
   session/import.ts        Reads pasted hand histories, rebuilds each hand and grades the hero's decisions
@@ -140,6 +142,7 @@ docs/                    Model notes and spec coverage
 - With the rake on, stacks plus rake add up to the starting chips over hundreds of random hands, nothing is raked before the flop or from an uncalled excess, and a raked hand replays to the same result. The rake never makes an option's EV higher, leaves folding at zero and never costs more than the cap, heads-up and multiway.
 - The production build passes Chromium's installability check (manifest, icons, service worker), and with the network off it still opens and plays a hand. The smoke test checks this.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
+- The progress numbers are checked on hand-built sessions: sessions come in the order played, the rolling mistake rate follows its window across sessions, EV given up per 100 hands counts only hands that recorded it, and each leak's rate per session matches its count. The smoke test checks the charts after the hands it plays, including the hover tooltip.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

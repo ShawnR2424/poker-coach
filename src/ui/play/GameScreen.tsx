@@ -348,6 +348,7 @@ export function GameScreen() {
         step: stepOf(state),
         move: action.type as PostflopMove,
         bestMove: analysis.best.option.kind,
+        lossBB: grade.loss / postSit.bb,
       }]);
     }
     setPhase('feedback');
