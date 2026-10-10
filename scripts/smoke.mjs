@@ -48,6 +48,10 @@ async function playHand(page, where) {
     if ((await page.$('#pf-rr, #mw-rr')) && !(await page.$('.range-read .hero-read'))) {
       failures.push(`${where}: a postflop read has no "What your line says" section`);
     }
+    if (await page.$('#pf-rr, #mw-rr')) {
+      const texts = await page.$$eval('.opp', (ops) => ops.map((o) => o.querySelector('.range-text code')?.textContent ?? ''));
+      if (!texts.length || texts.some((t) => !t)) failures.push(`${where}: a postflop opponent panel has no range text`);
+    }
     const buttons = await page.$$('.action-bar .act:not([type=submit])');
     await buttons[Math.floor(Math.random() * buttons.length)].click();
     await page.waitForFunction(

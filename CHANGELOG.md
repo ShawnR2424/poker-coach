@@ -2,6 +2,11 @@
 
 Each milestone was merged as its own pull request.
 
+## Opponent ranges in notation after the flop
+
+- Each opponent panel after the flop now writes the narrowed range in standard notation, as the preflop read does: the hands it still holds most of, then the ones it holds some of. Hands left at low weight stay in the grid but are left out of the text, and the panel says so.
+- Tests check that the text is valid notation for exactly the hands it names, that it names nothing the grid leaves empty, and that it leaves out only low-weight hands. They run on every practice spot and on real decisions at every postflop level. The smoke test checks that every postflop opponent panel shows the text.
+
 ## Postflop leak practice
 
 - "Practice my leaks" now covers postflop leaks too. For an open postflop leak, the trainer plays the hero's earlier decisions with its default strategy and deals the hand straight to a decision where that leak can happen: a checked-to-you spot with a strong hand for "missed value bet", a bet facing a hand worth continuing with for "overfolding", and so on. The leak-practice note says when earlier decisions were made for you, and those are not graded.

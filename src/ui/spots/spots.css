@@ -65,3 +65,7 @@
 .ra-bar > span { display: block; height: 100%; background: var(--felt); }
 .ra-mostly { margin: 0; font-size: 0.85rem; color: var(--fg-muted); }
 .range-actions .model-note { font-size: 0.85rem; color: var(--fg-muted); margin: 0; max-width: 65ch; }
+
+/* Approximate range text on a postflop opponent panel. */
+div.range-text { display: grid; gap: 2px; }
+div.range-text p { margin: 0; }
