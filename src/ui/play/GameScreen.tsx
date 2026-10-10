@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { preflopCategory, categorizeRange, type CellCategory, type PreflopCategory } from '../../engine/categories';
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
-import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
+import { practiceHand } from '../../engine/game/drills';
+import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, type GameHand, type LevelId } from '../../engine/game/levels';
 import { applyAction, legalActions, type Action, type HandState } from '../../engine/hand';
 import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
@@ -114,7 +115,7 @@ export function GameScreen() {
   const opts = useMemo(() => ({ lowStakes, ...table }), [lowStakes, table]);
   const [focusLeaks, setFocusLeaks] = useState(loadFocus);
   const leaksFor = (on = focusLeaks) => (on ? openLeaks(currentHands()) : []);
-  const [game, setGame] = useState<GameHand>(() => newGameHand(loadLevel(), rngRef.current, { lowStakes: true, ...loadTable() }, leaksFor(loadFocus())));
+  const [game, setGame] = useState<GameHand>(() => practiceHand(loadLevel(), rngRef.current, { lowStakes: true, ...loadTable() }, leaksFor(loadFocus())));
   const [state, setState] = useState<HandState>(game.state);
   const hero = game.hero;
   const [phase, setPhase] = useState<Phase>('decide');
@@ -126,7 +127,7 @@ export function GameScreen() {
   const heroToAct = phase === 'decide' && state.toAct === hero;
 
   const nextHand = (lvl: LevelId = level, o = opts) => {
-    const g = newGameHand(lvl, rngRef.current, o, leaksFor());
+    const g = practiceHand(lvl, rngRef.current, o, leaksFor());
     setGame(g);
     const s0 = advance(g, g.state, rngRef.current, o);
     setState(s0);
@@ -376,7 +377,14 @@ export function GameScreen() {
         <button type="button" onClick={() => nextHand()}>New hand</button>
       </div>
       <SessionStrip level={level} onLevel={changeLevel} />
-      {game.focus && <p className="focus-note small"><span className="eyebrow">Leak practice</span> This spot is where “{game.focus}” tends to show up.</p>}
+      {game.focus && (
+        <p className="focus-note small">
+          <span className="eyebrow">Leak practice</span>{' '}
+          {game.drilled
+            ? `This hand was played up to a decision where “${game.focus}” can show up. Your earlier decisions were made for you by the trainer's default strategy and aren't graded.`
+            : `This spot is where “${game.focus}” tends to show up.`}
+        </p>
+      )}
       {level > 1 && (
         <p className="muted small level-note">
           {level === 2 ? 'You play preflop and the flop; the turn and river are checked down. ' : ''}
@@ -437,6 +445,7 @@ export function GameScreen() {
             error={hu.error}
             comboReason={postCtx.comboReason}
             heroLine={postCtx.heroLine}
+            folded={folded}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
         </>
@@ -451,6 +460,7 @@ export function GameScreen() {
             error={mw.error}
             comboReason={postCtx.comboReason}
             heroLine={postCtx.heroLine}
+            folded={folded}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
         </>

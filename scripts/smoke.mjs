@@ -120,6 +120,19 @@ for (const vp of VIEWPORTS) {
   await page.selectOption('#table-size', '6');
   await page.selectOption('#stakes', '50');
 
+  // "Practice my leaks" on: the random play above has opened leaks, so some hands are built to
+  // reach a postflop leak's spot. Every turn must still be playable.
+  await page.check('#focusleaks');
+  await page.selectOption('#level', '3');
+  let drills = 0;
+  for (let h = 0; h < HANDS; h++) {
+    const note = await page.$eval('.focus-note', (e) => e.textContent).catch(() => '');
+    if (note.includes('played up to a decision')) drills++;
+    if (!(await playHand(page, `${tag}, leak practice, hand ${h + 1}`))) break;
+    played++;
+  }
+  await page.uncheck('#focusleaks');
+
   // Sessions survive a reload and show up on the review screen.
   const before = await page.$eval('.session-link', (e) => e.textContent);
   await page.reload();
@@ -183,7 +196,7 @@ for (const vp of VIEWPORTS) {
     if (sent.body.model !== 'claude-opus-5-5') failures.push(`${tag}: the request used model ${sent.body.model}`);
   }
 
-  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed, ${rows} in the session, ${spots.length} spots, ${requests.length} mocked coach requests`);
+  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session, ${spots.length} spots, ${requests.length} mocked coach requests`);
   await ctx.close();
 }
 

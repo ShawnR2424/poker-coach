@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { comboEquities } from '../equity';
-import { advance, heroDecides, LEVEL_IDS, LEVELS, liveVillains, newGameHand, type GameHand } from '../game/levels';
+import { POSTFLOP_DRILLS, practiceHand } from '../game/drills';
+import { advance, heroDecides, LEAK_SPOTS, LEVEL_IDS, LEVELS, liveVillains, newGameHand, type GameHand } from '../game/levels';
 import { applyAction, legalActions, type Action, type HandState } from '../hand';
 import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiway';
 import { postflopHeroLine, rangeActions } from '../postflop/heroRange';
@@ -79,14 +80,14 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
 }
 
 /** Plays `seeds` random hands per level at one table setup; returns how many hero turns of each kind came up. */
-function playLevels(table: TableOptions, seeds: number, minTurns: number) {
+function playLevels(table: TableOptions, seeds: number, minTurns: number, leaks: { tag: string; weight: number }[] = []) {
   const all = new Map<string, number>();
   for (const level of LEVEL_IDS) {
     const kinds = new Map<string, number>();
     let turns = 0;
     for (let seed = 1; seed <= seeds; seed++) {
       const rng = makeRng(seed * 104729 + level + (table.tableSize ?? 6) * 7);
-      const g = newGameHand(level, rng, { ...opts, ...table });
+      const g = leaks.length ? practiceHand(level, rng, { ...opts, ...table }, leaks) : newGameHand(level, rng, { ...opts, ...table });
       expect(g.state.players.length).toBe(table.tableSize ?? 6);
       expect(g.state.config.bb).toBe(table.bb ?? 50);
       let s = advance(g, g.state, rng, opts);
@@ -122,6 +123,11 @@ function playLevels(table: TableOptions, seeds: number, minTurns: number) {
 describe('every hero turn can be acted on', () => {
   it('at 6-max $0.25/$0.50, on every level', () => {
     playLevels({}, 40, 40);
+  });
+
+  it('with "Practice my leaks" on and every leak open, including postflop drills', () => {
+    const tags = [...new Set([...Object.keys(LEAK_SPOTS), ...Object.keys(POSTFLOP_DRILLS)])];
+    playLevels({}, 10, 10, tags.map((tag, i) => ({ tag, weight: 1 + (i % 3) })));
   });
 
   for (const tableSize of [7, 8, 9]) {

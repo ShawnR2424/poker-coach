@@ -190,6 +190,13 @@ interface ReadProps {
   comboReason?: string;
   /** What the hero's own line says to the opponents. */
   heroLine?: string;
+  /** Positions of players who have folded, other than the hero. */
+  folded?: string[];
+}
+
+function FoldedLine({ folded }: { folded?: string[] }) {
+  if (!folded?.length) return null;
+  return <p className="folded-line muted">{folded.join(', ')} folded and {folded.length === 1 ? 'is' : 'are'} out.</p>;
 }
 
 function HeroLineRead({ text }: { text?: string }) {
@@ -202,7 +209,7 @@ function HeroLineRead({ text }: { text?: string }) {
   );
 }
 
-export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, comboReason, heroLine }: ReadProps) {
+export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, comboReason, heroLine, folded }: ReadProps) {
   return (
     <section className="range-read" aria-labelledby="pf-rr">
       <div className="rr-head">
@@ -211,6 +218,7 @@ export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, 
       </div>
       <OpponentPanel view={view} sit={sit} eqs={eqs} breakdown={breakdown} comboReason={comboReason} />
       <Summary analysis={analysis} label="Your equity vs this range" />
+      <FoldedLine folded={folded} />
       <HeroLineRead text={heroLine} />
       {analysis && breakdown && (
         <div className="nudge">
@@ -231,10 +239,11 @@ interface MultiProps {
   error: string | null;
   comboReason?: string;
   heroLine?: string;
+  folded?: string[];
 }
 
 /** One panel per opponent, a note on how their actions interact, and equity against all of them. */
-export function MultiwayReadPanel({ sit, views, note, result, error, comboReason, heroLine }: MultiProps) {
+export function MultiwayReadPanel({ sit, views, note, result, error, comboReason, heroLine, folded }: MultiProps) {
   const breakdowns = useMemo(
     () => (result ? views.map((v, j) => categorizePostflop(v.range, sit.hero, sit.board, result.comboEqs[j])) : null),
     [result, views, sit],
@@ -258,6 +267,7 @@ export function MultiwayReadPanel({ sit, views, note, result, error, comboReason
         />
       ))}
       <Summary analysis={analysis} label="Your equity vs everyone" />
+      <FoldedLine folded={folded} />
       <HeroLineRead text={heroLine} />
       {analysis && breakdowns && (
         <div className="nudge">

@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Postflop leak practice
+
+- "Practice my leaks" now covers postflop leaks too. For an open postflop leak, the trainer plays the hero's earlier decisions with its default strategy and deals the hand straight to a decision where that leak can happen: a checked-to-you spot with a strong hand for "missed value bet", a bet facing a hand worth continuing with for "overfolding", and so on. The leak-practice note says when earlier decisions were made for you, and those are not graded.
+- Before, every leak only steered the preflop spot, so postflop leaks rarely got practiced and could stay open.
+- The postflop range read now notes which players have folded, as the preflop read does.
+- Tests check that each drill stops where its leak can actually be tagged and that the hand plays on normally from there. The hand-flow test plays every level with every leak open, and the smoke test plays hands with "Practice my leaks" switched on.
+
 ## Your range after the flop
 
 - The postflop range read now has a "What your line says" section for the hero, as it already did before the flop. It says whether the hero's last action caps the range or keeps it uncapped, compares the share of two pair or better in the hero's range with the strongest opponent's, and says how many of the opponents' two pair or better combos the hero's cards block, including the nut flush blocker.

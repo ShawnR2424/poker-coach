@@ -103,7 +103,10 @@ With two or more opponents still in:
 
 - Level 1 stops at the flop. Level 2 checks down the turn and river.
 - Level 6 deals hands that reach the river with a medium-strength hero hand. The earlier streets are played automatically by the same bots, and only the river decision is graded.
-- "Practice my leaks" only steers which preflop spot a hand starts from. It does not construct specific postflop situations.
+- "Practice my leaks" works on about half the new hands, picking an open leak in proportion to how often it has come up.
+  - A preflop leak leans the mix of preflop spots toward the ones where it shows up.
+  - A postflop leak (for example a missed value bet, overfolding or a donk bet into the preflop raiser) gets a drill hand on levels 2, 3, 4 and 6. The trainer plays the hero's earlier decisions with the bots' strategy, as level 6 does, and stops at the first decision where that leak's tag is one a wrong action would earn there, using the same grading as the feedback. Those earlier decisions are not graded. Level 6 drills only stop on the river, and level 5 (multiway) uses the spot mix only.
+  - If no such decision turns up within a short search (some leaks, such as a sunk-cost call, need a lot of the stack already in the pot and are rare in single-raised pots), the hand falls back to the spot mix.
 
 ## Session tracking
 
