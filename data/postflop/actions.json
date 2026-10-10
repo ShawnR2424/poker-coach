@@ -28,7 +28,9 @@
     }
   },
   "facingBet": {
-    "_about": "Chance to continue facing a bet of size f (bet divided by the pot before the bet): base - slope * f, clipped to 0..1. 'raise' is the share of continuing hands that raise; the rest call.",
+    "_about": "Chance to continue facing a bet of size f (bet divided by the pot before the bet): base - slope * f, clipped to 0..1. Past maxSize (an overbet), the line stops and the chance instead shrinks by (maxSize / f) ^ (overbetDecay * slope): hands that barely mind bet size (sets, overpairs, good top pairs) keep calling a huge overbet or shove at nearly the same rate, while weak pairs, draws and air give up. 'raise' is the share of continuing hands that raise; the rest call.",
+    "maxSize": 1.5,
+    "overbetDecay": 6,
     "base": {
       "setPlus": 1.0,
       "twoPair": 1.0,
@@ -109,6 +111,10 @@
       "weakDraw": 0.01,
       "air": 0.02
     }
+  },
+  "laterStreets": {
+    "_about": "Value a hand that is ahead adds on the streets still to come when the hand does not end now. Each later street gets one bet of betSize times the pot (capped by the stacks). Against each opponent hand the hero beats more often than not, the hero wins (2 * equity - 1) of those bets times the chance that hand calls a bet of that size (facingBet). Hands that are behind are assumed to give up rather than pay off, so they add nothing.",
+    "betSize": 0.66
   },
   "facingRaise": {
     "_about": "Multiplier on the continue chance when the player had bet and is now facing a raise. Raises are stronger than bets, so one-pair hands give up more often.",

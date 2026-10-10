@@ -12,9 +12,10 @@ type ByClass = Record<PostflopClass, number>;
 export const ACTIONS = table as unknown as {
   firstToAct: { betSmall: ByClass; betBig: ByClass };
   leadIntoAggressor: { betSmall: ByClass; betBig: ByClass };
-  facingBet: { base: ByClass; slope: ByClass; raise: ByClass };
+  facingBet: { base: ByClass; slope: ByClass; raise: ByClass; maxSize: number; overbetDecay: number };
   facingRaise: { continue: ByClass };
   realization: { inPosition: number; outOfPosition: number; byClass: ByClass };
+  laterStreets: { betSize: number };
 };
 
 export type ProfileId = 'regular' | 'nit' | 'station' | 'aggro';
@@ -46,7 +47,10 @@ const clip01 = (x: number) => Math.min(1, Math.max(0, x));
  */
 export function continueProb(cls: PostflopClass, f: number, beingRaised = false, profile: Profile = DEFAULT): number {
   const add = STYLE_FREE.has(cls) ? 0 : profile.continueAdd;
-  const p = clip01(ACTIONS.facingBet.base[cls] + add - ACTIONS.facingBet.slope[cls] * f);
+  const { base, slope, maxSize, overbetDecay } = ACTIONS.facingBet;
+  let p = clip01(base[cls] + add - slope[cls] * Math.min(f, maxSize));
+  // Past an overbet, the straight line would fold even overpairs to a shove; see actions.json.
+  if (f > maxSize) p *= (maxSize / f) ** (overbetDecay * slope[cls]);
   return beingRaised ? p * ACTIONS.facingRaise.continue[cls] : p;
 }
 
@@ -77,6 +81,28 @@ export function firstToActFreq(
     big *= k;
   }
   return { check: clip01(1 - small - big), small, big };
+}
+
+/**
+ * What the hero adds on the streets after `street` against one opponent hand of class `cls`,
+ * with equity `eq` against it, when the hand goes on with `pot` in the middle and `behind`
+ * left to bet: one bet per later street, growing with the pot and capped by the stacks, won
+ * in proportion to the hero's edge and to how often that hand calls a bet of that size.
+ * See laterStreets in actions.json.
+ */
+export function laterStreetValue(street: string, cls: PostflopClass, eq: number, pot: number, behind: number, profile: Profile = DEFAULT): number {
+  const streets = street === 'flop' ? 2 : street === 'turn' ? 1 : 0;
+  const edge = 2 * eq - 1;
+  if (streets === 0 || behind <= 0 || edge <= 0) return 0;
+  const { betSize } = ACTIONS.laterStreets;
+  let total = 0, p = pot, left = behind;
+  for (let i = 0; i < streets && left > 0; i++) {
+    const bet = Math.min(betSize * p, left);
+    total += bet;
+    p += 2 * bet;
+    left -= bet;
+  }
+  return edge * continueProb(cls, betSize, false, profile) * total;
 }
 
 export const realization = (street: string, inPosition: boolean, cls: PostflopClass): number =>

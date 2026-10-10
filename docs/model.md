@@ -52,7 +52,8 @@ Before the flop an opponent's range is written exactly, since chart weights are 
 
 - how often it bets small or big when first to act or checked to;
 - how often it continues facing a bet, as a straight line that falls as the bet grows relative to the pot;
-- what share of continuing hands raise.
+- what share of continuing hands raise;
+- how they respond to an overbet. Past 1.5 times the pot the straight line stops: hands that barely mind bet size (sets, two pair, overpairs, good top pairs) keep calling a huge overbet or shove at close to their rate against a big bet, while weak pairs, draws and air give up.
 
 `data/postflop/profiles.json` scales those numbers for four opponent styles: regular, nit, calling station and aggressive. All of these values are estimates of a typical low-stakes pool, not measured from hand histories or taken from a solver.
 
@@ -65,11 +66,13 @@ EV is measured against folding now, so chips already in the pot are sunk. With `
 | Action | EV |
 |---|---|
 | Fold | 0 |
-| Check | `R·eq·P` |
-| Call | `R·eq·(P + c) − c` |
-| Bet or raise to `b` | the weighted sum, over every combo in the opponent's range, of fold `·P`, call `·(R·eq·(P + b + c) − b)` and raise `·max(call the shove, −b)` |
+| Check | `R·eq·P + L(P)` |
+| Call | `R·eq·(P + c) − c + L(P + c)` |
+| Bet or raise to `b` | the weighted sum, over every combo in the opponent's range, of fold `·P`, call `·(R·eq·(P + b + c) − b + L(P + b + c))` and raise `·max(call the shove, −b)` |
 
 Each combo's response comes from its class, and the hero's equity is taken combo by combo, so a bet that only gets called by better hands shows that.
+
+**Later streets.** `L(pot)` is what the hero adds on the streets still to come when the hand goes on with that pot: on the flop two more bets, on the turn one, each two-thirds of the growing pot and capped by the stacks. Against each opponent hand the hero beats more often than not, the hero wins `(2·eq − 1)` of those bets times the chance that hand calls a bet that size. Hands that are behind are assumed to give up rather than pay off, so `L` is never negative, and it is zero once the hand is all-in or on the river. Without it, a shove that gets the whole stack in now could outscore a normal bet whose value comes later. With more than one opponent in, the value against each is scaled down by how much the others cut the hero's equity.
 
 **Realization.** Before the river, raw equity is scaled by how much of it a hand tends to realize: 95% in position and 85% out of position, times a class factor (draws and very strong hands realize more, weak pairs and air less). On the river, or once all-in, equity is realized in full. These factors are rough rules of thumb and live in `actions.json`.
 
@@ -128,3 +131,4 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
 - Opponents do not adapt to the hero over a session.
+- Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. Against a range that checked and is capped, an overbet shove can still grade best as a bluff; the model may overstate how often such a range folds.
