@@ -11,6 +11,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range. Opponents defend their whole range against bets and raises at about the minimum defense frequency for their style, so bluffing with nothing is not automatically the best play.
 - **Adaptive opponents.** Opponents compare your postflop folds and bets with the trainer's best play in the same spots. If you fold to bets far more often, they bluff more; if you bet far more often, they call lighter; and the other way round. The Play screen says what they changed and why, the Session tab shows the rates they watch, and the range reads and grades use the adjusted style. It can be switched off.
 - **Stack depths.** Play at 40bb, 100bb or 200bb. The 100bb charts are adjusted for each depth: at 40bb speculative hands fold more, strong hands get in sooner and every 4-bet is all-in; at 200bb small pairs and suited connectors call more for their implied odds and fewer hands 4-bet or call a 4-bet. Postflop, the stack-to-pot ratio and later-street value follow the real stacks.
+- **Rake.** An optional rake of 5% capped at 3bb comes out of every pot that sees a flop. Results are after rake, and the postflop best play counts what you keep, so thin calls and thin value bets are worth less.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
@@ -86,7 +87,7 @@ The unit tests check that every chart parses and round-trips through range notat
 ```
 src/engine/              Framework-free poker logic; all amounts are integer chips (cents)
   cards.ts, evaluator.ts   Cards and the 5-7 card hand evaluator
-  hand.ts                  Hand state machine: blinds, legal actions, streets, side pots, showdown
+  hand.ts                  Hand state machine: blinds, legal actions, streets, side pots, showdown, rake
   range.ts, equity.ts      Range notation, card removal, exact and Monte Carlo equity
   math.ts, sizing.ts       Pot odds, break-even fold %, bet EV, SPR, preset sizes
   preflop/                 Charts, spot detection, scenarios, range narrowing, grading
@@ -121,6 +122,7 @@ docs/                    Model notes and spec coverage
 - Adapted opponents still hold their real hand inside the range the trainer shows, and hands play through at every level. When opponents bluff more, folding to a bet grades best less often; when they bluff less, more often; and betting grades best more often against opponents who give the hero's bets credit than against ones who call them lighter.
 - A range facing a bet or a raise defends exactly to the floor when its hand classes alone would fold more, and air keeps folding. In a fixed sample of level 3 hands, raising grades best less than 48% of the time facing a bet, checking more than a sixth of the time with no bet to face, and opponents fold to a 2.5x raise well below what a pure bluff needs.
 - An imported hand rebuilds exactly: every action follows the betting order, the stacks, cards and board match the history, and the result is what the history says the hero collected. A hand the trainer plays, written out as a PokerStars hand history, imports back to the same actions and result; this is checked on seeded hands from levels 3 to 5. Hands the trainer cannot model (tournaments, heads-up, antes, straddles, run-it-twice, other games) are skipped with the reason. The smoke test imports the sample hands, saves them and opens each replay.
+- With the rake on, stacks plus rake add up to the starting chips over hundreds of random hands, nothing is raked before the flop or from an uncalled excess, and a raked hand replays to the same result. The rake never makes an option's EV higher, leaves folding at zero and never costs more than the cap, heads-up and multiway.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.

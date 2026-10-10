@@ -7,7 +7,7 @@ import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import { practiceHand } from '../../engine/game/drills';
 import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, profileOf, type GameHand, type LevelId } from '../../engine/game/levels';
-import { applyAction, legalActions, type Action, type HandState } from '../../engine/hand';
+import { applyAction, legalActions, type Action, type HandState, type Rake } from '../../engine/hand';
 import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
 import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
@@ -63,9 +63,15 @@ function loadLevel(): LevelId {
   }
 }
 
-/** Table size, stakes and stack depth for new hands: 6-9 handed, $0.25/$0.50 or $0.50/$1, 40, 100 or 200bb. */
-interface TableSetup { tableSize: number; sb: number; bb: number; stacksBB: number }
+/** Table size, stakes, stack depth and rake for new hands: 6-9 handed, $0.25/$0.50 or $0.50/$1, 40, 100 or 200bb. */
+interface TableSetup { tableSize: number; sb: number; bb: number; stacksBB: number; rake?: Rake }
 const STAKES = [{ sb: 25, bb: 50, label: '$0.25/$0.50' }, { sb: 50, bb: 100, label: '$0.50/$1' }];
+/** Rake choices: none, or a typical online cash-game rake of 5% capped at 3 big blinds. */
+const RAKES: { id: string; label: string; rake?: Rake }[] = [
+  { id: 'none', label: 'No rake' },
+  { id: '5-3', label: '5%, cap 3bb', rake: { pct: 0.05, capBB: 3 } },
+];
+const rakeId = (r?: Rake) => RAKES.find((x) => x.rake && r && x.rake.pct === r.pct && x.rake.capBB === r.capBB)?.id ?? 'none';
 const TABLE_SIZES = [6, 7, 8, 9];
 const TABLE_KEY = 'table:v1';
 function loadTable(): TableSetup {
@@ -73,7 +79,8 @@ function loadTable(): TableSetup {
     const t = JSON.parse(localStorage.getItem(TABLE_KEY) ?? 'null') as Partial<TableSetup> | null;
     const stakes = STAKES.find((x) => x.bb === t?.bb) ?? STAKES[0];
     const stacksBB = (DEPTHS as number[]).includes(t?.stacksBB ?? 0) ? t!.stacksBB! : 100;
-    return { tableSize: TABLE_SIZES.includes(t?.tableSize ?? 0) ? t!.tableSize! : 6, sb: stakes.sb, bb: stakes.bb, stacksBB };
+    const rake = RAKES.find((x) => x.id === rakeId(t?.rake))?.rake;
+    return { tableSize: TABLE_SIZES.includes(t?.tableSize ?? 0) ? t!.tableSize! : 6, sb: stakes.sb, bb: stakes.bb, stacksBB, ...(rake ? { rake } : {}) };
   } catch {
     return { tableSize: 6, sb: STAKES[0].sb, bb: STAKES[0].bb, stacksBB: 100 };
   }
@@ -399,6 +406,12 @@ export function GameScreen() {
           Stacks
           <select id="stacks" value={table.stacksBB} onChange={(e) => changeTable({ stacksBB: Number(e.target.value) })}>
             {DEPTHS.map((d) => <option key={d} value={d}>{d}bb</option>)}
+          </select>
+        </label>
+        <label className="inline">
+          Rake
+          <select id="rake" value={rakeId(table.rake)} onChange={(e) => changeTable({ rake: RAKES.find((x) => x.id === e.target.value)!.rake })}>
+            {RAKES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
         </label>
         <label className="toggle">

@@ -11,10 +11,33 @@ import { makeRng, shuffle } from './rng';
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
 export const STREETS: Street[] = ['preflop', 'flop', 'turn', 'river'];
 
+/**
+ * The house's cut of each pot: `pct` of the pot, rounded down to the chip and capped at
+ * `capBB` big blinds. No flop, no drop: a hand that ends before the flop is dealt pays none.
+ */
+export interface Rake {
+  pct: number;
+  capBB: number;
+}
+
 export interface HandConfig {
   tableSize: number;
   sb: number;
   bb: number;
+  /** No rake when absent. */
+  rake?: Rake;
+}
+
+/** Share of each further chip in a pot of `amount` that the winner keeps: below 1 until the cap is hit. */
+export function rakeKeep(amount: number, config: Pick<HandConfig, 'bb' | 'rake'>): number {
+  if (!config.rake || rakeOf(amount, config) >= Math.round(config.rake.capBB * config.bb)) return 1;
+  return 1 - config.rake.pct;
+}
+
+/** Rake on a pot of `amount` chips once the flop is dealt (0 without a rake). */
+export function rakeOf(amount: number, config: Pick<HandConfig, 'bb' | 'rake'>): number {
+  if (!config.rake || amount <= 0) return 0;
+  return Math.min(Math.floor(config.rake.pct * amount), Math.round(config.rake.capBB * config.bb));
 }
 
 export interface Player {
@@ -54,6 +77,7 @@ export type Action =
   | { type: 'raise'; to: number };
 
 export interface PotResult {
+  /** Chips the winners share, after any rake. */
   amount: number;
   eligible: number[];
   winners: number[];
@@ -68,6 +92,8 @@ export interface HandResult {
   /** Hand scores for players who reached showdown (null otherwise). */
   scores: (number | null)[];
   wentToShowdown: boolean;
+  /** Chips the house took from the pot. */
+  rake: number;
 }
 
 export interface HandState {
@@ -382,6 +408,8 @@ function settle(s: HandState) {
     pots.push({ amount, eligible: live, winners: [], uncalled: live.length === 1 && showdown });
   }
 
+  const rake = s.board.length >= 3 ? takeRake(pots, s.config) : 0;
+
   const won = new Array(n).fill(0);
   for (const pt of pots) {
     let winners: number[];
@@ -408,5 +436,25 @@ function settle(s: HandState) {
     net: s.players.map((p, i) => p.stack - s.startingStacks[i]),
     scores,
     wentToShowdown: showdown,
+    rake,
   };
+}
+
+/**
+ * Takes the rake on everything contested from the pots, in proportion to their size, with
+ * any odd chips from the main pot. Chips only one player could win are not contested.
+ */
+function takeRake(pots: PotResult[], config: HandConfig): number {
+  const contested = pots.filter((p) => !p.uncalled);
+  const total = contested.reduce((a, p) => a + p.amount, 0);
+  const rake = rakeOf(total, config);
+  if (rake === 0) return 0;
+  let taken = 0;
+  for (const p of contested) {
+    const cut = Math.floor((rake * p.amount) / total);
+    p.amount -= cut;
+    taken += cut;
+  }
+  contested[0].amount -= rake - taken;
+  return rake;
 }

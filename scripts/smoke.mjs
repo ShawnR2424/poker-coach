@@ -1,8 +1,8 @@
 // Browser smoke test: builds nothing itself; run `npm run build` first (npm run smoke does).
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
-// desktop widths with random actions, then a few at a 9-handed $0.50/$1 table and at 40bb and
-// 200bb stacks. Fails on a console error, a horizontal scrollbar, or a hero turn that never
-// offers a way to act. Also checks that the optional Claude coach voice
+// desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
+// 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
+// hero turn that never offers a way to act. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
 // adjust to a session that folds and bets far more than the best play.
@@ -14,6 +14,9 @@ import { chromium } from 'playwright';
 import { preview } from 'vite';
 
 const HANDS = Number(process.env.HANDS ?? 8);
+/** Whether the rake setting is on, and how many finished hands with it on showed rake taken. */
+let rakeOn = false;
+let rakeSeen = 0;
 const LEVELS = [1, 2, 3, 4, 5, 6];
 const VIEWPORTS = [
   { width: 380, height: 900, colorScheme: 'light' },
@@ -67,6 +70,10 @@ async function playHand(page, where) {
   }
   await page.waitForSelector('.hand-result', { timeout: TURN_TIMEOUT });
   await noOverflow(page, where);
+  if ((await page.textContent('.hand-result')).includes('in rake')) {
+    if (rakeOn) rakeSeen++;
+    else failures.push(`${where}: rake was taken with the rake setting off`);
+  }
   await page.click('.hand-result .primary');
   return true;
 }
@@ -141,6 +148,21 @@ for (const vp of VIEWPORTS) {
     }
   }
   await page.selectOption('#stacks', '100');
+
+  // Rake on: every turn still playable, and pots that see a flop show the rake taken.
+  await page.selectOption('#rake', '5-3');
+  rakeOn = true;
+  rakeSeen = 0;
+  for (const level of [3, 5]) {
+    await page.selectOption('#level', String(level));
+    for (let h = 0; h < HANDS; h++) {
+      if (!(await playHand(page, `${tag}, rake, level ${level}, hand ${h + 1}`))) break;
+      played++;
+    }
+  }
+  if (rakeSeen === 0) failures.push(`${tag}: no hand with the rake on showed any rake taken`);
+  await page.selectOption('#rake', 'none');
+  rakeOn = false;
 
   // "Practice my leaks" on: the random play above has opened leaks, so some hands are built to
   // reach a postflop leak's spot. Every turn must still be playable.

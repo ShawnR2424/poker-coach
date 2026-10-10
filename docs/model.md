@@ -5,7 +5,7 @@ Poker Coach grades decisions with exact arithmetic (equity, pot odds, expected v
 ## Scope
 
 - No-Limit Hold'em, 6 to 9 handed, $0.25/$0.50 or $0.50/$1 blinds, every stack 40bb, 100bb or 200bb at the start of each hand (100bb by default). The stakes change the dollar amounts only: in big blinds every spot plays the same.
-- No rake, no antes, no straddles, no deeper or shorter stacks.
+- No rake by default; the Rake setting adds 5% of each pot that sees a flop, capped at 3bb (see [Rake](#rake)). No antes, no straddles, no deeper or shorter stacks.
 - One hero seat; the opponents are bots driven by the model below.
 
 ## What is exact
@@ -137,6 +137,13 @@ With two or more opponents still in:
   - A postflop leak (for example a missed value bet, overfolding or a donk bet into the preflop raiser) gets a drill hand on levels 2, 3, 4 and 6. The trainer plays the hero's earlier decisions with the bots' strategy, as level 6 does, and stops at the first decision where that leak's tag is one a wrong action would earn there, using the same grading as the feedback. Those earlier decisions are not graded. Level 6 drills only stop on the river, and level 5 (multiway) uses the spot mix only.
   - If no such decision turns up within a short search (some leaks, such as a sunk-cost call, need a lot of the stack already in the pot and are rare in single-raised pots), the hand falls back to the spot mix.
 
+## Rake
+
+- With the rake on, the house takes 5% of each pot, rounded down to the chip and capped at 3bb, when the flop has been dealt. A hand that ends before the flop pays none. Pots won without a showdown after the flop are raked. Chips only one player could win, such as an uncalled all-in excess, are not raked, and the rake is shared over the main and side pots in proportion to their size, with any odd chip from the main pot.
+- After the flop, the EV of each option values every pot the hero can win after the rake comes out of it: a pot of P is worth P minus its rake. Value from later streets keeps 95% of each further chip while the pot is below the cap and all of it once the cap is reached, judged at the pot the hand goes on with. Folding is still worth zero, so the rake makes thin calls and thin value bets worth less and never makes any option worth more.
+- The preflop charts are the same with and without the rake. A raked game favours slightly tighter play, mostly from the blinds, which the charts do not reflect.
+- Imported hands are graded without the rake, since each site's rake differs; their results come from what the history says was collected, so they are after the site's rake.
+
 ## Session tracking
 
 - Results are real chip results of the hands as dealt, so short-term profit and loss is mostly variance. Verdicts and leaks are the better guide.
@@ -164,4 +171,5 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 - Only 40bb, 100bb and 200bb charts exist, and the 40bb and 200bb ones are rule-based adjustments of the 100bb charts. Stacks are always equal at the start of a hand.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
 - Adaptive opponents only watch two postflop rates, adjust in fixed steps rather than in proportion to the gap, and adjust the same way on every street and board. They do not adapt preflop.
+- The rake in later-street value is judged at the pot when the hand goes on, so a pot that crosses the cap on a later street is slightly over-raked in the estimate.
 - Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. Against a range that checked and is capped, an overbet shove can still grade best as a bluff; the model may overstate how often such a range folds.
