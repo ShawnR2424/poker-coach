@@ -11,6 +11,7 @@ import { PROFILES, type ProfileId } from '../../engine/postflop/model';
 import { narrowHand } from '../../engine/postflop/narrow';
 import { formatRange, summarizeRange } from '../../engine/range';
 import { adaptProfile } from '../../engine/session/adapt';
+import { IMPORTED_LEVEL } from '../../engine/session/import';
 import { replayAdaptation, replayStates } from '../../engine/session/replay';
 import type { DecisionRecord, HandRecord } from '../../engine/session/session';
 import { HeroStrip } from '../table/HeroStrip';
@@ -65,8 +66,12 @@ export function ReplayView({ hand, onClose }: { hand: HandRecord; onClose: () =>
   const s = states[Math.min(k, last)];
   const hero = r.hero;
   const decision: DecisionRecord | undefined = decisions.get(k);
-  const reveal = new Set(s.players.map((_, i) => i).filter((i) => i !== hero && !s.players[i].folded));
-  const labels = hand.level === 1 ? {} : Object.fromEntries(Object.entries(r.profiles).map(([seat, id]) => [seat, PROFILES[id as ProfileId]?.short ?? '']));
+  const hidden = new Set(r.hidden ?? []);
+  const reveal = new Set(s.players.map((_, i) => i).filter((i) => i !== hero && !s.players[i].folded && !hidden.has(i)));
+  // Imported hands keep the players' real styles unknown, and mark the seats added to fill the table.
+  const imported = hand.level === IMPORTED_LEVEL;
+  const labels: Record<number, string> = imported || hand.level === 1 ? {} : Object.fromEntries(Object.entries(r.profiles).map(([seat, id]) => [seat, PROFILES[id as ProfileId]?.short ?? '']));
+  for (const f of r.fillers ?? []) labels[f] = 'empty seat';
   const seats = seatViews(s, hero, labels, reveal, k < last);
   const heroCards = s.players[hero].hole;
   const made = s.board.length >= 3 ? describeScore(evaluate([...heroCards, ...s.board])) : null;
@@ -75,7 +80,7 @@ export function ReplayView({ hand, onClose }: { hand: HandRecord; onClose: () =>
     <section className="panel replay" aria-labelledby="rp-h">
       <div className="replay-head">
         <div>
-          <p className="eyebrow">Replay · opponents' cards shown</p>
+          <p className="eyebrow">{imported ? (hidden.size ? 'Imported hand · cards shown where the history showed them' : 'Imported hand · opponents\' cards shown') : 'Replay · opponents\' cards shown'}</p>
           <h2 id="rp-h">Hand {hand.n}: {hand.spot}</h2>
         </div>
         <button type="button" onClick={onClose}>Close replay</button>
@@ -119,7 +124,7 @@ function DecisionAt({ d, s, hand }: { d: DecisionRecord; s: HandState; hand: Han
       {d.tags.length > 0 && <p className="small"><span className="eyebrow">Leak tag</span> {d.tags.join(', ')}</p>}
       {ranges.map((v) => (
         <div key={v.seat} className="range-text">
-          <p className="eyebrow">{v.position}{v.profile && hand.level !== 1 ? ` · ${v.profile}` : ''}: range at this point</p>
+          <p className="eyebrow">{v.position}{v.profile && hand.level !== 1 && hand.level !== IMPORTED_LEVEL ? ` · ${v.profile}` : ''}: range at this point</p>
           <p><code>{v.core || 'no hands'}</code></p>
           {v.partial && <p className="small muted">and some of <code>{v.partial}</code></p>}
         </div>

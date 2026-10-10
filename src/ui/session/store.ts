@@ -1,7 +1,7 @@
 // The saved sessions, shared by Play and the Session tab, kept in localStorage.
 
 import { useSyncExternalStore } from 'react';
-import { addHand, parseSaved, startNewSession, type HandRecord, type SavedSessions } from '../../engine/session/session';
+import { addHand, addHands, parseSaved, startNewSession, type HandRecord, type SavedSessions } from '../../engine/session/session';
 
 const KEY = 'sessions:v1';
 let saved: SavedSessions = load();
@@ -31,5 +31,6 @@ export function useSessions(): SavedSessions {
 }
 
 export const recordHand = (h: Omit<HandRecord, 'n'>) => set(addHand(saved, h));
+export const recordHands = (hs: Omit<HandRecord, 'n'>[], asNew: boolean) => set(addHands(saved, hs, asNew));
 export const newSession = () => set(startNewSession(saved));
 export const currentHands = () => saved.current.hands;

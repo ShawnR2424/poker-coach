@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Lab } from './Lab';
 import { GameScreen } from './play/GameScreen';
 import { SettingsScreen } from './coach/SettingsScreen';
+import { ImportScreen } from './session/ImportScreen';
 import { SessionScreen } from './session/SessionScreen';
 import { SpotsScreen } from './spots/SpotsScreen';
 
-type Tab = 'table' | 'spots' | 'session' | 'settings' | 'lab';
+type Tab = 'table' | 'spots' | 'session' | 'import' | 'settings' | 'lab';
 type Theme = 'system' | 'light' | 'dark';
 
-const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#session' ? 'session' : location.hash === '#settings' ? 'settings' : 'table');
+const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#session' ? 'session' : location.hash === '#import' ? 'import' : location.hash === '#settings' ? 'settings' : 'table');
 
 function loadTheme(): Theme {
   try {
@@ -49,6 +50,7 @@ export function App() {
           <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Play</button>
           <button type="button" className={tab === 'spots' ? 'on' : ''} aria-pressed={tab === 'spots'} onClick={() => go('spots')}>Postflop spots</button>
           <button type="button" className={tab === 'session' ? 'on' : ''} aria-pressed={tab === 'session'} onClick={() => go('session')}>Session</button>
+          <button type="button" className={tab === 'import' ? 'on' : ''} aria-pressed={tab === 'import'} onClick={() => go('import')}>Import</button>
           <button type="button" className={tab === 'settings' ? 'on' : ''} aria-pressed={tab === 'settings'} onClick={() => go('settings')}>Settings</button>
           <button type="button" className={tab === 'lab' ? 'on' : ''} aria-pressed={tab === 'lab'} onClick={() => go('lab')}>Engine lab</button>
         </nav>
@@ -61,7 +63,7 @@ export function App() {
           </select>
         </label>
       </header>
-      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
+      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'import' ? <ImportScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
     </>
   );
 }

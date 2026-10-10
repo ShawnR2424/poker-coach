@@ -14,6 +14,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
+- **Import your own hands.** Paste hand histories from PokerStars or GGPoker (or open a saved .txt file) on the Import tab. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt and every decision you made is graded with the same charts and postflop model as the Play tab. Save them as a session to get the Session tab's leaks and a replay of each hand; their leaks then steer leak-targeted practice. A Try sample hands button shows how it works.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
 - **Optional coaching voice from Claude.** Off by default. With your own Claude API key, each graded decision also gets a short explanation written by Claude from the trainer's computed facts. See [Coach voice](#coach-voice).
 
@@ -95,6 +96,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
   session/replay.ts        Compact hand records and the replay that rebuilds each hand from them
   session/adapt.ts         The hero's postflop tendencies and how opponents adjust to them
+  session/import.ts        Reads pasted hand histories, rebuilds each hand and grades the hero's decisions
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
 src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
@@ -118,6 +120,7 @@ docs/                    Model notes and spec coverage
 - A saved hand replays to exactly the actions, board, stacks and result that were played, at every level and table size, and the hero's decisions fall on the replay's steps. The smoke test opens the replay of every hand in the session.
 - Adapted opponents still hold their real hand inside the range the trainer shows, and hands play through at every level. When opponents bluff more, folding to a bet grades best less often; when they bluff less, more often; and betting grades best more often against opponents who give the hero's bets credit than against ones who call them lighter.
 - A range facing a bet or a raise defends exactly to the floor when its hand classes alone would fold more, and air keeps folding. In a fixed sample of level 3 hands, raising grades best less than 48% of the time facing a bet, checking more than a sixth of the time with no bet to face, and opponents fold to a 2.5x raise well below what a pure bluff needs.
+- An imported hand rebuilds exactly: every action follows the betting order, the stacks, cards and board match the history, and the result is what the history says the hero collected. A hand the trainer plays, written out as a PokerStars hand history, imports back to the same actions and result; this is checked on seeded hands from levels 3 to 5. Hands the trainer cannot model (tournaments, heads-up, antes, straddles, run-it-twice, other games) are skipped with the reason. The smoke test imports the sample hands, saves them and opens each replay.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
