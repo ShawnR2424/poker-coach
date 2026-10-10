@@ -55,6 +55,21 @@ function loadLevel(): LevelId {
   }
 }
 
+/** Table size and stakes for new hands: 6-9 handed, $0.25/$0.50 or $0.50/$1. */
+interface TableSetup { tableSize: number; sb: number; bb: number }
+const STAKES = [{ sb: 25, bb: 50, label: '$0.25/$0.50' }, { sb: 50, bb: 100, label: '$0.50/$1' }];
+const TABLE_SIZES = [6, 7, 8, 9];
+const TABLE_KEY = 'table:v1';
+function loadTable(): TableSetup {
+  try {
+    const t = JSON.parse(localStorage.getItem(TABLE_KEY) ?? 'null') as Partial<TableSetup> | null;
+    const stakes = STAKES.find((x) => x.bb === t?.bb) ?? STAKES[0];
+    return { tableSize: TABLE_SIZES.includes(t?.tableSize ?? 0) ? t!.tableSize! : 6, sb: stakes.sb, bb: stakes.bb };
+  } catch {
+    return { tableSize: 6, sb: STAKES[0].sb, bb: STAKES[0].bb };
+  }
+}
+
 const FOCUS_KEY = 'focusLeaks';
 function loadFocus(): boolean {
   try {
@@ -94,10 +109,11 @@ export function GameScreen() {
   const rngRef = useRef(makeRng(randomSeed()));
   const [lowStakes, setLowStakes] = useState(true);
   const [level, setLevel] = useState<LevelId>(loadLevel);
-  const opts = useMemo(() => ({ lowStakes }), [lowStakes]);
+  const [table, setTable] = useState<TableSetup>(loadTable);
+  const opts = useMemo(() => ({ lowStakes, ...table }), [lowStakes, table]);
   const [focusLeaks, setFocusLeaks] = useState(loadFocus);
   const leaksFor = (on = focusLeaks) => (on ? openLeaks(currentHands()) : []);
-  const [game, setGame] = useState<GameHand>(() => newGameHand(loadLevel(), rngRef.current, { lowStakes: true }, leaksFor(loadFocus())));
+  const [game, setGame] = useState<GameHand>(() => newGameHand(loadLevel(), rngRef.current, { lowStakes: true, ...loadTable() }, leaksFor(loadFocus())));
   const [state, setState] = useState<HandState>(game.state);
   const hero = game.hero;
   const [phase, setPhase] = useState<Phase>('decide');
@@ -108,15 +124,22 @@ export function GameScreen() {
   const isPreflop = state.street === 'preflop';
   const heroToAct = phase === 'decide' && state.toAct === hero;
 
-  const nextHand = (lvl: LevelId = level) => {
-    const g = newGameHand(lvl, rngRef.current, opts, leaksFor());
+  const nextHand = (lvl: LevelId = level, o = opts) => {
+    const g = newGameHand(lvl, rngRef.current, o, leaksFor());
     setGame(g);
-    const s0 = advance(g, g.state, rngRef.current, opts);
+    const s0 = advance(g, g.state, rngRef.current, o);
     setState(s0);
     setPhase(heroDecides(g, s0) ? 'decide' : 'result');
     setPending(null);
     setLog([]);
     window.scrollTo({ top: 0 });
+  };
+
+  const changeTable = (patch: Partial<TableSetup>) => {
+    const next = { ...table, ...patch };
+    setTable(next);
+    try { localStorage.setItem(TABLE_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+    nextHand(level, { ...opts, ...next });
   };
 
   const changeFocus = (on: boolean) => {
@@ -159,8 +182,9 @@ export function GameScreen() {
     if (!heroToAct || !isPreflop) return [];
     const all = hypothetical ? playersBehind(state, hero, opts) : opponentReads(state, hero, opts);
     // Only the opponents who play on matter for the read.
-    return game.villains.length ? all.filter((r) => game.villains.includes(r.seat)) : all;
-  }, [state, hero, opts, hypothetical, heroToAct, isPreflop, game.villains]);
+    const live = liveVillainsOf(game, state);
+    return game.villains.length ? all.filter((r) => live.includes(r.seat)) : all;
+  }, [state, hero, opts, hypothetical, heroToAct, isPreflop, game]);
   const [heroEq, setHeroEq] = useState<number | null>(null);
   const [cells, setCells] = useState<Map<number, CellCategory<PreflopCategory>[]>>(new Map());
 
@@ -319,6 +343,18 @@ export function GameScreen() {
             {LEVEL_IDS.map((id) => (
               <option key={id} value={id}>{id} · {LEVELS[id].name}</option>
             ))}
+          </select>
+        </label>
+        <label className="inline">
+          Table
+          <select id="table-size" value={table.tableSize} onChange={(e) => changeTable({ tableSize: Number(e.target.value) })}>
+            {TABLE_SIZES.map((n) => <option key={n} value={n}>{n === 6 ? '6-max' : `${n}-handed`}</option>)}
+          </select>
+        </label>
+        <label className="inline">
+          Stakes
+          <select id="stakes" value={table.bb} onChange={(e) => { const st = STAKES.find((x) => x.bb === Number(e.target.value))!; changeTable({ sb: st.sb, bb: st.bb }); }}>
+            {STAKES.map((st) => <option key={st.bb} value={st.bb}>{st.label}</option>)}
           </select>
         </label>
         <label className="toggle">

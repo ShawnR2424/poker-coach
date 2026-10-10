@@ -1,5 +1,8 @@
 {
-  "_about": "Raise first in (everyone folded to you), 6-max 100bb. Approximate GTO. 'raise' is the open range; everything else folds. SB plays raise-or-fold. Sizes in big blinds.",
+  "_about": "Raise first in (everyone folded to you), 100bb. Approximate GTO. 'raise' is the open range; everything else folds. SB plays raise-or-fold. Sizes in big blinds. Keys are 6-max seats; at 7-9 handed the LJ uses the UTG chart and the seats before it use EP1 (one seat before the LJ) to EP3 (UTG at 9-handed).",
+  "EP3": { "raise": "55+, A3s+, KTs+, QTs+, JTs, T9s, 98s, AJo+, KQo", "size": 2.5 },
+  "EP2": { "raise": "44+, A2s+, KTs+, QTs+, JTs, T9s, 98s, 87s, AJo+, KQo", "size": 2.5 },
+  "EP1": { "raise": "33+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, ATo+, KJo+, QJo:0.5", "size": 2.5 },
   "UTG": { "raise": "22+, A2s+, K9s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo", "size": 2.5 },
   "HJ": { "raise": "22+, A2s+, K7s+, Q9s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo", "size": 2.5 },
   "CO": { "raise": "22+, A2s+, K4s+, Q6s+, J7s+, T7s+, 96s+, 85s+, 75s+, 64s+, 54s, A7o+, A5o, K9o+, Q9o+, J9o+, T9o", "size": 2.5 },

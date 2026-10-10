@@ -4,7 +4,7 @@
 
 import type { Card } from '../cards';
 import { applyAction, newHand, type Action, type HandState } from '../hand';
-import { clockwiseFromSB, type Position } from '../positions';
+import { chartSeat, clockwiseFromSB } from '../positions';
 import {
   ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, NUM_COMBOS, cellOf, comboIndex, type HandClass, type Range,
 } from '../range';
@@ -15,7 +15,14 @@ import { spotFor } from './spot';
 
 export type PracticeSpot = 'rfi' | 'vsOpen' | 'squeeze' | 'vs3bet' | 'vs4bet';
 
-export interface ScenarioOptions extends PreflopOptions {
+/** The table: 6 to 9 seats and the blinds in chips (cents). Defaults to 6-max $0.25/$0.50. */
+export interface TableOptions {
+  tableSize?: number;
+  sb?: number;
+  bb?: number;
+}
+
+export interface ScenarioOptions extends PreflopOptions, TableOptions {
   /** Relative weights for each spot type. */
   mix?: Partial<Record<PracticeSpot, number>>;
   stacksBB?: number;
@@ -29,18 +36,35 @@ export interface Scenario {
   spot: PracticeSpot;
 }
 
-const CONFIG = { tableSize: 6, sb: 25, bb: 50 };
-const POSITIONS = clockwiseFromSB(6); // SB, BB, UTG, HJ, CO, BTN
-const seatOf = (p: Position) => POSITIONS.indexOf(p);
-const PREFLOP_ORDER: Position[] = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
-const before = (a: Position, b: Position) => PREFLOP_ORDER.indexOf(a) < PREFLOP_ORDER.indexOf(b);
+export const tableConfig = (o: TableOptions) => ({ tableSize: o.tableSize ?? 6, sb: o.sb ?? 25, bb: o.bb ?? 50 });
+
+/** Chart seats in preflop order; "EP" only exists at 7-9 handed. */
+const CHART_ORDER = ['EP', 'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+const before = (a: string, b: string) => CHART_ORDER.indexOf(a) < CHART_ORDER.indexOf(b);
+const isRfiSeat = (cs: string) => /^EP\d$/.test(cs);
+
+/** Seat indices (clockwise from the SB) that play from chart seat `cs` at this table size. */
+function seatsOf(cs: string, n: number): number[] {
+  const out: number[] = [];
+  clockwiseFromSB(n).forEach((p, i) => { if (chartSeat(p, n, isRfiSeat(cs)) === cs) out.push(i); });
+  return out;
+}
 
 export const DEFAULT_MIX: Record<PracticeSpot, number> = { rfi: 25, vsOpen: 35, squeeze: 10, vs3bet: 20, vs4bet: 10 };
 
-/** One scripted step: who acts and with which chart choice; their hand is drawn from that choice. */
+/** One scripted step: who acts (a chart seat, or the hero) and with which chart choice; their hand is drawn from that choice. */
 interface Step {
-  pos: Position;
+  seat: string;
+  hero?: boolean;
   choice: Choice;
+}
+
+interface Script {
+  hero: string;
+  steps: Step[];
+  heroKind: SpotKind;
+  /** The hero's chart key, or a function of the resolved seats (vs4bet depends on who has position). */
+  heroKey: string | ((heroSeat: number, seats: Map<string, number>) => string);
 }
 
 function pickWeighted<T extends string>(w: Record<T, number>, rng: Rng): T {
@@ -109,66 +133,94 @@ export function interestingWeights(kind: SpotKind, key: string, opts: PreflopOpt
   return w;
 }
 
-function script(spot: PracticeSpot, rng: Rng): { hero: Position; steps: Step[]; heroKind: SpotKind; heroKey: string } {
-  const chooseKey = (kind: SpotKind) => pick(Object.keys(CHARTS[kind]), rng);
+function script(spot: PracticeSpot, rng: Rng, n: number): Script {
+  // Only chart rows whose seats exist at this table size (EP rows need 7+ seats, EP_vs_EP needs two EP seats).
+  const exists = (cs: string) => seatsOf(cs, n).length > 0;
+  const fits = (key: string) => {
+    const [a, b] = key.split('_vs_');
+    if (a === b) return seatsOf(a, n).length >= 2;
+    return exists(a) && (b === undefined || b === 'IP' || b === 'blinds' || exists(b));
+  };
+  const chooseKey = (kind: SpotKind) => pick(Object.keys(CHARTS[kind]).filter(fits), rng);
   switch (spot) {
     case 'rfi': {
-      const hero = pick(Object.keys(CHARTS.rfi) as Position[], rng);
+      const hero = chooseKey('rfi');
       return { hero, steps: [], heroKind: 'rfi', heroKey: hero };
     }
     case 'vsOpen': {
       const key = chooseKey('vsOpen');
-      const [hero, opener] = key.split('_vs_') as [Position, Position];
-      return { hero, steps: [{ pos: opener, choice: 'raise' }], heroKind: 'vsOpen', heroKey: key };
+      const [hero, opener] = key.split('_vs_');
+      return { hero, steps: [{ seat: opener, choice: 'raise' }], heroKind: 'vsOpen', heroKey: key };
     }
     case 'squeeze': {
       // Opener, then one caller between the opener and the hero.
       for (let tries = 0; tries < 50; tries++) {
-        const opener = pick(['UTG', 'HJ', 'CO'] as Position[], rng);
-        const caller = pick(PREFLOP_ORDER.filter((p) => before(opener, p) && p !== 'BB'), rng);
-        const heroes = PREFLOP_ORDER.filter((p) => before(caller, p));
+        const opener = pick(['EP', 'UTG', 'HJ', 'CO'].filter(exists), rng);
+        const caller = pick(CHART_ORDER.filter((p) => before(opener, p) && p !== 'BB' && exists(p)), rng);
+        const heroes = CHART_ORDER.filter((p) => before(caller, p) && exists(p));
         if (!heroes.length) continue;
         const hero = pick(heroes, rng);
         const key = hero === 'SB' || hero === 'BB' ? 'blinds' : 'IP';
-        const callKey = `${caller}_vs_${opener}`;
-        if (!CHARTS.vsOpen[callKey]) continue;
+        if (!CHARTS.vsOpen[`${caller}_vs_${opener}`]) continue;
         return {
           hero,
-          steps: [{ pos: opener, choice: 'raise' }, { pos: caller, choice: 'call' }],
+          steps: [{ seat: opener, choice: 'raise' }, { seat: caller, choice: 'call' }],
           heroKind: 'squeeze',
           heroKey: key,
         };
       }
-      return script('vsOpen', rng);
+      return script('vsOpen', rng, n);
     }
     case 'vs3bet': {
       const key = chooseKey('vs3bet');
-      const [hero, kind] = key.split('_vs_') as [Position, string];
+      const [hero, kind] = key.split('_vs_');
       const candidates = Object.keys(CHARTS.vsOpen)
-        .filter((k) => k.endsWith(`_vs_${hero}`))
-        .map((k) => k.split('_vs_')[0] as Position)
+        .filter((k) => k.endsWith(`_vs_${hero}`) && fits(k))
+        .map((k) => k.split('_vs_')[0])
         .filter((p) => (kind === 'blinds') === (p === 'SB' || p === 'BB'));
-      if (!candidates.length) return script('vsOpen', rng);
+      if (!candidates.length) return script('vsOpen', rng, n);
       const threeBettor = pick(candidates, rng);
       return {
         hero,
-        steps: [{ pos: hero, choice: 'raise' }, { pos: threeBettor, choice: 'raise' }],
+        steps: [{ seat: hero, hero: true, choice: 'raise' }, { seat: threeBettor, choice: 'raise' }],
         heroKind: 'vs3bet',
         heroKey: key,
       };
     }
     case 'vs4bet': {
       const key = chooseKey('vsOpen');
-      const [hero, opener] = key.split('_vs_') as [Position, Position];
-      const ip = seatOf(hero) > seatOf(opener);
+      const [hero, opener] = key.split('_vs_');
       return {
         hero,
-        steps: [{ pos: opener, choice: 'raise' }, { pos: hero, choice: 'raise' }, { pos: opener, choice: 'raise' }],
+        steps: [{ seat: opener, choice: 'raise' }, { seat: hero, hero: true, choice: 'raise' }, { seat: opener, choice: 'raise' }],
         heroKind: 'vs4bet',
-        heroKey: ip ? 'IP' : 'OOP',
+        heroKey: (heroSeat, seats) => (heroSeat > seats.get(opener)! ? 'IP' : 'OOP'),
       };
     }
   }
+}
+
+/** Picks real seats for a script: the hero first, then one player per other chart seat. */
+function resolveSeats(sc: Script, n: number, rng: Rng): { heroSeat: number; steps: { seat: number; choice: Choice }[]; heroKey: string } | null {
+  const heroOptions = seatsOf(sc.hero, n);
+  if (!heroOptions.length) return null;
+  const heroSeat = pick(heroOptions, rng);
+  const seats = new Map<string, number>();
+  const steps: { seat: number; choice: Choice }[] = [];
+  for (const st of sc.steps) {
+    if (st.hero) {
+      steps.push({ seat: heroSeat, choice: st.choice });
+      continue;
+    }
+    if (!seats.has(st.seat)) {
+      const options = seatsOf(st.seat, n).filter((i) => i !== heroSeat && ![...seats.values()].includes(i));
+      if (!options.length) return null;
+      seats.set(st.seat, pick(options, rng));
+    }
+    steps.push({ seat: seats.get(st.seat)!, choice: st.choice });
+  }
+  const heroKey = typeof sc.heroKey === 'string' ? sc.heroKey : sc.heroKey(heroSeat, seats);
+  return { heroSeat, steps, heroKey };
 }
 
 export function generatePreflopScenario(rng: Rng, opts: ScenarioOptions): Scenario {
@@ -181,11 +233,16 @@ export function generatePreflopScenario(rng: Rng, opts: ScenarioOptions): Scenar
 }
 
 function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario | null {
-  const { hero, steps, heroKind, heroKey } = script(spot, rng);
-  const heroSeat = seatOf(hero);
-  const stacks = POSITIONS.map(() => (opts.stacksBB ?? 100) * CONFIG.bb);
+  const config = tableConfig(opts);
+  const n = config.tableSize;
+  const sc = script(spot, rng, n);
+  const resolved = resolveSeats(sc, n, rng);
+  if (!resolved) return null;
+  const { heroSeat, steps, heroKey } = resolved;
+  const heroKind = sc.heroKind;
+  const stacks = Array.from({ length: n }, () => (opts.stacksBB ?? 100) * config.bb);
   const dead = new Set<Card>();
-  const hole: (Card[] | null)[] = POSITIONS.map(() => null);
+  const hole: (Card[] | null)[] = stacks.map(() => null);
 
   // The hero's hand: interesting for the decision they will face.
   let heroWeights = interestingWeights(heroKind, heroKey, opts);
@@ -204,17 +261,16 @@ function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario
   const queue = [...steps];
   const plannedHands: { seat: number; weights: Range }[] = [];
   // First pass: replay the script on a scratch state to learn each actor's chart spot.
-  let scratch = newHand({ config: CONFIG, stacks, seed: 1 });
+  let scratch = newHand({ config, stacks, seed: 1 });
   const actions: Action[] = [];
   let guard = 0;
   while (scratch.toAct !== null && guard++ < 30) {
     const seat = scratch.toAct;
-    const pos = POSITIONS[seat];
     const next = queue[0];
     const spotHere = spotFor(scratch, seat);
     if (seat === heroSeat && !next) break; // hero's decision point
     let choice: Choice;
-    if (next && next.pos === pos) {
+    if (next && next.seat === seat) {
       choice = next.choice;
       queue.shift();
     } else if (seat === heroSeat) {
@@ -243,7 +299,7 @@ function tryBuild(spot: PracticeSpot, rng: Rng, opts: ScenarioOptions): Scenario
     hole[p.seat] = c;
     c.forEach((x) => dead.add(x));
   }
-  let s = newHand({ config: CONFIG, stacks, hole, seed: Math.floor(rng() * 2 ** 31) });
+  let s = newHand({ config, stacks, hole, seed: Math.floor(rng() * 2 ** 31) });
   for (const a of actions) s = applyAction(s, a);
   if (s.toAct !== heroSeat) return null;
   return { state: s, hero: heroSeat, spot };

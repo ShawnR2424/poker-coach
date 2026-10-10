@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction, legalActions, newHand, type Action, type HandConfig } from '../hand';
-import { clockwiseFromSB } from '../positions';
+import { chartSeat, clockwiseFromSB, positionsFor } from '../positions';
 import {
   CLASS_COMBOS, NUM_COMBOS, cellOf, classAt, classOfCombo, comboCount, comboIndex, formatRange, parseRange,
 } from '../range';
@@ -180,5 +180,32 @@ describe('bots and scenarios', () => {
       if (folds(cls) && neighbors.every(folds)) clear++;
     }
     expect(clear / n).toBeLessThan(0.1);
+  });
+});
+
+describe('7-9 handed chart seats', () => {
+  it('maps each seat to the 6-max chart with the same players behind, or an early-position chart', () => {
+    const at = (n: number, rfi = false) => positionsFor(n).map((p) => chartSeat(p, n, rfi)).join(' ');
+    expect(at(6, true)).toBe('UTG HJ CO BTN SB BB');
+    expect(at(7, true)).toBe('EP1 UTG HJ CO BTN SB BB');
+    expect(at(8, true)).toBe('EP2 EP1 UTG HJ CO BTN SB BB');
+    expect(at(9, true)).toBe('EP3 EP2 EP1 UTG HJ CO BTN SB BB');
+    expect(at(9)).toBe('EP EP EP UTG HJ CO BTN SB BB');
+  });
+
+  it('has an open-raise chart for every seat that can open, and each earlier seat opens tighter', () => {
+    const width = (k: string) => [...getStrategy('rfi', k).raise].reduce((a, x) => a + x, 0);
+    for (const n of [6, 7, 8, 9]) {
+      for (const p of positionsFor(n).slice(0, -1)) expect(CHARTS.rfi[chartSeat(p, n, true)], `${p} at ${n}-handed`).toBeDefined();
+    }
+    expect(width('EP3')).toBeLessThan(width('EP2'));
+    expect(width('EP2')).toBeLessThan(width('EP1'));
+    expect(width('EP1')).toBeLessThan(width('UTG'));
+  });
+
+  it('has a response chart for every seat facing an open from early position', () => {
+    for (const p of ['EP', 'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']) expect(CHARTS.vsOpen[`${p}_vs_EP`], p).toBeDefined();
+    expect(CHARTS.vs3bet.EP_vs_IP).toBeDefined();
+    expect(CHARTS.vs3bet.EP_vs_blinds).toBeDefined();
   });
 });

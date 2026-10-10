@@ -12,6 +12,7 @@ import { narrowHand } from '../postflop/narrow';
 import { PROFILES } from '../postflop/model';
 import { analyze, gradePostflop, heroOptions, leaksAtRisk, situationFromState } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
+import type { TableOptions } from '../preflop/scenario';
 import { hasChart, spotFor } from '../preflop/spot';
 import { makeRng, type Rng } from '../rng';
 
@@ -46,7 +47,7 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
     return 'preflop';
   }
   const live = liveVillains(g, s);
-  expect(live.length, 'a postflop hero turn needs an opponent to read').toBeGreaterThan(0);
+  expect(live.length, `a postflop hero turn needs an opponent to read (level ${g.level}, ${s.players.length}-handed, villains ${g.villains.map((v) => s.players[v].position).join(' ')}, still in ${s.players.filter((p) => !p.folded).map((p) => p.position).join(' ')}; ${s.actions.filter((a) => a.type !== 'post').map((a) => `${s.players[a.player].position} ${a.type}`).join(', ')})`).toBeGreaterThan(0);
   expect(heroOptions(s).length).toBeGreaterThan(0);
   const views = live.map((seat) => ({ seat, range: narrowHand(s, seat, 'pool', opts, PROFILES[g.profiles[seat]]).range, profile: PROFILES[g.profiles[seat]] }));
   if (live.length === 1) {
@@ -68,36 +69,56 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
   return 'multiway';
 }
 
-describe('every hero turn can be acted on', () => {
+/** Plays `seeds` random hands per level at one table setup; returns how many hero turns of each kind came up. */
+function playLevels(table: TableOptions, seeds: number, minTurns: number) {
+  const all = new Map<string, number>();
   for (const level of LEVEL_IDS) {
-    it(`level ${level}: ${LEVELS[level].name}`, () => {
-      const kinds = new Map<string, number>();
-      let turns = 0;
-      for (let seed = 1; seed <= 40; seed++) {
-        const rng = makeRng(seed * 104729 + level);
-        const g = newGameHand(level, rng, opts);
-        let s = advance(g, g.state, rng, opts);
-        expect(heroDecides(g, s), `a new hand must open on a hero decision (seed ${seed})`).toBe(true);
-        let guard = 0;
-        while (heroDecides(g, s) && guard++ < 40) {
-          const kind = checkTurn(g, s, turns % 3 === 0);
-          kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
-          turns++;
-          s = advance(g, applyAction(s, randomAction(s, rng)), rng, opts);
+    const kinds = new Map<string, number>();
+    let turns = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+      const rng = makeRng(seed * 104729 + level + (table.tableSize ?? 6) * 7);
+      const g = newGameHand(level, rng, { ...opts, ...table });
+      expect(g.state.players.length).toBe(table.tableSize ?? 6);
+      expect(g.state.config.bb).toBe(table.bb ?? 50);
+      let s = advance(g, g.state, rng, opts);
+      expect(heroDecides(g, s), `a new hand must open on a hero decision (level ${level}, seed ${seed})`).toBe(true);
+      let guard = 0;
+      while (heroDecides(g, s) && guard++ < 40) {
+        const kind = checkTurn(g, s, turns % 3 === 0);
+        kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+        if (s.street === 'preflop') {
+          const key = spotFor(s, g.hero).key;
+          all.set(key, (all.get(key) ?? 0) + 1);
         }
-        // When the hero has nothing to decide, the hand is over or stopped where the level stops.
-        if (s.toAct !== null) {
-          expect(LEVELS[level].postflop, `stuck with ${s.players[s.toAct].position} to act (seed ${seed})`).toBe(false);
-          expect(s.street).not.toBe('preflop');
-        } else {
-          expect(s.result).not.toBeNull();
-          expect(s.result!.net.reduce((a, x) => a + x, 0)).toBe(0);
-        }
+        turns++;
+        s = advance(g, applyAction(s, randomAction(s, rng)), rng, opts);
       }
-      expect(turns).toBeGreaterThanOrEqual(40);
-      if (LEVELS[level].postflop && !LEVELS[level].riverOnly) expect(kinds.get('preflop') ?? 0).toBeGreaterThan(0);
-      if (LEVELS[level].postflop) expect((kinds.get('headsUp') ?? 0) + (kinds.get('multiway') ?? 0)).toBeGreaterThan(0);
-      if (level === 5) expect(kinds.get('multiway') ?? 0).toBeGreaterThan(0);
+      // When the hero has nothing to decide, the hand is over or stopped where the level stops.
+      if (s.toAct !== null) {
+        expect(LEVELS[level].postflop, `stuck with ${s.players[s.toAct].position} to act (level ${level}, seed ${seed})`).toBe(false);
+        expect(s.street).not.toBe('preflop');
+      } else {
+        expect(s.result).not.toBeNull();
+        expect(s.result!.net.reduce((a, x) => a + x, 0)).toBe(0);
+      }
+    }
+    expect(turns).toBeGreaterThanOrEqual(minTurns);
+    if (LEVELS[level].postflop && !LEVELS[level].riverOnly) expect(kinds.get('preflop') ?? 0).toBeGreaterThan(0);
+    if (LEVELS[level].postflop) expect((kinds.get('headsUp') ?? 0) + (kinds.get('multiway') ?? 0)).toBeGreaterThan(0);
+    if (level === 5) expect(kinds.get('multiway') ?? 0).toBeGreaterThan(0);
+  }
+  return all;
+}
+
+describe('every hero turn can be acted on', () => {
+  it('at 6-max $0.25/$0.50, on every level', () => {
+    playLevels({}, 40, 40);
+  });
+
+  for (const tableSize of [7, 8, 9]) {
+    it(`at ${tableSize}-handed $0.50/$1, on every level, using the early-position charts`, () => {
+      const keys = playLevels({ tableSize, sb: 50, bb: 100 }, 15, 15);
+      expect([...keys.keys()].some((k) => k.includes('EP'))).toBe(true);
     });
   }
 

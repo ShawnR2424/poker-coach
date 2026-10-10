@@ -1,6 +1,6 @@
 // Browser smoke test: builds nothing itself; run `npm run build` first (npm run smoke does).
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
-// desktop widths with random actions. Fails on a console error, a horizontal scrollbar, or a
+// desktop widths with random actions, then a few at a 9-handed $0.50/$1 table. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute.
@@ -101,6 +101,21 @@ for (const vp of VIEWPORTS) {
     }
   }
 
+  // A full-ring table at the higher stakes: 9 seats on screen, every turn still playable.
+  await page.selectOption('#table-size', '9');
+  await page.selectOption('#stakes', '100');
+  for (const level of [1, 3, 5]) {
+    await page.selectOption('#level', String(level));
+    const seats = await page.$$eval('.seat', (e) => e.length);
+    if (seats !== 9) failures.push(`${tag}: 9-handed table shows ${seats} seats`);
+    for (let h = 0; h < Math.max(2, HANDS / 2); h++) {
+      if (!(await playHand(page, `${tag}, 9-handed, level ${level}, hand ${h + 1}`))) break;
+      played++;
+    }
+  }
+  await page.selectOption('#table-size', '6');
+  await page.selectOption('#stakes', '50');
+
   // Sessions survive a reload and show up on the review screen.
   const before = await page.$eval('.session-link', (e) => e.textContent);
   await page.reload();
@@ -153,7 +168,7 @@ for (const vp of VIEWPORTS) {
     if (sent.body.model !== 'claude-opus-5-5') failures.push(`${tag}: the request used model ${sent.body.model}`);
   }
 
-  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')}, ${rows} in the session, ${spots.length} spots, ${requests.length} mocked coach requests`);
+  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed, ${rows} in the session, ${spots.length} spots, ${requests.length} mocked coach requests`);
   await ctx.close();
 }
 

@@ -1,7 +1,7 @@
 // Works out which preflop chart applies to a player, from the actions taken so far.
 
 import type { ActionRecord, HandState } from '../hand';
-import type { Position } from '../positions';
+import { chartSeat, type Position } from '../positions';
 import { CHARTS, LIMP_SIZING, LOWSTAKES, type SpotKind } from './charts';
 
 export interface PreflopSpot {
@@ -32,17 +32,18 @@ export function classifySpot(positions: Position[], actions: ActionRecord[], pla
   const acts = actions.filter((a) => a.street === 'preflop' && a.type !== 'post');
   const raises = acts.filter((a) => a.type === 'raise' || a.type === 'bet');
   const pos = positions[player];
+  const seat = (p: Position, rfi = false) => chartSeat(p, positions.length, rfi);
   const base = { player, position: pos, raiseTos: raises.map((r) => r.to) };
   const ip = (other: number) => player > other;
 
   if (raises.length === 0) {
     const limps = acts.filter((a) => a.type === 'call');
     if (limps.length === 0) {
-      return { ...base, kind: 'rfi', key: pos, aggressor: null, callers: 0, limpers: 0, inPosition: false, label: `${pos} first in` };
+      return { ...base, kind: 'rfi', key: seat(pos, true), aggressor: null, callers: 0, limpers: 0, inPosition: false, label: `${pos} first in` };
     }
     const first = limps[0].player;
     return {
-      ...base, kind: 'vsLimp', key: pos, aggressor: first, callers: 0, limpers: limps.length,
+      ...base, kind: 'vsLimp', key: seat(pos), aggressor: first, callers: 0, limpers: limps.length,
       inPosition: ip(first), label: `${pos} vs ${limps.length} limper${limps.length > 1 ? 's' : ''}`,
     };
   }
@@ -55,7 +56,7 @@ export function classifySpot(positions: Position[], actions: ActionRecord[], pla
 
   if (raises.length === 1) {
     if (callersAfterLast === 0) {
-      return { ...common, kind: 'vsOpen', key: `${pos}_vs_${positions[opener]}`, label: `${pos} vs ${positions[opener]} open` };
+      return { ...common, kind: 'vsOpen', key: `${seat(pos)}_vs_${seat(positions[opener])}`, label: `${pos} vs ${positions[opener]} open` };
     }
     return {
       ...common, kind: 'squeeze', key: isBlind(pos) ? 'blinds' : 'IP',
@@ -64,7 +65,7 @@ export function classifySpot(positions: Position[], actions: ActionRecord[], pla
   }
   if (raises.length === 2 && player === opener) {
     const threeBettor = raisers[1];
-    const key = `${pos}_vs_${isBlind(positions[threeBettor]) ? 'blinds' : 'IP'}`;
+    const key = `${seat(pos)}_vs_${isBlind(positions[threeBettor]) ? 'blinds' : 'IP'}`;
     return { ...common, kind: 'vs3bet', key, label: `${pos} open vs ${positions[threeBettor]} 3-bet` };
   }
   if (raises.length === 2) {
@@ -81,6 +82,12 @@ export function classifySpot(positions: Position[], actions: ActionRecord[], pla
 
 export function spotFor(s: HandState, player: number): PreflopSpot {
   return classifySpot(s.players.map((p) => p.position), s.actions, player);
+}
+
+/** The vs-open chart key for `player` facing an open from `opener`. */
+export function vsOpenKey(s: HandState, player: number, opener: number): string {
+  const n = s.players.length;
+  return `${chartSeat(s.players[player].position, n)}_vs_${chartSeat(s.players[opener].position, n)}`;
 }
 
 export function hasChart(spot: PreflopSpot): boolean {

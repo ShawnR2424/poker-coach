@@ -5,15 +5,16 @@
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { applyAction, legalActions, type HandState } from '../hand';
 import type { Card } from '../cards';
+import { preflopOrder } from '../positions';
 import { CHARTS, getStrategy } from '../preflop/charts';
 import { botAction, type PreflopOptions } from '../preflop/policy';
-import { DEFAULT_MIX, generatePreflopScenario, type PracticeSpot } from '../preflop/scenario';
+import { DEFAULT_MIX, generatePreflopScenario, type PracticeSpot, type TableOptions } from '../preflop/scenario';
+import { vsOpenKey } from '../preflop/spot';
 import { randInt, type Rng } from '../rng';
 import { botPostflopAction } from '../postflop/bot';
 import { classifyHand, type PostflopClass } from '../postflop/classify';
 import { PROFILE_IDS, PROFILES, type ProfileId } from '../postflop/model';
 
-const PREFLOP_ORDER = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 
 export type LevelId = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -164,7 +165,7 @@ function redeal(s: HandState, seat: number, weights: Range, rng: Rng): boolean {
  * A new hand at `level`. With open leaks, about half the hands lean toward the spots where
  * those leaks show up, and `focus` names the leak being practiced.
  */
-export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions, leaks: { tag: string; weight: number }[] = []): GameHand {
+export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, leaks: { tag: string; weight: number }[] = []): GameHand {
   const L = LEVELS[level];
   const tries = L.riverOnly ? 200 : 30;
   for (let attempt = 0; attempt < tries; attempt++) {
@@ -180,7 +181,7 @@ export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions, leak
   throw new Error('Could not build a practice hand');
 }
 
-function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Record<PracticeSpot, number>>): (GameHand & { spot: PracticeSpot }) | null {
+function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, mix: Partial<Record<PracticeSpot, number>>): (GameHand & { spot: PracticeSpot }) | null {
   const L = LEVELS[level];
   const sc = generatePreflopScenario(rng, { ...opts, mix, heroContinues: L.postflop });
   const { state, hero, spot } = sc;
@@ -188,10 +189,10 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Re
   const profiles = base.profiles;
   state.players.forEach((_, i) => { if (i !== hero) profiles[i] = PROFILE_IDS[randInt(rng, PROFILE_IDS.length)]; });
   if (!L.postflop) return { ...base, villains: [] };
-  const heroPos = state.players[hero].position;
+  const n = state.players.length;
   const behind = state.players
     .map((p, i) => ({ p, i }))
-    .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[`${p.position}_vs_${heroPos}`]);
+    .filter(({ p, i }) => i !== hero && !p.folded && CHARTS.vsOpen[vsOpenKey(state, i, hero)]);
 
   if (isMultiway(level)) {
     const already = inAlready(state, hero);
@@ -199,12 +200,12 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Re
     if (already.length > 0 || behind.length < 2) return null;
     // Hero is first in: two players behind defend. The first flats the open; the second
     // overcalls (the squeeze chart's call column), so the flop is usually three-way.
-    const order = [...behind].sort((a, b) => PREFLOP_ORDER.indexOf(a.p.position) - PREFLOP_ORDER.indexOf(b.p.position));
+    const order = [...behind].sort((a, b) => preflopOrder(a.i, n) - preflopOrder(b.i, n));
     const first = order[randInt(rng, order.length - 1)];
-    const rest = order.filter((x) => PREFLOP_ORDER.indexOf(x.p.position) > PREFLOP_ORDER.indexOf(first.p.position));
+    const rest = order.filter((x) => preflopOrder(x.i, n) > preflopOrder(first.i, n));
     const bb = rest.find(({ p }) => p.position === 'BB');
     const second = bb && rng() < 0.5 ? bb : rest[randInt(rng, rest.length)];
-    const flat = sumWeights(getStrategy('vsOpen', `${first.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), true);
+    const flat = sumWeights(getStrategy('vsOpen', vsOpenKey(state, first.i, hero), 'pool', opts.lowStakes), true);
     const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes), true);
     if (!redeal(state, first.i, flat, rng) || !redeal(state, second.i, over, rng)) return null;
     return { ...base, villains: [first.i, second.i] };
@@ -216,7 +217,7 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions, mix: Partial<Re
     if (!behind.length) return null;
     const bb = behind.find(({ p }) => p.position === 'BB');
     const pickd = bb && rng() < 0.5 ? bb : behind[randInt(rng, behind.length)];
-    const cont = sumWeights(getStrategy('vsOpen', `${pickd.p.position}_vs_${heroPos}`, 'pool', opts.lowStakes), false);
+    const cont = sumWeights(getStrategy('vsOpen', vsOpenKey(state, pickd.i, hero), 'pool', opts.lowStakes), false);
     if (!redeal(state, pickd.i, cont, rng)) return null;
     villain = pickd.i;
   }
@@ -232,8 +233,16 @@ export function heroDecides(g: GameHand, s: HandState): boolean {
   return s.toAct === g.hero && (LEVELS[g.level].postflop || s.street === 'preflop');
 }
 
-/** Opponents still in the hand that the hero is playing against. */
-export const liveVillains = (g: GameHand, s: HandState): number[] => g.villains.filter((v) => !s.players[v].folded);
+/**
+ * Opponents still in the hand that the hero is playing against. If every chosen opponent has
+ * folded while the hand goes on (say the hero limped, the chosen opponent folded and the BB
+ * checked its option), whoever is still in becomes the opponent.
+ */
+export function liveVillains(g: GameHand, s: HandState): number[] {
+  const live = g.villains.filter((v) => !s.players[v].folded);
+  if (live.length || !g.villains.length) return live;
+  return s.players.map((_, i) => i).filter((i) => i !== g.hero && !s.players[i].folded);
+}
 
 /**
  * Lets everyone but the hero act until the hero must decide or the hand ends. On postflop
@@ -252,7 +261,7 @@ export function advance(g: GameHand, s: HandState, rng: Rng, opts: PreflopOption
     }
     if (i === g.hero) break;
     if (!L.postflop && s.street !== 'preflop') break; // level 1 stops at the flop
-    if (g.villains.length && !g.villains.includes(i)) {
+    if (g.villains.length && !liveVillains(g, s).includes(i)) {
       s = applyAction(s, legalActions(s).check ? { type: 'check' } : { type: 'fold' });
       continue;
     }
