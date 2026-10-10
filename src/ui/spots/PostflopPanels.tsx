@@ -6,6 +6,7 @@ import { POSTFLOP_CATEGORY_INFO, POSTFLOP_ORDER, categorizePostflop, type Postfl
 import { POSTFLOP_CLASS_LABEL } from '../../engine/postflop/classify';
 import { classMix, multiwayNudge, postflopNudge, stepLine, type PostflopFeedback } from '../../engine/postflop/coach';
 import { comboTable, droppedClasses, keptShare } from '../../engine/postflop/combos';
+import { heroClassLine, RANGE_ACTION_LABEL, type RangeAction, type RangeActions } from '../../engine/postflop/heroRange';
 import type { Profile } from '../../engine/postflop/model';
 import type { MultiwayResult, MultiwaySituation } from '../../engine/postflop/multiway';
 import type { PostflopStep } from '../../engine/postflop/narrow';
@@ -187,9 +188,21 @@ interface ReadProps {
   breakdown: PostflopBreakdown | null;
   error: string | null;
   comboReason?: string;
+  /** What the hero's own line says to the opponents. */
+  heroLine?: string;
 }
 
-export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, comboReason }: ReadProps) {
+function HeroLineRead({ text }: { text?: string }) {
+  if (!text) return null;
+  return (
+    <div className="hero-read">
+      <p className="eyebrow">What your line says</p>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, comboReason, heroLine }: ReadProps) {
   return (
     <section className="range-read" aria-labelledby="pf-rr">
       <div className="rr-head">
@@ -198,6 +211,7 @@ export function PostflopReadPanel({ sit, view, analysis, eqs, breakdown, error, 
       </div>
       <OpponentPanel view={view} sit={sit} eqs={eqs} breakdown={breakdown} comboReason={comboReason} />
       <Summary analysis={analysis} label="Your equity vs this range" />
+      <HeroLineRead text={heroLine} />
       {analysis && breakdown && (
         <div className="nudge">
           <p className="eyebrow">What the read tells you</p>
@@ -216,10 +230,11 @@ interface MultiProps {
   result: MultiwayResult | null;
   error: string | null;
   comboReason?: string;
+  heroLine?: string;
 }
 
 /** One panel per opponent, a note on how their actions interact, and equity against all of them. */
-export function MultiwayReadPanel({ sit, views, note, result, error, comboReason }: MultiProps) {
+export function MultiwayReadPanel({ sit, views, note, result, error, comboReason, heroLine }: MultiProps) {
   const breakdowns = useMemo(
     () => (result ? views.map((v, j) => categorizePostflop(v.range, sit.hero, sit.board, result.comboEqs[j])) : null),
     [result, views, sit],
@@ -243,6 +258,7 @@ export function MultiwayReadPanel({ sit, views, note, result, error, comboReason
         />
       ))}
       <Summary analysis={analysis} label="Your equity vs everyone" />
+      <HeroLineRead text={heroLine} />
       {analysis && breakdowns && (
         <div className="nudge">
           <p className="eyebrow">What the read tells you</p>
@@ -260,12 +276,15 @@ interface FeedbackProps {
   bb: number;
   concept: string;
   multiway?: boolean;
+  /** How the model would split the hero's range across the actions, and which row the hero took. */
+  split?: RangeActions;
+  chosenSplit?: RangeAction;
   /** Optional coaching prose from Claude, shown under the trainer's reasons. */
   voice?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(function PostflopFeedbackPanel({ fb, analysis, bb, concept, multiway, voice, children }, ref) {
+export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(function PostflopFeedbackPanel({ fb, analysis, bb, concept, multiway, split, chosenSplit, voice, children }, ref) {
   return (
     <section ref={ref} className={`feedback verdict-${fb.grade.verdict}`} aria-labelledby="pf-fb">
       <p className="verdict-badge"><span aria-hidden="true">{BADGE[fb.grade.verdict].icon}</span> {BADGE[fb.grade.verdict].label}</p>
@@ -277,6 +296,7 @@ export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(func
         <p className="eyebrow">EV by action and size</p>
         <EvTable analysis={analysis} bb={bb} chosen={fb.grade.chosen} acceptable={fb.grade.acceptable} multiway={multiway} />
       </div>
+      {split && <RangeActionsTable split={split} chosen={chosenSplit} />}
       {fb.outcome && <p className="alt">{fb.outcome}</p>}
       {fb.grade.tags.length > 0 && (
         <p className="leaks"><span className="eyebrow">Leak tag</span> {fb.grade.tags.join(', ')}</p>
@@ -289,3 +309,35 @@ export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(func
     </section>
   );
 });
+
+/** Which hands in the hero's range take each action, by the model's class frequencies. */
+export function RangeActionsTable({ split, chosen }: { split: RangeActions; chosen?: RangeAction }) {
+  return (
+    <div className="range-actions">
+      <p className="eyebrow">Which hands in your range take each action</p>
+      <ul>
+        {split.rows.map((r) => {
+          const mostly = r.classes.filter((c) => c.share >= 0.1).slice(0, 3);
+          return (
+            <li key={r.action} className={r.action === chosen ? 'mine' : ''}>
+              <div className="ra-head">
+                <span className="ra-name">
+                  {RANGE_ACTION_LABEL[r.action]}
+                  {r.action === chosen && <span className="tag you-tag">You</span>}
+                </span>
+                <span className="ra-share">{pct(r.share)} of your range</span>
+              </div>
+              <div className="ra-bar" aria-hidden="true"><span style={{ width: `${r.share * 100}%` }} /></div>
+              {r.share > 0 && (
+                <p className="ra-mostly">
+                  {mostly.length ? `Mostly ${mostly.map((c) => `${POSTFLOP_CLASS_LABEL[c.cls].toLowerCase()} (${pct(c.share)})`).join(', ')}` : 'A thin mix of many hand types'}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="model-note">{heroClassLine(split)} These frequencies come from the trainer's class model of a typical low-stakes player, not from a solver.</p>
+    </div>
+  );
+}

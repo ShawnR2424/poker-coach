@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Your range after the flop
+
+- The postflop range read now has a "What your line says" section for the hero, as it already did before the flop. It says whether the hero's last action caps the range or keeps it uncapped, compares the share of two pair or better in the hero's range with the strongest opponent's, and says how many of the opponents' two pair or better combos the hero's cards block, including the nut flush blocker.
+- Postflop feedback now shows which hands in the hero's range take each available action (fold, call or raise, or check, small bet or big bet), the hand types behind each, and where the hero's own hand falls. The frequencies come from the same class model the opponents use, and the panel says so.
+- The nut-advantage numbers in the feedback now count the hero's range the way the opponents see it, without removing combos that use the hero's own cards.
+- Tests cover the new read on every practice spot and on every postflop turn of the hand-flow test, at every table size; the smoke test checks both sections in the browser.
+
 ## Table sizes and stakes
 
 - The Play screen sets the table size (6-max, or 7, 8 or 9 handed) and the stakes ($0.25/$0.50 or $0.50/$1). Both are remembered in the browser.

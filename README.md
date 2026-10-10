@@ -6,8 +6,8 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 
 ## Features
 
-- **Range read before every decision.** Each opponent gets a 13x13 grid colored by how their hands fare against yours, a hand-class breakdown, and a combo table showing how many combos of each hand remain after card removal and which known cards removed the rest. Hands that drop out with an opponent's latest action are crossed out.
-- **Graded decisions.** Preflop decisions are graded against chart frequencies. Postflop decisions are graded by the EV each legal action and size gives up against the best one. Feedback covers equity, pot odds, sizing ("right idea, wrong size"), sunk-cost and results-oriented thinking.
+- **Range read before every decision.** Each opponent gets a 13x13 grid colored by how their hands fare against yours, a hand-class breakdown, and a combo table showing how many combos of each hand remain after card removal and which known cards removed the rest. Hands that drop out with an opponent's latest action are crossed out. A "What your line says" note covers the hero's own range: whether the line so far caps it, who has the nut advantage, and which of the opponents' strongest hands the hero's cards block.
+- **Graded decisions.** Preflop decisions are graded against chart frequencies. Postflop decisions are graded by the EV each legal action and size gives up against the best one. Feedback covers equity, pot odds, sizing ("right idea, wrong size"), sunk-cost and results-oriented thinking. After the flop it also shows which hands in the hero's range take each action, with the hero's own hand placed in it.
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
@@ -104,6 +104,7 @@ docs/                    Model notes
 - Multiway equity matches an exact enumeration of every hand and runout to within 1%, and the combo table matches the grid class by class.
 - An opponent's actual hand is always inside the range the trainer shows for them.
 - Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly, at 6-max and at 7, 8 and 9 handed.
+- After the flop, the split of the hero's range across the available actions always accounts for the whole range, and the line read agrees with what the hero did. If the hero took a line the charts never take, the read says there is no range rather than showing one.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

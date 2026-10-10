@@ -52,3 +52,16 @@
 .combo-scroll .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
 .ct { font-weight: 600; margin-right: 2px; }
 .ct.red { color: var(--bad); }
+
+/* Which hands in the hero's range take each action. */
+.range-actions { display: grid; gap: 6px; min-width: 0; }
+.range-actions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.range-actions li { display: grid; gap: 4px; padding: 6px 10px; border-left: 3px solid transparent; min-width: 0; }
+.range-actions li.mine { border-left-color: var(--hero); background: var(--surface-2); border-radius: 0 6px 6px 0; }
+.ra-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.92rem; }
+.ra-name { font-weight: 700; }
+.ra-share { font-variant-numeric: tabular-nums; color: var(--fg-muted); }
+.ra-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.ra-bar > span { display: block; height: 100%; background: var(--felt); }
+.ra-mostly { margin: 0; font-size: 0.85rem; color: var(--fg-muted); }
+.range-actions .model-note { font-size: 0.85rem; color: var(--fg-muted); margin: 0; max-width: 65ch; }
