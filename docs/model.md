@@ -52,7 +52,8 @@ Before the flop an opponent's range is written exactly, since chart weights are 
 
 - how often it bets small or big when first to act or checked to;
 - how often it continues facing a bet, as a straight line that falls as the bet grows relative to the pot;
-- what share of continuing hands raise.
+- what share of continuing hands raise;
+- how much less often it continues when it bet and now faces a raise. One-pair hands give up somewhat more often against a raise than against a bet, but players at these stakes rarely fold a pair to a single raise, so turning a pair into a bluff-raise rarely beats calling.
 
 `data/postflop/profiles.json` scales those numbers for four opponent styles: regular, nit, calling station and aggressive. All of these values are estimates of a typical low-stakes pool, not measured from hand histories or taken from a solver.
 
@@ -128,3 +129,4 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
 - Opponents do not adapt to the hero over a session.
+- EV covers the current street only. A bet's value on later streets is not counted, so an all-in when stacks are deep can score above a normal bet, both as a bluff (it folds out almost everything) and for value with very strong hands (it gets the whole stack in now). Treat an all-in that grades best with a lot of money behind as a model artifact rather than advice.

@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Opponents call raises more realistically
+
+- Opponents who bet and then face a raise now keep most of their pairs instead of folding them. Before, a player who bet folded about half their weak top pairs and most middle pairs to a single raise, so the trainer graded raising a bluff-catcher as best and calling as a mistake (for example, raising second pair against a small river bet). In a sample of 600 level 3 hands, raising was the best response to a bet in 194 of 289 decisions before and 156 of 291 after.
+- The combo-draw practice spot now says calling and raising are close, since the cutoff's turn bet keeps most of its pairs against a raise.
+- New tests check that a weak pair facing a small river bet is not told calling is a mistake, and that a player who bet keeps most of their pairs against one raise.
+- docs/model.md now lists a known gap: EV covers one street, so a deep-stacked all-in can score above a normal bet.
+
 ## More postflop practice spots
 
 - The Postflop spots tab grows from four spots to twelve. The new ones: a c-bet with nothing on an ace-high flop, top pair facing a flop raise, a gutshot facing a pot-sized turn bet, an overpair facing a turn check-raise, a set on a wet turn, top pair with a weak kicker checked to on the river, a missed flush draw on the river, and an underpair facing a river overbet.
