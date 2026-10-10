@@ -1,7 +1,9 @@
-// Settings: the optional Claude coach voice. Off by default; the trainer works fully without it.
+// Settings: the optional Claude coach voice (off by default; the trainer works fully without it)
+// and installing the trainer as an app.
 
 import { useState } from 'react';
 import { SYSTEM_PROMPT } from '../../engine/coach/explain';
+import { useInstall } from '../app/install';
 import { MODEL_NAME } from './model';
 import { coachVoiceOn, setCoachSettings, useCoachSettings } from './settings';
 import './coach.css';
@@ -16,7 +18,7 @@ export function SettingsScreen() {
     <div className="screen settings-screen">
       <div>
         <p className="eyebrow">Settings</p>
-        <h1>Coach voice</h1>
+        <h1>Coach voice and app</h1>
       </div>
 
       <section className="panel" aria-labelledby="voice-h">
@@ -66,6 +68,33 @@ export function SettingsScreen() {
         <p className="muted small">The instructions sent with every request. The facts that follow them are the spot, your cards, your action, the verdict, the trainer's reasons, the EV table and the key concept. Opponents' cards are never sent.</p>
         <pre className="prompt">{SYSTEM_PROMPT}</pre>
       </details>
+
+      <InstallPanel />
     </div>
+  );
+}
+
+function InstallPanel() {
+  const app = useInstall();
+  return (
+    <section className="panel" aria-labelledby="install-h">
+      <h2 id="install-h">Install as an app</h2>
+      <p>
+        Installed, the trainer opens in its own window from your home screen or dock and works without a connection.
+        Hands, sessions and settings stay in this browser either way. The Claude coach voice still needs a connection.
+      </p>
+      {app.installed ? (
+        <p className="note ok" id="install-status">Installed. You are using the app.</p>
+      ) : app.canInstall ? (
+        <button type="button" className="primary" id="install-app" onClick={() => app.install()}>Install Poker Coach</button>
+      ) : (
+        <p className="muted" id="install-status">
+          To install, open the trainer from its web address and use your browser's install option: in Chrome or Edge, the install icon in the
+          address bar or Install in the menu; on an iPhone or iPad in Safari, Share and then Add to Home Screen.
+          An embedded preview cannot be installed.
+        </p>
+      )}
+      {app.offline && <p className="note ok" id="offline-status">Saved for offline use.</p>}
+    </section>
   );
 }

@@ -17,6 +17,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
 - **Import your own hands.** Paste hand histories from PokerStars or GGPoker (or open a saved .txt file) on the Import tab. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt and every decision you made is graded with the same charts and postflop model as the Play tab. Save them as a session to get the Session tab's leaks and a replay of each hand; their leaks then steer leak-targeted practice. A Try sample hands button shows how it works.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
+- **Install as an app.** Opened from a web address, the trainer can be installed to a phone's home screen or a computer's dock, opens in its own window and works without a connection. See [Install as an app](#install-as-an-app).
 - **Optional coaching voice from Claude.** Off by default. With your own Claude API key, each graded decision also gets a short explanation written by Claude from the trainer's computed facts. See [Coach voice](#coach-voice).
 
 ## Practice levels
@@ -53,8 +54,21 @@ npm run dev        # start the app at http://localhost:5173
 | `npm run build` | Typecheck and production build into `dist/` |
 | `npm run smoke` | Build, then play hands on every level in a headless browser at phone and desktop widths. Needs a Playwright Chromium (`npx playwright install chromium`) |
 | `npm run gen:hand-rank` | Regenerate `data/hand-rank.json` |
+| `node scripts/icons.mjs` | Render `public/icon.svg` to the PNG app icons |
 
 Continuous integration runs the typecheck, unit tests and smoke test on every pull request.
+
+## Install as an app
+
+The production build is a progressive web app: `public/manifest.webmanifest` names the app and its icons, and `sw.js`, written at build time by `scripts/sw-plugin.ts`, caches every file of the build on the first visit so the app opens and plays offline. Each build gets a new cache, and the app picks up a new build the next time it is opened online. The Claude coach voice still needs a connection.
+
+Browsers only install an app served over HTTPS (or from `localhost`), so it has to be opened from a web address:
+
+- **GitHub Pages.** `.github/workflows/pages.yml` builds and publishes the app on every push to main once Pages is switched on (Settings > Pages > Source: GitHub Actions). It is skipped until then.
+- **Any static host.** Upload the contents of `dist/` after `npm run build`.
+- **Locally.** `npm run build && npm run preview` serves the build on `localhost`, which browsers also let you install.
+
+Then use the browser's install option: the install icon in Chrome's or Edge's address bar, or Share > Add to Home Screen in Safari on an iPhone or iPad. The Settings tab shows the install button when the browser offers one, and whether the app is saved for offline use. Hands, sessions and settings live in that browser's storage, so an installed app and the same address in a browser tab share them.
 
 ## Coach voice
 
@@ -100,9 +114,10 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   session/import.ts        Reads pasted hand histories, rebuilds each hand and grades the hero's decisions
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
-src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
+src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), app/ (installing and offline use), and the engine lab
 data/                    Editable strategy data (see above)
-scripts/                 Data generation and the browser smoke test
+public/                  App manifest and icons, copied into the build as is
+scripts/                 Data generation, the service worker build plugin, icon rendering and the browser smoke test
 docs/                    Model notes and spec coverage
 ```
 
@@ -123,6 +138,7 @@ docs/                    Model notes and spec coverage
 - A range facing a bet or a raise defends exactly to the floor when its hand classes alone would fold more, and air keeps folding. In a fixed sample of level 3 hands, raising grades best less than 48% of the time facing a bet, checking more than a sixth of the time with no bet to face, and opponents fold to a 2.5x raise well below what a pure bluff needs.
 - An imported hand rebuilds exactly: every action follows the betting order, the stacks, cards and board match the history, and the result is what the history says the hero collected. A hand the trainer plays, written out as a PokerStars hand history, imports back to the same actions and result; this is checked on seeded hands from levels 3 to 5. Hands the trainer cannot model (tournaments, heads-up, antes, straddles, run-it-twice, other games) are skipped with the reason. The smoke test imports the sample hands, saves them and opens each replay.
 - With the rake on, stacks plus rake add up to the starting chips over hundreds of random hands, nothing is raked before the flop or from an uncalled excess, and a raked hand replays to the same result. The rake never makes an option's EV higher, leaves folding at zero and never costs more than the cap, heads-up and multiway.
+- The production build passes Chromium's installability check (manifest, icons, service worker), and with the network off it still opens and plays a hand. The smoke test checks this.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.

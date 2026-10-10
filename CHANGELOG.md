@@ -2,6 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
+## Install as an app
+
+- The trainer is now a progressive web app. Opened from a web address, it can be installed to a phone's home screen or a computer's dock, opens in its own window, and works offline: hands, spots, sessions, replays and imports all run without a connection. The Claude coach voice still needs one.
+- New `public/manifest.webmanifest` and app icons (a spade on the felt green, rendered from `public/icon.svg` by `scripts/icons.mjs`), with the theme colour and an Apple touch icon in `index.html`.
+- A small build plugin, `scripts/sw-plugin.ts`, writes `sw.js` with the list of every file in the build. The service worker caches them all on the first visit and names the cache after the build, so a new build replaces the old cache. Pages load from the network first and fall back to the cached app offline; other files come from the cache. Requests to the Claude API are never cached.
+- The Settings tab has an "Install as an app" panel with an install button when the browser offers one, instructions when it does not, and a note once the app is saved for offline use. In an embedded preview, where service workers are not allowed, the app works as before.
+- New `.github/workflows/pages.yml` publishes the build to GitHub Pages on each push to main once Pages is switched on for the repository, and is skipped until then.
+- The smoke test opens the build in a fresh browser, checks the manifest and that every icon loads, runs Chromium's own installability check, waits for the service worker to take control, then turns the network off, reloads and plays a hand.
+
 ## Rake
 
 - The Play screen has a Rake setting: no rake (the default) or 5% of each pot capped at 3bb, a typical online cash-game rake. It is remembered in the browser.

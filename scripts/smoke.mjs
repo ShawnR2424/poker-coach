@@ -2,7 +2,8 @@
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Also checks that the optional Claude coach voice
+// hero turn that never offers a way to act. Checks that the app can be installed and opens
+// and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
 // adjust to a session that folds and bets far more than the best play.
@@ -80,7 +81,8 @@ async function playHand(page, where) {
 
 for (const vp of VIEWPORTS) {
   const tag = `${vp.width}px ${vp.colorScheme}`;
-  const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme });
+  // Service workers are blocked here so API mocking sees every request; the app check below allows them.
+  const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`); });
   page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
@@ -341,6 +343,51 @@ for (const vp of VIEWPORTS) {
   }
 
   console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${imported} imported hands, ${requests.length} mocked coach requests`);
+  await ctx.close();
+}
+
+// Installable app: the manifest and icons load, the service worker takes control, and the app
+// opens and deals a hand with the network off.
+{
+  const tag = 'app';
+  const ctx = await browser.newContext({ viewport: { width: 380, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
+  await page.goto(`${url}#settings`);
+  const manifest = await page.evaluate(async () => {
+    const href = document.querySelector('link[rel=manifest]')?.getAttribute('href');
+    if (!href) return null;
+    const m = await (await fetch(href)).json();
+    const icons = await Promise.all(m.icons.map(async (i) => ({ ...i, ok: (await fetch(new URL(i.src, new URL(href, location.href)))).ok })));
+    return { ...m, icons };
+  });
+  if (!manifest) failures.push(`${tag}: no manifest link`);
+  else {
+    if (manifest.display !== 'standalone' || !manifest.start_url || !manifest.name) failures.push(`${tag}: the manifest lacks name, start_url or standalone display`);
+    if (!manifest.icons.some((i) => i.sizes === '512x512') || !manifest.icons.some((i) => i.sizes === '192x192')) failures.push(`${tag}: the manifest lacks 192px or 512px icons`);
+    for (const i of manifest.icons) if (!i.ok) failures.push(`${tag}: icon ${i.src} does not load`);
+  }
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  try {
+    await page.waitForSelector('#offline-status', { timeout: 10000 });
+  } catch {
+    failures.push(`${tag}: the service worker never took control`);
+  }
+  // Chromium's own installability check: manifest, icons, service worker and secure origin.
+  const { installabilityErrors } = await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors');
+  for (const e of installabilityErrors) failures.push(`${tag}: not installable: ${e.errorId}`);
+  await ctx.setOffline(true);
+  await page.goto(`${url}#table`);
+  await page.reload();
+  try {
+    await page.waitForSelector('.action-bar .act, .hand-result, .feedback', { timeout: TURN_TIMEOUT });
+    if (!(await playHand(page, `${tag}, offline`))) failures.push(`${tag}: no hand could be played offline`);
+  } catch {
+    failures.push(`${tag}: the app does not open offline`);
+  }
+  await ctx.setOffline(false);
+  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installabilityErrors.length} installability errors, service worker in control, a hand played offline`);
   await ctx.close();
 }
 
