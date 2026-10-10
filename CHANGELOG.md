@@ -2,6 +2,16 @@
 
 Each milestone was merged as its own pull request.
 
+## Opponents defend their ranges
+
+- A whole range facing a bet or a raise now defends at least the minimum defense frequency, 1 / (1 + f) for a bet of f times the pot, adjusted by the opponent's style: a nit still folds more and a calling station defends more. Before, each hand class folded on its own, so a range that checked (mostly air and weak pairs) or a range of small bets (many bluffs) folded far too often, and betting or raising with nothing showed a profit almost everywhere.
+- When a range falls short of the floor, every class continues more often by the same factor, up to three times its own rate. Pairs and draws take up the extra defense while air keeps folding, so a range of strong hands and air can still fold to a raise. The new `defend` and `maxBoost` values are in `data/postflop/actions.json`.
+- The floor applies to the EV of each option, the range narrowing, the hero's own range split and the bots, which compute it from the same range read the trainer shows, so the read still always holds the opponent's real hand.
+- In a seeded sample of 300 level 3 hands, raising is now the best response to a bet in 64 of 161 heads-up decisions, down from 89 of 159, and checking is best in 102 of 434 decisions with no bet to face, up from 50 of 405. Opponents fold to a 2.5x raise 29% of the time on average, against the 44% a pure bluff needs; before, it was 41%.
+- Two practice spot answers changed with the new numbers: queens at a low stack-to-pot ratio can also shove, in line with the lesson about getting the money in, and checking back with nothing on the ace-high flop is now playable rather than a mistake, since the big blind defends more.
+- New tests check the floor (a range that defends enough is left alone, a wide range reaches exactly the floor, air keeps folding, styles still differ) and lock in the rates: raising best less than 48% of the time facing a bet, checking best more than a sixth of the time with no bet to face, and folds to a 2.5x raise well below what a bluff needs.
+- An attempt to also model the bet an opponent can make after the hero checks lowered the value of checking weak hands and made betting grade best more often, so it was left out; docs/model.md lists the remaining gap.
+
 ## Stack depths
 
 - The Play screen has a Stacks setting: 40bb, 100bb (the default) or 200bb, remembered in the browser. Every seat starts the hand with that many big blinds.
