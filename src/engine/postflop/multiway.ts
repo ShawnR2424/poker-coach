@@ -10,7 +10,8 @@ import { comboEquities, computeEquity } from '../equity';
 import { pot as potOf, type HandState } from '../hand';
 import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
-import { classifyHand, STRONG_CLASSES, type PostflopClass } from './classify';
+import { classifyHand, type PostflopClass } from './classify';
+import { strongShare } from './heroRange';
 import { realization, responseFor, type Profile } from './model';
 import { heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
 
@@ -141,17 +142,6 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
   }
 
   const best = rows.reduce((a, r) => (r.ev > a.ev + 1e-9 ? r : a), rows[0]);
-  const strongShare = (range: Range) => {
-    let s = 0, t = 0;
-    for (let i = 0; i < NUM_COMBOS; i++) {
-      if (!(range[i] > 0)) continue;
-      const [a, c] = COMBO_CARDS[i];
-      if (dead.has(a) || dead.has(c)) continue;
-      t += range[i];
-      if (STRONG_CLASSES.has(classifyHand([a, c], sit.board))) s += range[i];
-    }
-    return t > 0 ? s / t : 0;
-  };
   const facing = sit.currentBet - hc;
   const deepest = Math.max(...sit.villains.map((v) => v.behind + v.committed));
   return {
@@ -163,8 +153,8 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
         equity,
         potOdds: facing > 0 ? potOdds(Math.min(facing, H), P) : null,
         spr: sprOf(Math.min(H + hc, deepest) - Math.max(hc, sit.currentBet), P),
-        villainStrong: Math.max(...sit.villains.map((v) => strongShare(v.range))),
-        heroStrong: sit.heroRange ? strongShare(sit.heroRange) : null,
+        villainStrong: Math.max(...sit.villains.map((v) => strongShare(v.range, sit.board, dead))),
+        heroStrong: sit.heroRange ? strongShare(sit.heroRange, sit.board, sit.board) : null,
         heroClass,
         liveCombos: vs.reduce((a, p) => a + p.W, 0),
         realization: R,

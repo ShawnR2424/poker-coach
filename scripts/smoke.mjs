@@ -44,6 +44,10 @@ async function playHand(page, where) {
       return false;
     }
     if (await page.$('.hand-result')) break;
+    // After the flop the read always says what the hero's own line represents.
+    if ((await page.$('#pf-rr, #mw-rr')) && !(await page.$('.range-read .hero-read'))) {
+      failures.push(`${where}: a postflop read has no "What your line says" section`);
+    }
     const buttons = await page.$$('.action-bar .act:not([type=submit])');
     await buttons[Math.floor(Math.random() * buttons.length)].click();
     await page.waitForFunction(
@@ -132,7 +136,18 @@ for (const vp of VIEWPORTS) {
   for (let i = 0; i < spots.length; i++) {
     await (await page.$$('.spot-pick button'))[i].click();
     await page.waitForSelector('.combo-table', { timeout: TURN_TIMEOUT });
+    if (!(await page.$('.range-read .hero-read'))) failures.push(`${tag}, spot ${i + 1}: no "What your line says" section`);
     await noOverflow(page, `${tag}, spot ${i + 1}`);
+    // The feedback shows which hands in the hero's range take each action, with the hero's row marked.
+    await page.waitForSelector('.action-bar .act:not([disabled])', { timeout: TURN_TIMEOUT });
+    await page.click('.action-bar .act');
+    await page.waitForSelector('.feedback', { timeout: TURN_TIMEOUT });
+    const split = await page.evaluate(() => ({
+      rows: document.querySelectorAll('.range-actions li').length,
+      you: document.querySelectorAll('.range-actions .you-tag').length,
+    }));
+    if (split.rows < 2 || split.you !== 1) failures.push(`${tag}, spot ${i + 1}: range-by-action table has ${split.rows} rows and ${split.you} marked as yours`);
+    await noOverflow(page, `${tag}, spot ${i + 1} feedback`);
   }
 
   // Switch the coach voice on with a test key and check both outcomes against the mocked API.

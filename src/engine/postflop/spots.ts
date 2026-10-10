@@ -5,7 +5,7 @@ import { parseCards, type Card } from '../cards';
 import { applyAction, newHand, type Action, type HandState } from '../hand';
 import { clockwiseFromSB, type Position } from '../positions';
 import type { Range } from '../range';
-import { narrowHand } from './narrow';
+import { narrowHand, type PostflopStep } from './narrow';
 
 export interface PostflopSpotDef {
   id: string;
@@ -113,6 +113,8 @@ export interface BuiltSpot {
   villain: number;
   villainRange: Range;
   heroRange: Range;
+  /** The hero's own postflop narrowing steps, for the read of their line. */
+  heroSteps: PostflopStep[];
   heroPreflopAggressor: boolean;
 }
 
@@ -144,13 +146,15 @@ export function buildSpot(def: PostflopSpotDef, opts = { lowStakes: false }): Bu
   }
   if (s.toAct !== hero) throw new Error(`${def.id}: hero is not to act`);
   const preRaises = s.actions.filter((a) => a.street === 'preflop' && a.type === 'raise');
+  const heroN = narrowHand(s, hero, 'baseline', opts);
   return {
     def,
     state: s,
     hero,
     villain,
     villainRange: narrowHand(s, villain, 'pool', opts).range,
-    heroRange: narrowHand(s, hero, 'baseline', opts).range,
+    heroRange: heroN.range,
+    heroSteps: heroN.steps,
     heroPreflopAggressor: preRaises.length > 0 && preRaises[preRaises.length - 1].player === hero,
   };
 }

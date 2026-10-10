@@ -14,7 +14,8 @@ import { legalActions, pot, type Action, type HandState } from '../hand';
 import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
-import { classifyHand, STRONG_CLASSES, type PostflopClass } from './classify';
+import { classifyHand, type PostflopClass } from './classify';
+import { strongShare } from './heroRange';
 import { realization, responseFor, type Profile } from './model';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
@@ -232,17 +233,6 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
   }
 
   const best = rows.reduce((a, r) => (r.ev > a.ev + 1e-9 ? r : a), rows[0]);
-  const strongShare = (range: Range) => {
-    let s = 0, t = 0;
-    for (let i = 0; i < NUM_COMBOS; i++) {
-      if (!(range[i] > 0)) continue;
-      const [a, b] = COMBO_CARDS[i];
-      if (dead.has(a) || dead.has(b)) continue;
-      t += range[i];
-      if (STRONG_CLASSES.has(classifyHand([a, b], sit.board))) s += range[i];
-    }
-    return t > 0 ? s / t : 0;
-  };
   const facing = vc - hc;
   return {
     rows,
@@ -251,8 +241,8 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
       equity,
       potOdds: facing > 0 ? potOdds(Math.min(facing, H), P) : null,
       spr: sprOf(Math.min(H + hc, V + vc) - Math.max(hc, vc), P),
-      villainStrong: strongShare(sit.villainRange),
-      heroStrong: sit.heroRange ? strongShare(sit.heroRange) : null,
+      villainStrong: strongShare(sit.villainRange, sit.board, dead),
+      heroStrong: sit.heroRange ? strongShare(sit.heroRange, sit.board, sit.board) : null,
       heroClass,
       liveCombos: W,
       realization: R,

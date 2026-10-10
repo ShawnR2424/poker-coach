@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCards, parseCards } from '../../engine/cards';
 import { postflopFacts } from '../../engine/coach/explain';
 import { describeScore, evaluate } from '../../engine/evaluator';
-import type { Action } from '../../engine/hand';
+import { legalActions, type Action } from '../../engine/hand';
 import { postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
+import { postflopHeroLine, rangeActionOf, rangeActions, type RangeAction } from '../../engine/postflop/heroRange';
+import { currentContext } from '../../engine/postflop/narrow';
 import { gradePostflop, situationFromState } from '../../engine/postflop/recommend';
 import { buildSpot, POSTFLOP_SPOTS } from '../../engine/postflop/spots';
 import { CoachVoice } from '../coach/CoachVoice';
@@ -19,6 +21,7 @@ import { comboTableReason, PostflopFeedbackPanel, PostflopReadPanel, usePostflop
 export function SpotsScreen() {
   const [idx, setIdx] = useState(0);
   const [fb, setFb] = useState<PostflopFeedback | null>(null);
+  const [chosenSplit, setChosenSplit] = useState<RangeAction | null>(null);
 
   const spot = useMemo(() => buildSpot(POSTFLOP_SPOTS[idx]), [idx]);
   const { state, hero, villain, def } = spot;
@@ -32,6 +35,15 @@ export function SpotsScreen() {
     [spot], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const heroRead = useMemo(() => {
+    const ctx = currentContext(state, hero);
+    return {
+      ctx,
+      line: postflopHeroLine(state, hero, spot.heroRange, spot.heroSteps, [spot.villainRange], spot.heroPreflopAggressor).text,
+      split: rangeActions(spot.heroRange, state.players[hero].hole, state.board, ctx, legalActions(state).raise !== null),
+    };
+  }, [spot]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => setFb(null), [spot]);
   const fbRef = useRef<HTMLElement>(null);
   useEffect(() => { if (fb) fbRef.current?.scrollIntoView({ block: 'start' }); }, [fb]);
@@ -39,6 +51,7 @@ export function SpotsScreen() {
   const act = (action: Action) => {
     if (!analysis) return;
     const grade = gradePostflop(sit, analysis, action);
+    setChosenSplit(rangeActionOf(action.type, 'to' in action ? action.to : undefined, heroRead.ctx));
     setFb(postflopFeedback(sit, analysis, grade, state.players[villain].hole, parseCards(def.board)));
   };
 
@@ -75,6 +88,7 @@ export function SpotsScreen() {
           breakdown={breakdown}
           error={error}
           comboReason={comboTableReason(sit.street, false)}
+          heroLine={heroRead.line}
         />
       )}
       {!fb && <ActionBar key={idx} state={state} onAct={(a) => act(a)} disabled={!analysis} />}
@@ -86,6 +100,8 @@ export function SpotsScreen() {
           analysis={analysis}
           bb={sit.bb}
           concept={def.concept}
+          split={heroRead.split ?? undefined}
+          chosenSplit={chosenSplit ?? undefined}
           voice={<CoachVoice facts={postflopFacts(`${STREET_LABEL[state.street]} ${formatCards(state.board)}`, formatCards(heroCards), analysis, fb, def.concept, sit.bb)} />}
         >
           <button type="button" onClick={() => setFb(null)}>Try this spot again</button>

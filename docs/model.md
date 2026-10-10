@@ -81,6 +81,15 @@ Every legal action and preset size is scored, and the hero's choice is compared 
 
 Thresholds scale with the pot so that tiny differences in big pots are not called mistakes. Close spots can change verdict when `actions.json` is tuned.
 
+### Your own range
+
+After the flop the hero's range is narrowed the same way as an opponent's: the preflop chart range for the hero's actions, then the class tables for each postflop action the hero took. Two things are built from it:
+
+- **What your line says.** The last action decides capped or uncapped: a bet or raise keeps the range uncapped, a check or call caps it, because the model takes most of its strongest hands with a bet or raise. The nut-advantage line compares the share of two pair or better in the hero's range (the board removed, but not the hero's own cards, since opponents cannot see them) with the strongest opponent's (the hero's cards removed). Blockers are the share of the opponents' two pair or better combos that use one of the hero's cards, plus a note when the hero holds the ace of a suit with three or more cards on the board.
+- **Which hands take each action.** Each class in the hero's range is split across the actions on offer using the same frequencies the opponents use: `firstToAct` or `leadIntoAggressor` when no bet is faced, `facingBet` when one is. This is how the model's typical player would play the hero's range, not a solver strategy, and it ignores which hands within a class are better or worse.
+
+If the hero took a line the charts never take (for example an open limp from a seat with no limping range), the hero has no range and the trainer says so instead of showing one.
+
 ## Multiway pots
 
 With two or more opponents still in:

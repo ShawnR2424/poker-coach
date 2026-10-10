@@ -8,7 +8,8 @@ import { comboEquities } from '../equity';
 import { advance, heroDecides, LEVEL_IDS, LEVELS, liveVillains, newGameHand, type GameHand } from '../game/levels';
 import { applyAction, legalActions, type Action, type HandState } from '../hand';
 import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiway';
-import { narrowHand } from '../postflop/narrow';
+import { postflopHeroLine, rangeActions } from '../postflop/heroRange';
+import { currentContext, narrowHand } from '../postflop/narrow';
 import { PROFILES } from '../postflop/model';
 import { analyze, gradePostflop, heroOptions, leaksAtRisk, situationFromState } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
@@ -50,6 +51,14 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
   expect(live.length, `a postflop hero turn needs an opponent to read (level ${g.level}, ${s.players.length}-handed, villains ${g.villains.map((v) => s.players[v].position).join(' ')}, still in ${s.players.filter((p) => !p.folded).map((p) => p.position).join(' ')}; ${s.actions.filter((a) => a.type !== 'post').map((a) => `${s.players[a.player].position} ${a.type}`).join(', ')})`).toBeGreaterThan(0);
   expect(heroOptions(s).length).toBeGreaterThan(0);
   const views = live.map((seat) => ({ seat, range: narrowHand(s, seat, 'pool', opts, PROFILES[g.profiles[seat]]).range, profile: PROFILES[g.profiles[seat]] }));
+  // The hero's own read: their line, and the split of their range across the actions on offer.
+  const heroN = narrowHand(s, g.hero, 'baseline', opts);
+  const line = postflopHeroLine(s, g.hero, heroN.range, heroN.steps, views.map((v) => v.range), false);
+  expect(line.text.length).toBeGreaterThan(0);
+  expect(line.text).not.toMatch(/NaN|undefined/);
+  const split = rangeActions(heroN.range, s.players[g.hero].hole, s.board, currentContext(s, g.hero), legalActions(s).raise !== null);
+  if (split) expect(Math.abs(split.rows.reduce((t, r) => t + r.share, 0) - 1)).toBeLessThan(1e-6);
+  else expect(line.text).toContain('no range for you here');
   if (live.length === 1) {
     const sit = situationFromState(s, g.hero, views[0].seat, views[0].range, { heroPreflopAggressor: false, villainProfile: views[0].profile });
     if (deep) {

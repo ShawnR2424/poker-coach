@@ -6,12 +6,13 @@ import { preflopCategory, categorizeRange, type CellCategory, type PreflopCatego
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, newGameHand, type GameHand, type LevelId } from '../../engine/game/levels';
-import { applyAction, type Action, type HandState } from '../../engine/hand';
+import { applyAction, legalActions, type Action, type HandState } from '../../engine/hand';
 import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
 import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
 import { PROFILES } from '../../engine/postflop/model';
-import { narrowHand } from '../../engine/postflop/narrow';
+import { postflopHeroLine, rangeActionOf, rangeActions, type RangeAction, type RangeActions } from '../../engine/postflop/heroRange';
+import { currentContext, narrowHand } from '../../engine/postflop/narrow';
 import { interactionNote, multiwaySituationFromState } from '../../engine/postflop/multiway';
 import { describeOption, gradePostflop, leaksAtRisk, situationFromState, type Analysis, type DecisionBasics } from '../../engine/postflop/recommend';
 import {
@@ -43,7 +44,7 @@ type Phase = 'decide' | 'feedback' | 'result';
 
 type Pending =
   | { kind: 'preflop'; decision: Decision; feedback: Feedback; action: Action; facts: CoachFacts }
-  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean; concept: string; facts: CoachFacts };
+  | { kind: 'postflop'; fb: PostflopFeedback; analysis: Analysis; sit: DecisionBasics; action: Action; multiway: boolean; concept: string; facts: CoachFacts; split: RangeActions | null; chosenSplit: RangeAction };
 
 const LEVEL_KEY = 'level';
 function loadLevel(): LevelId {
@@ -230,10 +231,16 @@ export function GameScreen() {
         lastStep: n.steps.length && n.steps[n.steps.length - 1].street === state.street ? n.steps[n.steps.length - 1] : undefined,
       };
     });
+    const heroN = narrowHand(state, hero, 'baseline', opts);
+    const heroPreflopAggressor = pre.length > 0 && pre[pre.length - 1].player === hero;
+    const ctx = currentContext(state, hero);
     return {
       views,
-      heroRange: narrowHand(state, hero, 'baseline', opts).range,
-      heroPreflopAggressor: pre.length > 0 && pre[pre.length - 1].player === hero,
+      heroRange: heroN.range,
+      heroPreflopAggressor,
+      heroLine: postflopHeroLine(state, hero, heroN.range, heroN.steps, views.map((v) => v.range), heroPreflopAggressor).text,
+      ctx,
+      split: rangeActions(heroN.range, state.players[hero].hole, state.board, ctx, legalActions(state).raise !== null),
       comboReason: comboTableReason(state.street, pre.length >= 3),
     };
   }, [state, heroToAct, isPreflop, liveVillains, game.profiles, hero, opts]);
@@ -293,12 +300,13 @@ export function GameScreen() {
         atRisk: preflopLeaksAtRisk(state, hero, decision),
       }]);
     } else {
-      if (!analysis || !postSit) return;
+      if (!analysis || !postSit || !postCtx) return;
       const grade = gradePostflop(postSit, analysis, action);
       const fb = postflopFeedback(postSit, analysis, grade, [], [], { multiway });
       const concept = multiway ? multiwayConcept(analysis) : conceptFor(postSit, analysis);
       const facts = postflopFacts(`${STREET_LABEL[state.street]} ${formatCards(state.board)}`, formatCards(heroCards), analysis, fb, concept, postSit.bb, multiway);
-      setPending({ kind: 'postflop', fb, analysis, sit: postSit, action, multiway, concept, facts });
+      const chosenSplit = rangeActionOf(action.type, 'to' in action ? action.to : undefined, postCtx.ctx);
+      setPending({ kind: 'postflop', fb, analysis, sit: postSit, action, multiway, concept, facts, split: postCtx.split, chosenSplit });
       setLog((l) => [...l, {
         label: `${STREET_LABEL[state.street]} ${formatCards(state.board)}`, hand: formatCards(heroCards),
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
@@ -428,6 +436,7 @@ export function GameScreen() {
             breakdown={hu.breakdown}
             error={hu.error}
             comboReason={postCtx.comboReason}
+            heroLine={postCtx.heroLine}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
         </>
@@ -441,6 +450,7 @@ export function GameScreen() {
             result={mw.result}
             error={mw.error}
             comboReason={postCtx.comboReason}
+            heroLine={postCtx.heroLine}
           />
           <ActionBar key={state.actions.length} state={state} onAct={act} disabled={!analysis} />
         </>
@@ -456,6 +466,8 @@ export function GameScreen() {
           bb={pending.sit.bb}
           concept={pending.concept}
           multiway={pending.multiway}
+          split={pending.split ?? undefined}
+          chosenSplit={pending.chosenSplit}
           voice={<CoachVoice facts={pending.facts} />}
         >
           <button type="button" className="primary" onClick={cont}>Continue</button>
