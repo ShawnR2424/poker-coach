@@ -1,6 +1,6 @@
 # Poker Coach
 
-Poker Coach is a browser-based trainer for 6-max No-Limit Hold'em at $0.25/$0.50 with 100bb stacks. You play the hero seat one decision at a time. Before each decision it shows what every opponent is likely to hold. After you act, it grades the decision with computed equity, pot odds and expected value, and explains the result.
+Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100bb stacks: 6-max by default, or 7 to 9 handed, at $0.25/$0.50 or $0.50/$1. You play the hero seat one decision at a time. Before each decision it shows what every opponent is likely to hold. After you act, it grades the decision with computed equity, pot odds and expected value, and explains the result.
 
 > **Approximate GTO.** The preflop charts are static approximations and the postflop opponent model is a hand-class heuristic, not solver output. The trainer is built to teach sound reasoning (ranges, card removal, pot odds, sizing), not to reproduce a solver's exact frequencies. See [docs/model.md](docs/model.md) for what is modeled and what is not.
 
@@ -24,6 +24,8 @@ Poker Coach is a browser-based trainer for 6-max No-Limit Hold'em at $0.25/$0.50
 | 4 | 3-bet and 4-bet pots |
 | 5 | Multiway pots: an open with two callers, or a squeeze spot |
 | 6 | Thin value and bluff-catching: earlier streets play themselves, and you decide on the river with a medium-strength hand |
+
+The Play screen also sets the table size (6-max, or 7, 8 or 9 handed) and the stakes ($0.25/$0.50 or $0.50/$1). Results are tracked in big blinds as well as dollars, so sessions at different stakes compare directly.
 
 After 20 decisions at a level with at least 70% non-mistakes, the Play screen offers the next level.
 
@@ -66,7 +68,7 @@ All strategy numbers are plain JSON, so you can adjust them without touching cod
 
 | File | Contents |
 |---|---|
-| `data/preflop/rfi.json`, `vs-open.json`, `vs-3bet.json`, `vs-4bet.json`, `other.json` | Preflop charts: raise and call frequencies per hand, plus sizes |
+| `data/preflop/rfi.json`, `vs-open.json`, `vs-3bet.json`, `vs-4bet.json`, `other.json` | Preflop charts: raise and call frequencies per hand, plus sizes. Rows are keyed by 6-max seat; the `EP` rows cover the extra early seats at 7-9 handed |
 | `data/preflop/lowstakes.json` | Low-stakes adjustments layered on the charts (fewer 4-bet bluffs, more calling) |
 | `data/postflop/actions.json` | Postflop behavior by hand class: betting, calling and raising shares, and equity realization |
 | `data/postflop/profiles.json` | How each opponent style scales that behavior |
@@ -101,10 +103,10 @@ docs/                    Model notes
 - Break-even fold % gives exactly zero bet EV, and calling at the pot-odds price gives exactly zero call EV.
 - Multiway equity matches an exact enumeration of every hand and runout to within 1%, and the combo table matches the grid class by class.
 - An opponent's actual hand is always inside the range the trainer shows for them.
-- Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly.
+- Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly, at 6-max and at 7, 8 and 9 handed.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 
 ## History
 
-Development went through eight milestones, each merged as its own pull request. See [CHANGELOG.md](CHANGELOG.md).
+Development went through eight milestones and later additions, each merged as its own pull request. See [CHANGELOG.md](CHANGELOG.md).

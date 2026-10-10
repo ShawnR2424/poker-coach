@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Table sizes and stakes
+
+- The Play screen sets the table size (6-max, or 7, 8 or 9 handed) and the stakes ($0.25/$0.50 or $0.50/$1). Both are remembered in the browser.
+- New early-position preflop charts for 7-9 handed: open-raise ranges for the seats before the LJ (`EP1` to `EP3`), responses to an early open (`_vs_EP`), and 3-bet defense after an early open (`EP_vs_IP`, `EP_vs_blinds`). The LJ and later seats use the 6-max charts for the seat with the same players behind.
+- Practice hands are generated for any table size and blinds.
+- Fixed: if the chosen opponent folded before the flop while someone else stayed in (for example the hero limped and the BB checked its option), the next hero turn had no opponent to read. Whoever is still in now becomes the opponent.
+- The hand-flow test now also plays every level at 7, 8 and 9 handed at $0.50/$1, and the smoke test plays a 9-handed table in the browser.
+
 ## Milestone 8: optional Claude coach voice ([#8](https://github.com/ShawnR2424/poker-coach/pull/8))
 
 - A Settings tab with an opt-in coach voice, off by default. With the player's own API key, saved only in the browser, each graded decision also gets a short explanation written by Claude Opus 5.5.

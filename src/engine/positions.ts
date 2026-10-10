@@ -23,3 +23,22 @@ export function clockwiseFromSB(tableSize: number): Position[] {
   const p = positionsFor(tableSize);
   return [...p.slice(-2), ...p.slice(0, -2)];
 }
+
+/**
+ * The chart seat a position plays from. The charts are written for 6-max; at 7-9 handed the LJ
+ * has the same players behind it as the 6-max UTG and uses that chart, and the seats before
+ * it are early position: "EP" in the response charts, and EP1 (just before the LJ) to EP3 (UTG
+ * at 9-handed) in the open-raise chart.
+ */
+export function chartSeat(pos: Position, tableSize: number, rfi = false): string {
+  if (tableSize === 6) return pos;
+  if (pos === 'LJ') return 'UTG';
+  if (pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2') {
+    const order = positionsFor(tableSize);
+    return rfi ? `EP${order.indexOf('LJ') - order.indexOf(pos)}` : 'EP';
+  }
+  return pos;
+}
+
+/** Preflop action order of a seat index (seats run clockwise from the SB): 0 for the first to act, the BB last. */
+export const preflopOrder = (seat: number, tableSize: number) => (seat + tableSize - 2) % tableSize;

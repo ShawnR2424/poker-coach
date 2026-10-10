@@ -4,7 +4,7 @@ Poker Coach grades decisions with exact arithmetic (equity, pot odds, expected v
 
 ## Scope
 
-- 6-max No-Limit Hold'em, $0.25/$0.50 blinds, every stack 100bb at the start of each hand.
+- No-Limit Hold'em, 6 to 9 handed, $0.25/$0.50 or $0.50/$1 blinds, every stack 100bb at the start of each hand. The stakes change the dollar amounts only: in big blinds every spot plays the same.
 - No rake, no antes, no straddles, no deeper or shorter stacks.
 - One hero seat; the opponents are bots driven by the model below.
 
@@ -23,6 +23,7 @@ Given a range for each opponent and a response model, the EV numbers are exact. 
 ## Preflop
 
 - **Charts.** `data/preflop/*.json` holds static raise and call frequencies per hand for opening, facing an open, facing a 3-bet or 4-bet, squeezes, cold 4-bets, jams and limps. They approximate published 100bb 6-max solutions; they are not solver output and were not tuned to a particular solver.
+- **7-9 handed.** The charts are written for 6-max. At a bigger table the LJ has the same players behind it as the 6-max UTG and uses that chart; HJ, CO, BTN and the blinds use their own. The seats before the LJ open from tighter early-position charts (`EP1` to `EP3` in `rfi.json`), and anyone facing an open from those seats uses the `_vs_EP` rows, which are tighter than the rows against a 6-max UTG open. These early-position rows are the roughest part of the chart set.
 - **Low-stakes layer.** `data/preflop/lowstakes.json` shifts weight between actions for listed hands, for example fewer 4-bet bluffs from the pool. It is on by default and applies separately to how opponents play and to what the hero is told.
 - **Grading.** A preflop action is graded by how often the chart takes it with that hand:
   - ✅ correct when the chart takes it at least half the time, or at least as often as any other action;

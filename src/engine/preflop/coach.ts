@@ -10,7 +10,7 @@ import {
 } from '../range';
 import { classFrequencies, frequencies, getStrategy, type Choice, type Frequencies, type SpotKind, type Strategy } from './charts';
 import { actionToChoice, choiceToAction, narrowPreflop, type NarrowStep, type PreflopOptions } from './policy';
-import { classifySpot, hasChart, spotFor, type PreflopSpot } from './spot';
+import { classifySpot, hasChart, spotFor, vsOpenKey, type PreflopSpot } from './spot';
 
 const RANK_ORDER: HandClass[] = handRank.order;
 const STRENGTH = new Map(RANK_ORDER.map((c, i) => [c, i]));
@@ -344,7 +344,7 @@ export function playersBehind(s: HandState, hero: number, opts: PreflopOptions):
   const out: OpponentRead[] = [];
   s.players.forEach((p, i) => {
     if (i === hero || p.folded) return;
-    const key = `${p.position}_vs_${heroPos}`;
+    const key = vsOpenKey(s, i, hero);
     const st = (() => { try { return getStrategy('vsOpen', key, 'pool', opts.lowStakes); } catch { return null; } })();
     if (!st) return;
     const range = new Float32Array(NUM_COMBOS);
