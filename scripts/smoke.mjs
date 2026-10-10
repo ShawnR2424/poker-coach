@@ -2,8 +2,8 @@
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Checks that the app can be installed and opens
-// and plays a hand with the network off. Also checks that the optional Claude coach voice
+// hero turn that never offers a way to act. Checks the Session tab's progress charts, and
+// that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
 // adjust to a session that folds and bets far more than the best play.
@@ -188,6 +188,23 @@ for (const vp of VIEWPORTS) {
   const rows = await page.$$eval('table.hands tbody tr', (r) => r.length);
   if (rows !== played) failures.push(`${tag}: session shows ${rows} hands, ${played} were played`);
   await noOverflow(page, `${tag}, session`);
+
+  // Progress charts: the mistake-rate line and the per-session table are drawn from the hands
+  // just played, the line answers a hover with a tooltip, and the EV chart has a bar for this
+  // session, since every postflop decision now records the EV given up.
+  if (!(await page.$('#progress-h'))) failures.push(`${tag}: no Progress panel after ${played} hands`);
+  else {
+    if (!(await page.$('.progress .trend-line'))) failures.push(`${tag}: the mistake-rate chart has no line`);
+    const svg = await page.$('.progress svg');
+    await svg.scrollIntoViewIfNeeded();
+    const chart = await svg.boundingBox();
+    await page.mouse.move(chart.x + chart.width * 0.7, chart.y + chart.height / 2);
+    if (!(await page.waitForSelector('.progress .chart-tip', { timeout: 2000 }).catch(() => null))) failures.push(`${tag}: hovering the mistake-rate chart shows no tooltip`);
+    if (!(await page.$('.progress .ev-bar'))) failures.push(`${tag}: the EV chart has no bar for this session`);
+    const tableRows = await page.$$eval('#progress-table tbody tr', (r) => r.length);
+    if (tableRows < 1) failures.push(`${tag}: the progress table is empty`);
+    await noOverflow(page, `${tag}, progress`);
+  }
 
   // Every saved hand replays from its record; a few are stepped through action by action, and
   // each graded decision opens with its verdict and the opponents' ranges at that point.

@@ -26,6 +26,8 @@ export interface DecisionRecord {
   move?: PostflopMove;
   /** The trainer's best action at that decision, which the hero's moves are compared with. */
   bestMove?: PostflopMove;
+  /** EV given up against the best action at a postflop decision, in big blinds (0 when it was best). */
+  lossBB?: number;
 }
 
 export interface HandRecord {

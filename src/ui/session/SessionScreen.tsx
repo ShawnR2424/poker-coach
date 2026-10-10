@@ -1,5 +1,5 @@
 // Session review: running profit and loss, every hand with its lesson, and leaks with
-// "fixed" tracking. Earlier sessions stay available to look back at.
+// "fixed" tracking, then progress across sessions. Earlier sessions stay available to look back at.
 
 import { useState } from 'react';
 import { IMPORTED_LEVEL } from '../../engine/session/import';
@@ -7,6 +7,7 @@ import { ADAPT, ADJUSTMENT_SHORT, adaptationFor, heroTendencies, type Rate } fro
 import { leakStats, totals, type Session } from '../../engine/session/session';
 import { LEVELS, type LevelId } from '../../engine/game/levels';
 import { dollars } from '../table/format';
+import { ProgressPanel } from './ProgressPanel';
 import { ReplayView } from './ReplayView';
 import { newSession, useSessions } from './store';
 import './session.css';
@@ -48,6 +49,7 @@ export function SessionScreen() {
         </div>
       </div>
       <SessionView session={session} />
+      <ProgressPanel saved={saved} />
       {saved.past.length > 0 && (
         <section className="panel" aria-labelledby="past-h">
           <h2 id="past-h">Earlier sessions</h2>

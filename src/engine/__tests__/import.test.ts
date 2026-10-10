@@ -63,6 +63,9 @@ describe('importing hand histories', () => {
     expect(h.decisions[1].label).toBe('Flop Ks7d2c');
     expect(h.decisions[1].move).toBe('bet');
     for (const d of h.decisions) expect(['correct', 'playable', 'mistake']).toContain(d.verdict);
+    // Postflop decisions record the EV given up, which the progress charts add up.
+    for (const d of h.decisions) if (d.move) expect(d.lossBB).toBeGreaterThanOrEqual(0);
+    expect(h.decisions[1].lossBB).toBeDefined();
     expect(h.lesson.length).toBeGreaterThan(0);
   });
 

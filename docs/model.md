@@ -149,6 +149,7 @@ With two or more opponents still in:
 - Results are real chip results of the hands as dealt, so short-term profit and loss is mostly variance. Verdicts and leaks are the better guide.
 - A leak is marked fixed after its spot recurs and is played without a mistake, so one good repetition can mark it fixed. It reopens if it shows up again.
 - Sessions are stored in this browser's local storage only.
+- The progress charts measure skill, not results. The mistake rate is over the latest 50 graded decisions, so it moves with the spots dealt as well as with play. EV given up is the gap between the chosen action and the best one at each postflop decision, by the same model that grades it, so it inherits the model's limits below; preflop decisions are graded against chart frequencies and add nothing to it.
 
 ## Imported hands
 
