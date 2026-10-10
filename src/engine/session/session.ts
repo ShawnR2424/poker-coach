@@ -217,3 +217,13 @@ export function startNewSession(saved: SavedSessions, now = new Date()): SavedSe
   const past = saved.current.hands.length ? [saved.current, ...saved.past].slice(0, MAX_PAST) : saved.past;
   return { version: 1, current: newSession(now), past };
 }
+
+/**
+ * Adds imported hands, either to the current session or (with `asNew`) to a fresh session that
+ * starts now, archiving the current one if it has hands.
+ */
+export function addHands(saved: SavedSessions, hands: readonly Omit<HandRecord, 'n'>[], asNew: boolean, now = new Date()): SavedSessions {
+  let next = asNew ? startNewSession(saved, now) : saved;
+  for (const h of hands) next = addHand(next, h);
+  return next;
+}

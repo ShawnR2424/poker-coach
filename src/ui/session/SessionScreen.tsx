@@ -2,6 +2,7 @@
 // "fixed" tracking. Earlier sessions stay available to look back at.
 
 import { useState } from 'react';
+import { IMPORTED_LEVEL } from '../../engine/session/import';
 import { ADAPT, ADJUSTMENT_SHORT, adaptationFor, heroTendencies, type Rate } from '../../engine/session/adapt';
 import { leakStats, totals, type Session } from '../../engine/session/session';
 import { LEVELS, type LevelId } from '../../engine/game/levels';
@@ -87,8 +88,11 @@ function SessionView({ session }: { session: Session }) {
     return (
       <section className="panel empty">
         <h2>No hands yet</h2>
-        <p>Play a few hands in the Play tab. Each finished hand lands here with its result, your verdicts, and the lesson to take from it. Everything is saved in this browser, so you can close the page and come back.</p>
-        <a className="button primary" href="#table">Go to Play</a>
+        <p>Play a few hands in the Play tab, or import your own from a poker site. Each finished hand lands here with its result, your verdicts, and the lesson to take from it. Everything is saved in this browser, so you can close the page and come back.</p>
+        <div className="import-actions">
+          <a className="button primary" href="#table">Go to Play</a>
+          <a className="button" href="#import">Import hands</a>
+        </div>
       </section>
     );
   }
@@ -172,7 +176,7 @@ function SessionView({ session }: { session: Session }) {
                   <td className="n num">{h.n}</td>
                   <td>
                     {h.spot}
-                    <span className="muted small block">Level {h.level} · {LEVELS[h.level as LevelId]?.name ?? ''}</span>
+                    <span className="muted small block">{h.level === IMPORTED_LEVEL ? 'Imported hand' : `Level ${h.level} · ${LEVELS[h.level as LevelId]?.name ?? ''}`}</span>
                   </td>
                   <td className="num">{h.hand}</td>
                   <td className="verdicts" aria-label={h.decisions.map((d) => d.verdict).join(', ') || 'none'}>

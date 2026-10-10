@@ -143,6 +143,15 @@ With two or more opponents still in:
 - A leak is marked fixed after its spot recurs and is played without a mistake, so one good repetition can mark it fixed. It reopens if it shows up again.
 - Sessions are stored in this browser's local storage only.
 
+## Imported hands
+
+- The Import tab reads hand histories in the text format PokerStars and GGPoker write: no-limit hold'em cash games with 3 to 9 players dealt in, posting only the two blinds, with amounts in $, € or £. Tournaments, heads-up hands, antes, straddles, dead blinds, run-it-twice and other games are skipped, each with its reason.
+- Players are put in seat order clockwise from the small blind. A table with fewer than six players is played as 6-max with the missing early seats folding first ("empty seat" in the replay). This keeps every real seat's position and the number of players behind it, which is what the charts depend on. Heads-up hands are skipped because the hand engine always puts the small blind first after the flop, while heads-up the small blind is the button and acts last.
+- Every action is checked against the hand engine; a history whose actions do not follow the betting order is skipped. The hero's decisions are graded exactly as at the practice table: preflop against the charts, after the flop against each opponent's range narrowed from their actions. Opponents are read as the regular style, since their real styles are unknown, and the depth of the charts follows the hero's stack.
+- Opponents' cards the history did not show get stand-in cards so the replay can run. When such a hand reached a showdown, the stand-ins are chosen so the same players win as in the history. The replay hides these cards and never uses them for grading, since the read only uses the opponents' ranges.
+- The result of an imported hand is what the history says the hero collected minus what they put in, so it is after rake, unlike practice hands. The amounts are shown in dollars whatever the currency.
+- Imported hands are saved under their own level, so they never count toward a practice level's progress. Their leaks and postflop tendencies count like any other hand's: they steer leak-targeted practice, and adaptive opponents read them.
+
 ## Coach voice (optional)
 
 When switched on in Settings, Claude rewrites the trainer's feedback in a coaching voice. It is a presentation layer only: it receives the facts already on the feedback panel, never the opponents' cards or the hand's outcome, and any reply containing a number not in those facts is discarded. Nothing in the grading depends on it.

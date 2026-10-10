@@ -22,6 +22,10 @@ export interface HandReplay {
   lowStakes: boolean;
   /** How the opponents had adjusted to the hero, so the replay narrows ranges as the read did. */
   adapt?: { bluffMult: number; continueAdd: number; kinds: AdjustmentKind[] };
+  /** Imported hands: seats whose cards the hand history did not show (their cards here are stand-ins). */
+  hidden?: number[];
+  /** Imported hands: empty seats added so a short table plays as 6-max; they fold first. */
+  fillers?: number[];
 }
 
 /** The adaptation a replay was played under, in the form the opponents' styles take. */

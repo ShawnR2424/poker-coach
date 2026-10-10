@@ -2,6 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
+## Import your own hands
+
+- A new Import tab reads hand histories pasted from PokerStars or GGPoker, or opened from a saved .txt file. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt with the hand engine, and every decision the hero made is graded with the same charts and postflop model as the Play tab. A preview lists each hand's verdicts, result and lesson, the most frequent leaks, and every skipped hand with the reason.
+- Graded hands can be saved as a new session or added to the current one. They then appear on the Session tab marked as imported, with leaks, verdict counts and a replay of each hand. Their leaks steer "Practice my leaks" on the Play tab, and adaptive opponents read their postflop tendencies.
+- Tables with fewer than six players are played as 6-max with the empty early seats folding first, which keeps every real seat's position. Opponents' cards that the history did not show are hidden in the replay. Results come from what the history says was collected, so they are after rake.
+- "Try sample hands" loads three sample histories and one heads-up hand that is skipped.
+- Fixed: on a phone, the Earlier sessions table made the whole Session page scroll sideways. The new smoke test step found it.
+- New tests check that the sample hands rebuild exactly (positions, stacks, board, shown cards, results after rake) and that each skipped hand gets its reason. A further test writes seeded trainer hands from levels 3 to 5 as PokerStars histories and checks that each imports back to the same actions and result. The smoke test imports the sample hands, saves them and steps through each replay.
+
 ## Opponents defend their ranges
 
 - A whole range facing a bet or a raise now defends at least the minimum defense frequency, 1 / (1 + f) for a bet of f times the pot, adjusted by the opponent's style: a nit still folds more and a calling station defends more. Before, each hand class folded on its own, so a range that checked (mostly air and weak pairs) or a range of small bets (many bluffs) folded far too often, and betting or raising with nothing showed a profit almost everywhere.

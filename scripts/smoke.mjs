@@ -262,6 +262,29 @@ for (const vp of VIEWPORTS) {
     await noOverflow(page, `${tag}, spot ${i + 1} feedback`);
   }
 
+  // Import: the sample hand histories grade, save as a new session, and replay with their verdicts.
+  await page.goto(`${url}#import`);
+  await page.click('button:has-text("Try sample hands")');
+  await page.click('.import-actions .primary:has-text("Grade")');
+  await page.waitForSelector('#preview-h', { timeout: TURN_TIMEOUT });
+  const previewHead = await page.$eval('#preview-h', (e) => e.textContent);
+  if (previewHead !== '3 hands graded, 1 skipped') failures.push(`${tag}: import preview says "${previewHead}"`);
+  await noOverflow(page, `${tag}, import preview`);
+  await page.click('button:has-text("Save as a new session")');
+  await page.goto(`${url}#session`);
+  const imported = await page.$$eval('table.hands tbody tr', (r) => r.filter((x) => x.textContent.includes('Imported hand')).length);
+  if (imported !== 3) failures.push(`${tag}: the new session shows ${imported} imported hands, expected 3`);
+  for (const label of await page.$$eval('table.hands button[aria-label^="Replay hand"]', (b) => b.map((x) => x.getAttribute('aria-label')))) {
+    await page.click(`button[aria-label="${label}"]`);
+    const where = `${tag}, imported ${label.toLowerCase()}`;
+    if (!(await page.$('.replay .eyebrow:has-text("Imported hand")'))) failures.push(`${where}: the replay is not marked as imported`);
+    for (const b of await page.$$('.replay-steps button')) {
+      await b.click();
+      if ((await b.textContent()) !== 'End of hand' && !(await page.$('.replay-decision'))) failures.push(`${where}: a decision shows no verdict`);
+    }
+    await noOverflow(page, where);
+  }
+
   // Switch the coach voice on with a test key and check both outcomes against the mocked API.
   await page.goto(`${url}#settings`);
   await noOverflow(page, `${tag}, settings`);
@@ -295,7 +318,7 @@ for (const vp of VIEWPORTS) {
     if (sent.body.model !== 'claude-opus-5-5') failures.push(`${tag}: the request used model ${sent.body.model}`);
   }
 
-  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${requests.length} mocked coach requests`);
+  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${imported} imported hands, ${requests.length} mocked coach requests`);
   await ctx.close();
 }
 
