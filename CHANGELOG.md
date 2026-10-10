@@ -2,6 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
+## Range quizzes
+
+- New Quizzes tab. Each quiz deals a 6-max, 100bb line: an opponent opens and you call, or you open and they call or 3-bet and you call. You paint their range on the 13x13 grid (tap a hand, drag across a stretch, or use the keyboard), then a flop comes and you estimate your equity against that range with a slider.
+- The range is scored against the chart the trainer's opponents play for that action, as the share of combos the painting and the range have in common, with hands played part of the time counted by their frequency. Since a painting is all or nothing per hand, the result also gives the best score any painting could reach, and the grade is against that. The grid then shows the true range shaded by frequency, with a ring on painted hands outside it and a dashed ring on hands it plays that were left out.
+- The equity guess is scored against an exact enumeration of every turn and river, and shown on a 0 to 100% bar with the guess marked.
+- Filters choose which lines to deal (opens, calls, 3-bets) and whether opponents use the low-stakes adjustments (on by default, as on the Play tab).
+- A "How you're doing" panel averages the latest 20 quizzes: range match and its share of the best possible, whether you paint too wide or too tight, and the average equity miss and its lean. Scores are saved in the browser.
+- New `quiz.test.ts` checks that every line deals from the right charts with a clean flop, the scoring by combos and frequency, that the best painting is found and never beaten, the bands, and the history. The smoke test paints by dragging and by keyboard, checks the range and equity results, and that the score survives a reload.
+
 ## Progress charts
 
 - The Session tab has a Progress panel covering every saved session in the order they were played:
