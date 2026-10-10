@@ -20,6 +20,7 @@ import {
   blockerCount, heroDecision, heroLineRead, nudge, opponentReads, playersBehind, preflopFeedback, preflopLeaksAtRisk,
   type Decision, type Feedback, type OpponentRead,
 } from '../../engine/preflop/coach';
+import { DEPTHS } from '../../engine/preflop/charts';
 import { hasChart, spotFor } from '../../engine/preflop/spot';
 import { NUM_COMBOS } from '../../engine/range';
 import { makeRng, randomSeed } from '../../engine/rng';
@@ -62,8 +63,8 @@ function loadLevel(): LevelId {
   }
 }
 
-/** Table size and stakes for new hands: 6-9 handed, $0.25/$0.50 or $0.50/$1. */
-interface TableSetup { tableSize: number; sb: number; bb: number }
+/** Table size, stakes and stack depth for new hands: 6-9 handed, $0.25/$0.50 or $0.50/$1, 40, 100 or 200bb. */
+interface TableSetup { tableSize: number; sb: number; bb: number; stacksBB: number }
 const STAKES = [{ sb: 25, bb: 50, label: '$0.25/$0.50' }, { sb: 50, bb: 100, label: '$0.50/$1' }];
 const TABLE_SIZES = [6, 7, 8, 9];
 const TABLE_KEY = 'table:v1';
@@ -71,9 +72,10 @@ function loadTable(): TableSetup {
   try {
     const t = JSON.parse(localStorage.getItem(TABLE_KEY) ?? 'null') as Partial<TableSetup> | null;
     const stakes = STAKES.find((x) => x.bb === t?.bb) ?? STAKES[0];
-    return { tableSize: TABLE_SIZES.includes(t?.tableSize ?? 0) ? t!.tableSize! : 6, sb: stakes.sb, bb: stakes.bb };
+    const stacksBB = (DEPTHS as number[]).includes(t?.stacksBB ?? 0) ? t!.stacksBB! : 100;
+    return { tableSize: TABLE_SIZES.includes(t?.tableSize ?? 0) ? t!.tableSize! : 6, sb: stakes.sb, bb: stakes.bb, stacksBB };
   } catch {
-    return { tableSize: 6, sb: STAKES[0].sb, bb: STAKES[0].bb };
+    return { tableSize: 6, sb: STAKES[0].sb, bb: STAKES[0].bb, stacksBB: 100 };
   }
 }
 
@@ -391,6 +393,12 @@ export function GameScreen() {
           Stakes
           <select id="stakes" value={table.bb} onChange={(e) => { const st = STAKES.find((x) => x.bb === Number(e.target.value))!; changeTable({ sb: st.sb, bb: st.bb }); }}>
             {STAKES.map((st) => <option key={st.bb} value={st.bb}>{st.label}</option>)}
+          </select>
+        </label>
+        <label className="inline">
+          Stacks
+          <select id="stacks" value={table.stacksBB} onChange={(e) => changeTable({ stacksBB: Number(e.target.value) })}>
+            {DEPTHS.map((d) => <option key={d} value={d}>{d}bb</option>)}
           </select>
         </label>
         <label className="toggle">

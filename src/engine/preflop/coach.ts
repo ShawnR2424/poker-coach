@@ -8,8 +8,8 @@ import { breakEvenFoldPct, potOdds } from '../math';
 import {
   ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, NUM_COMBOS, classOfCombo, comboIndex, type HandClass, type Range,
 } from '../range';
-import { classFrequencies, frequencies, getStrategy, type Choice, type Frequencies, type SpotKind, type Strategy } from './charts';
-import { actionToChoice, choiceToAction, narrowPreflop, type NarrowStep, type PreflopOptions } from './policy';
+import { chartDepth, classFrequencies, frequencies, getStrategy, type Choice, type Depth, type Frequencies, type SpotKind, type Strategy } from './charts';
+import { actionToChoice, choiceToAction, depthOf, narrowPreflop, type NarrowStep, type PreflopOptions } from './policy';
 import { classifySpot, hasChart, spotFor, vsOpenKey, type PreflopSpot } from './spot';
 
 const RANK_ORDER: HandClass[] = handRank.order;
@@ -52,7 +52,7 @@ export interface Decision {
 export function heroDecision(s: HandState, hero: number, opts: PreflopOptions): Decision {
   const spot = spotFor(s, hero);
   if (!hasChart(spot)) throw new Error(`No chart for ${spot.label}`);
-  const strategy = getStrategy(spot.kind, spot.key, 'hero', opts.lowStakes);
+  const strategy = getStrategy(spot.kind, spot.key, 'hero', opts.lowStakes, depthOf(opts));
   const [a, b] = s.players[hero].hole;
   const combo = comboIndex(a, b);
   const freqs = frequencies(strategy, combo);
@@ -164,6 +164,16 @@ const CONCEPTS: Record<SpotKind, string> = {
   vsLimp: 'Isolate limpers with hands that do well heads-up. Raise bigger with each extra limper.',
 };
 
+/** The key concept for a spot at this stack depth. */
+export function conceptFor(kind: SpotKind, depth: Depth): string {
+  if (kind === 'vs4bet' && depth !== 100) {
+    return depth === 40
+      ? 'At 40bb a 4-bet is all-in. There is nothing left to play after the flop, so call with hands whose equity against their whole range beats the price.'
+      : 'At 200bb a 4-bet still leaves a lot behind, and deep 4-bets are strong. Continue with hands that play well for stacks against the value part of their range.';
+  }
+  return CONCEPTS[kind];
+}
+
 export function freqLine(d: Decision): string {
   const parts = (['raise', 'call', 'fold'] as Choice[])
     .filter((c) => d.freqs[c] > 0.001)
@@ -235,7 +245,7 @@ export function preflopFeedback(
   return {
     grade,
     bullets: bullets.slice(0, 4),
-    concept: CONCEPTS[d.spot.kind],
+    concept: conceptFor(d.spot.kind, chartDepth(Math.max(...s.startingStacks) / s.config.bb)),
     equity: {
       hero: heroEquity,
       needed,
@@ -325,7 +335,7 @@ export function opponentReads(s: HandState, hero: number, opts: PreflopOptions):
     const mine = pre.filter((a) => a.player === i && a.type !== 'post');
     const descs = mine.map((a) => describeAction(classifySpot(positions, pre.slice(0, pre.indexOf(a)), i), a, bb));
     const last = steps[steps.length - 1];
-    const notes = getStrategy(last.spot.kind, last.spot.key, 'pool', opts.lowStakes).notes;
+    const notes = getStrategy(last.spot.kind, last.spot.key, 'pool', opts.lowStakes, depthOf(opts)).notes;
     reads.push({
       seat: i,
       line: `${p.position} · ${descs.join(', ')}`,
@@ -345,7 +355,7 @@ export function playersBehind(s: HandState, hero: number, opts: PreflopOptions):
   s.players.forEach((p, i) => {
     if (i === hero || p.folded) return;
     const key = vsOpenKey(s, i, hero);
-    const st = (() => { try { return getStrategy('vsOpen', key, 'pool', opts.lowStakes); } catch { return null; } })();
+    const st = (() => { try { return getStrategy('vsOpen', key, 'pool', opts.lowStakes, depthOf(opts)); } catch { return null; } })();
     if (!st) return;
     const range = new Float32Array(NUM_COMBOS);
     for (let k = 0; k < NUM_COMBOS; k++) range[k] = Math.min(1, st.raise[k] + st.call[k]);

@@ -1,0 +1,111 @@
+{
+  "_about": "Stack depth layer, applied to every chart before the low-stakes layer when stacks are not 100bb. The charts are built for 100bb; 'rules' move a share ('scale') of one action's weight to another for the listed hands, in the same form as lowstakes.json, and apply to the hero's recommendations, the opponents and the baseline read alike. 'sizes' change raise sizes: 'rfiMax' caps the open in big blinds, 'raiseScale' multiplies 3-bet and squeeze sizes (a multiple of the last raise), 'fourBetScale' multiplies 4-bet sizes, and 'fourBetAllIn' makes every 4-bet an all-in. The chart nearest to the table's stacks is used: 40bb up to 60bb, 200bb from 150bb. All values are estimates, not solver output.",
+  "40": {
+    "rules": [
+      {
+        "spot": "rfi",
+        "from": "raise",
+        "to": "fold",
+        "hands": "44-22, 97s, 86s, 75s, 74s, 65s, 64s, 63s, 54s, 53s, 43s",
+        "scale": 0.4,
+        "note": "With 40bb behind, small pairs and low suited connectors win less when they hit, so open fewer of them."
+      },
+      {
+        "spot": "vsOpen",
+        "from": "call",
+        "to": "fold",
+        "hands": "66-22, T9s, 98s, 87s, 76s, 65s, 54s, J9s, T8s, 97s, 86s, 75s, 64s, K9s-K2s, Q9s-Q2s, J8s-J2s",
+        "scale": 0.6,
+        "note": "At 40bb, small pairs and suited connectors lack the implied odds to call a raise."
+      },
+      {
+        "spot": "vsOpen",
+        "from": "call",
+        "to": "raise",
+        "hands": "TT-88, AQo, AJs, ATs, KQs",
+        "scale": 0.4,
+        "note": "At 40bb, 3-bet more of your strong calling hands: you are happy to get the money in if they 4-bet."
+      },
+      {
+        "spot": "vs3bet",
+        "from": "call",
+        "to": "fold",
+        "hands": "88-22, ATs-A6s, KJs-K9s, QJs-Q9s, JTs-J9s, T9s, 98s, 87s, 76s, 65s, 54s, AJo, KQo",
+        "scale": 0.6,
+        "note": "At 40bb, calling a 3-bet leaves too little behind to play speculative hands well."
+      },
+      {
+        "spot": "vs3bet",
+        "from": "call",
+        "to": "raise",
+        "hands": "QQ-TT, AKo, AQs",
+        "scale": 0.6,
+        "note": "At 40bb a 4-bet is all-in, so get strong hands in now instead of calling."
+      },
+      {
+        "spot": "vs4bet",
+        "from": "raise",
+        "to": "call",
+        "hands": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K2o+, Q2o+, J2o+, T2o+, 92o+, 82o+, 72o+, 62o+, 52o+, 42o+, 32o",
+        "scale": 1,
+        "note": "Facing a 40bb 4-bet there is nothing left to raise: continuing means calling all-in."
+      },
+      {
+        "spot": "vs4bet",
+        "from": "fold",
+        "to": "call",
+        "hands": "TT-88, AQo, AJs, KQs",
+        "scale": 0.5,
+        "note": "Against an all-in 4-bet at 40bb, the price is good enough to call wider."
+      }
+    ],
+    "sizes": {
+      "rfiMax": 2.2,
+      "raiseScale": 0.9,
+      "fourBetScale": 1,
+      "fourBetAllIn": true
+    }
+  },
+  "200": {
+    "rules": [
+      {
+        "spot": "vsOpen",
+        "from": "fold",
+        "to": "call",
+        "hands": "55-22, 87s, 76s, 65s, 54s, 86s, 75s, 64s, A9s-A2s, KTs-K9s, QTs-Q9s, J9s",
+        "scale": 0.4,
+        "note": "At 200bb, implied odds are bigger, so small pairs and suited connectors can call more opens."
+      },
+      {
+        "spot": "vs3bet",
+        "from": "raise",
+        "to": "call",
+        "hands": "QQ, JJ, AKo",
+        "scale": 0.5,
+        "note": "At 200bb, 4-betting hands like QQ and AK builds a pot they cannot comfortably play for stacks; call more of them."
+      },
+      {
+        "spot": "vs3bet",
+        "from": "fold",
+        "to": "call",
+        "hands": "77-22, 98s, 87s, 76s, 65s, 54s, ATs-A6s",
+        "scale": 0.4,
+        "note": "At 200bb, speculative hands can call a 3-bet in position more often for their implied odds."
+      },
+      {
+        "spot": "vs4bet",
+        "from": "call",
+        "to": "fold",
+        "hands": "JJ, TT, AQs, AKo",
+        "scale": 0.5,
+        "note": "At 200bb, calling a 4-bet commits a lot of chips against a strong range; fold more marginal hands."
+      }
+    ],
+    "sizes": {
+      "rfiMax": 99,
+      "raiseScale": 1.1,
+      "fourBetScale": 1.1,
+      "fourBetAllIn": false
+    }
+  }
+}

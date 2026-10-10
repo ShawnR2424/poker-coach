@@ -31,7 +31,7 @@ function rangesAt(s: HandState, hand: HandRecord) {
   const g = { villains: r.villains, hero: r.hero };
   return liveVillains(g as Parameters<typeof liveVillains>[0], s).map((v) => {
     const profile = adaptProfile(PROFILES[(r.profiles[v] ?? 'regular') as ProfileId], replayAdaptation(r));
-    const range = narrowHand(s, v, 'pool', { lowStakes: r.lowStakes ?? true }, profile).range;
+    const range = narrowHand(s, v, 'pool', { lowStakes: r.lowStakes ?? true, stacksBB: r.stacks[r.hero] / r.config.bb }, profile).range;
     const text = s.street === 'preflop'
       ? { core: formatRange(range), partial: '' }
       : summarizeRange(range, [...s.players[r.hero].hole, ...s.board]);

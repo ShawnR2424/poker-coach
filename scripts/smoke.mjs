@@ -1,7 +1,8 @@
 // Browser smoke test: builds nothing itself; run `npm run build` first (npm run smoke does).
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
-// desktop widths with random actions, then a few at a 9-handed $0.50/$1 table. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Also checks that the optional Claude coach voice
+// desktop widths with random actions, then a few at a 9-handed $0.50/$1 table and at 40bb and
+// 200bb stacks. Fails on a console error, a horizontal scrollbar, or a hero turn that never
+// offers a way to act. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
 // adjust to a session that folds and bets far more than the best play.
@@ -124,6 +125,22 @@ for (const vp of VIEWPORTS) {
   }
   await page.selectOption('#table-size', '6');
   await page.selectOption('#stakes', '50');
+
+  // 40bb and 200bb stacks: seats start with the chosen depth, and every turn is still playable,
+  // including 3-bet and 4-bet pots where a 40bb 4-bet is all-in.
+  for (const depth of [40, 200]) {
+    await page.selectOption('#stacks', String(depth));
+    for (const level of [1, 3, 4]) {
+      await page.selectOption('#level', String(level));
+      const stacks = await page.$$eval('.seat-stack', (e) => e.map((x) => Number(x.textContent.replace(/[^0-9.]/g, ''))));
+      if (Math.max(...stacks) !== depth * 0.5) failures.push(`${tag}: at ${depth}bb the largest seat stack is $${Math.max(...stacks)}, not $${depth * 0.5}`);
+      for (let h = 0; h < Math.max(2, HANDS / 4); h++) {
+        if (!(await playHand(page, `${tag}, ${depth}bb, level ${level}, hand ${h + 1}`))) break;
+        played++;
+      }
+    }
+  }
+  await page.selectOption('#stacks', '100');
 
   // "Practice my leaks" on: the random play above has opened leaks, so some hands are built to
   // reach a postflop leak's spot. Every turn must still be playable.

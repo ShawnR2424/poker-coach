@@ -136,6 +136,12 @@ describe('every hero turn can be acted on', () => {
     });
   }
 
+  for (const stacksBB of [40, 200]) {
+    it(`at ${stacksBB}bb stacks, on every level`, () => {
+      playLevels({ stacksBB } as TableOptions, 15, 15);
+    });
+  }
+
   it('level 1 stops at the flop even when the hero acts first there', () => {
     // Find a level 1 hand where the hero ends up first to act on the flop.
     for (let seed = 1; seed < 2000; seed++) {

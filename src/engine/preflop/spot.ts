@@ -2,7 +2,7 @@
 
 import type { ActionRecord, HandState } from '../hand';
 import { chartSeat, type Position } from '../positions';
-import { CHARTS, LIMP_SIZING, LOWSTAKES, type SpotKind } from './charts';
+import { CHARTS, depthSizes, LIMP_SIZING, LOWSTAKES, type Depth, type SpotKind } from './charts';
 
 export interface PreflopSpot {
   kind: SpotKind;
@@ -98,19 +98,26 @@ export function hasChart(spot: PreflopSpot): boolean {
  * Chip amount ("to") of the chart's raise for this spot, before clamping to the stack.
  * Returns Infinity for all-in sizes.
  */
-export function chartRaiseTo(spot: PreflopSpot, bb: number, lowStakes: boolean, audience: 'pool' | 'hero' | 'baseline'): number {
+export function chartRaiseTo(spot: PreflopSpot, bb: number, lowStakes: boolean, audience: 'pool' | 'hero' | 'baseline', depth: Depth = 100): number {
   const entry = CHARTS[spot.kind][spot.key];
   const last = spot.raiseTos[spot.raiseTos.length - 1] ?? bb;
+  const sz = depthSizes(depth);
   switch (spot.kind) {
     case 'rfi':
-      return (entry.size as number) * bb;
+      return Math.min(entry.size as number, sz.rfiMax) * bb;
     case 'vsLimp': {
       const extra = lowStakes && audience !== 'baseline' ? LOWSTAKES.isoExtraBB : 0;
       const oop = isBlind(spot.position) ? 1 : 0;
       return (LIMP_SIZING.size + LIMP_SIZING.perLimper * spot.limpers + oop + extra) * bb;
     }
     case 'squeeze':
-      return ((entry.size as number) + (entry.perCaller ?? 1) * spot.callers) * last;
+      return ((entry.size as number) + (entry.perCaller ?? 1) * spot.callers) * sz.raiseScale * last;
+    case 'vs3bet':
+    case 'cold4bet':
+      if (sz.fourBetAllIn) return Infinity;
+      return entry.size === 'allin' ? Infinity : (entry.size as number) * sz.fourBetScale * last;
+    case 'vsOpen':
+      return entry.size === 'allin' ? Infinity : (entry.size as number) * sz.raiseScale * last;
     case 'vs4bet':
     case 'vsJam':
       return Infinity;
