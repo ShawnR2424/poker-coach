@@ -4,7 +4,7 @@ Poker Coach grades decisions with exact arithmetic (equity, pot odds, expected v
 
 ## Scope
 
-- No-Limit Hold'em, 6 to 9 handed, $0.25/$0.50 or $0.50/$1 blinds, every stack 100bb at the start of each hand. The stakes change the dollar amounts only: in big blinds every spot plays the same.
+- No-Limit Hold'em, 6 to 9 handed, $0.25/$0.50 or $0.50/$1 blinds, every stack 40bb, 100bb or 200bb at the start of each hand (100bb by default). The stakes change the dollar amounts only: in big blinds every spot plays the same.
 - No rake, no antes, no straddles, no deeper or shorter stacks.
 - One hero seat; the opponents are bots driven by the model below.
 
@@ -23,6 +23,7 @@ Given a range for each opponent and a response model, the EV numbers are exact. 
 ## Preflop
 
 - **Charts.** `data/preflop/*.json` holds static raise and call frequencies per hand for opening, facing an open, facing a 3-bet or 4-bet, squeezes, cold 4-bets, jams and limps. They approximate published 100bb 6-max solutions; they are not solver output and were not tuned to a particular solver.
+- **Stack depth.** At 40bb or 200bb, `data/preflop/depth.json` adjusts every chart before the low-stakes layer, for the hero, the opponents and the baseline read alike. Each rule moves a share of one action's weight to another for a list of hands, as the low-stakes rules do, and says why in the feedback. At 40bb small pairs and suited connectors open, call opens and call 3-bets less often, strong hands 3-bet and 4-bet more instead of calling, opens shrink to 2.2bb, 3-bets and squeezes to 0.9 times their size, and every 4-bet is all-in, so facing a 4-bet the only choices are call or fold. At 200bb small pairs, suited connectors and suited aces call opens and 3-bets more often, QQ, JJ and AKo call a 3-bet more often instead of 4-betting, marginal hands fold to a 4-bet more often, and 3-bets, squeezes and 4-bets are 1.1 times their size. The chart used is the nearest of the three: 40bb up to 60bb, 200bb from 150bb. These are estimates of how the strategies shift, not separate solutions.
 - **7-9 handed.** The charts are written for 6-max. At a bigger table the LJ has the same players behind it as the 6-max UTG and uses that chart; HJ, CO, BTN and the blinds use their own. The seats before the LJ open from tighter early-position charts (`EP1` to `EP3` in `rfi.json`), and anyone facing an open from those seats uses the `_vs_EP` rows, which are tighter than the rows against a 6-max UTG open. These early-position rows are the roughest part of the chart set.
 - **Low-stakes layer.** `data/preflop/lowstakes.json` shifts weight between actions for listed hands, for example fewer 4-bet bluffs from the pool. It is on by default and applies separately to how opponents play and to what the hero is told.
 - **Grading.** A preflop action is graded by how often the chart takes it with that hand:
@@ -148,6 +149,7 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 
 - No solver: mixed strategies postflop are not reproduced, and the model has no notion of balancing a range across bets and checks.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
+- Only 40bb, 100bb and 200bb charts exist, and the 40bb and 200bb ones are rule-based adjustments of the 100bb charts. Stacks are always equal at the start of a hand.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
 - Adaptive opponents only watch two postflop rates, adjust in fixed steps rather than in proportion to the gap, and adjust the same way on every street and board. They do not adapt preflop.
 - Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. Against a range that checked and is capped, an overbet shove can still grade best as a bluff; the model may overstate how often such a range folds.

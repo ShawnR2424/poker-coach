@@ -1,6 +1,6 @@
 # Poker Coach
 
-Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100bb stacks: 6-max by default, or 7 to 9 handed, at $0.25/$0.50 or $0.50/$1. You play the hero seat one decision at a time. Before each decision it shows what every opponent is likely to hold. After you act, it grades the decision with computed equity, pot odds and expected value, and explains the result.
+Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100bb stacks by default, or 40bb or 200bb: 6-max by default, or 7 to 9 handed, at $0.25/$0.50 or $0.50/$1. You play the hero seat one decision at a time. Before each decision it shows what every opponent is likely to hold. After you act, it grades the decision with computed equity, pot odds and expected value, and explains the result.
 
 > **Approximate GTO.** The preflop charts are static approximations and the postflop opponent model is a hand-class heuristic, not solver output. The trainer is built to teach sound reasoning (ranges, card removal, pot odds, sizing), not to reproduce a solver's exact frequencies. See [docs/model.md](docs/model.md) for what is modeled and what is not.
 
@@ -10,6 +10,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Graded decisions.** Preflop decisions are graded against chart frequencies. Postflop decisions are graded by the EV each legal action and size gives up against the best one. Feedback covers equity, pot odds, sizing ("right idea, wrong size"), sunk-cost and results-oriented thinking. After the flop it also shows which hands in the hero's range take each action, with the hero's own hand placed in it.
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
 - **Adaptive opponents.** Opponents compare your postflop folds and bets with the trainer's best play in the same spots. If you fold to bets far more often, they bluff more; if you bet far more often, they call lighter; and the other way round. The Play screen says what they changed and why, the Session tab shows the rates they watch, and the range reads and grades use the adjusted style. It can be switched off.
+- **Stack depths.** Play at 40bb, 100bb or 200bb. The 100bb charts are adjusted for each depth: at 40bb speculative hands fold more, strong hands get in sooner and every 4-bet is all-in; at 200bb small pairs and suited connectors call more for their implied odds and fewer hands 4-bet or call a 4-bet. Postflop, the stack-to-pot ratio and later-street value follow the real stacks.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
@@ -71,6 +72,7 @@ All strategy numbers are plain JSON, so you can adjust them without touching cod
 | File | Contents |
 |---|---|
 | `data/preflop/rfi.json`, `vs-open.json`, `vs-3bet.json`, `vs-4bet.json`, `other.json` | Preflop charts: raise and call frequencies per hand, plus sizes. Rows are keyed by 6-max seat; the `EP` rows cover the extra early seats at 7-9 handed |
+| `data/preflop/depth.json` | 40bb and 200bb adjustments layered on the 100bb charts, and the raise sizes at each depth |
 | `data/preflop/lowstakes.json` | Low-stakes adjustments layered on the charts (fewer 4-bet bluffs, more calling) |
 | `data/postflop/actions.json` | Postflop behavior by hand class: betting, calling and raising shares, and equity realization |
 | `data/postflop/profiles.json` | How each opponent style scales that behavior |

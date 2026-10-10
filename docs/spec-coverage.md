@@ -85,9 +85,10 @@ How each part of the original brief maps to the code and to the checks that guar
 | Six curriculum levels | `LEVELS` in `engine/game/levels.ts` | `flow.test.ts`, `game.test.ts`, smoke (every level) |
 | Leak tags and leak-targeted practice | `gradePreflop`, `gradePostflop`, `biasedMix`, `engine/game/drills.ts` | `session.test.ts`, `drills.test.ts`, `flow.test.ts` (every leak open), smoke |
 | Running P/L, hand table, leaks fixed, saved sessions | `engine/session/session.ts`, `ui/session/` | `session.test.ts`, smoke (sessions survive a reload) |
+| 40bb and 200bb stacks with depth-adjusted charts and sizes (beyond the brief) | `data/preflop/depth.json`, `chartDepth` and `getStrategy` in `engine/preflop/charts.ts`, `chartRaiseTo` in `engine/preflop/spot.ts` | `depth.test.ts` (each rule applies; strategies stay valid; reads hold the real hand), `flow.test.ts` (every level at both depths), smoke (seat stacks and play at both depths) |
 | Adaptive opponents that adjust to the hero's postflop tendencies (beyond the brief) | `engine/session/adapt.ts`, `data/postflop/adapt.json`, `profileOf` in `engine/game/levels.ts` | `adapt.test.ts` (the grades follow each adjustment), `game.test.ts` (adjusted reads hold the real hand), smoke (session, Play note, opponent panels) |
 | Hand replay with opponents' cards and the read at each decision (beyond the brief) | `engine/session/replay.ts`, `ui/session/ReplayView.tsx` | `replay.test.ts` (rebuilt hands match the played ones), smoke (every hand replays) |
 
 ## Deliberate limits
 
-These are documented in [model.md](model.md): no solver, no rake or antes, 100bb stacks only, and opponents that don't adapt over a session.
+These are documented in [model.md](model.md): no solver, no rake or antes, and stack depths of 40bb, 100bb and 200bb only, with the 40bb and 200bb charts adjusted from the 100bb ones.

@@ -2,6 +2,16 @@
 
 Each milestone was merged as its own pull request.
 
+## Stack depths
+
+- The Play screen has a Stacks setting: 40bb, 100bb (the default) or 200bb, remembered in the browser. Every seat starts the hand with that many big blinds.
+- New `data/preflop/depth.json` adjusts the 100bb charts for 40bb and 200bb before the low-stakes layer, for the hero, the opponents and the range reads alike, with a note in the feedback for each change:
+  - At 40bb, small pairs and suited connectors open, call opens and call 3-bets less often; strong hands such as TT-88, AQo and KQs 3-bet more instead of calling; QQ-TT and AK 4-bet more instead of calling, because a 4-bet is all-in; facing a 4-bet, raising is folded into calling, and TT-88, AQo, AJs and KQs call more often at the better price. Opens shrink to 2.2bb and 3-bets and squeezes to 0.9 times their size.
+  - At 200bb, small pairs, suited connectors and suited aces call opens and 3-bets more often for their implied odds; QQ, JJ and AKo call a 3-bet more often instead of 4-betting; JJ, TT, AQs and AKo fold to a 4-bet more often. 3-bets, squeezes and 4-bets are 1.1 times their size.
+- The key concept for facing a 4-bet now speaks to the stack depth. Replays rebuild the reads at the depth the hand was played.
+- Postflop needs no new data: SPR, all-in options and later-street value already follow the real stacks. In a seeded sample of 400 level 3 hands, an all-in was the best play in 82 of 488 first-to-act decisions at 40bb, 50 of 554 at 100bb and 36 of 568 at 200bb.
+- New tests check that 100bb charts are unchanged, that every depth rule applies and keeps each hand a valid split, the direction of each change, the raise sizes, and that hands at both depths finish with every opponent's real hand inside the read. The hand-flow test plays every level at 40bb and 200bb, and the smoke test plays levels 1, 3 and 4 at both depths.
+
 ## Adaptive opponents
 
 - Opponents now adjust to how the hero plays after the flop. They compare the hero's latest 40 postflop decisions of each kind with the trainer's best play in the same spots. A hero who folds to bets much more often than the best play faces more bluffs, one who folds much less faces fewer, one who bets much more gets called lighter, and one who bets much less gets more folds. The thresholds and sizes of each change are in `data/postflop/adapt.json`.

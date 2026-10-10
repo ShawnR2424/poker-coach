@@ -1,4 +1,4 @@
-// Preflop charts loaded from data/preflop/*.json, with the low-stakes adjustment layer.
+// Preflop charts loaded from data/preflop/*.json, with the stack depth and low-stakes adjustment layers.
 // A strategy is two weighted ranges (raise, call); whatever weight is left over folds.
 
 import rfiJson from '../../../data/preflop/rfi.json';
@@ -7,6 +7,7 @@ import vs3betJson from '../../../data/preflop/vs-3bet.json';
 import vs4betJson from '../../../data/preflop/vs-4bet.json';
 import otherJson from '../../../data/preflop/other.json';
 import lowstakesJson from '../../../data/preflop/lowstakes.json';
+import depthJson from '../../../data/preflop/depth.json';
 import { CLASS_COMBOS, NUM_COMBOS, parseRange, type HandClass, type Range } from '../range';
 import type { Position } from '../positions';
 
@@ -71,11 +72,35 @@ export const LOWSTAKES = {
   isoExtraBB: lowstakesJson.sizes.isoExtraBB,
 };
 
+/** Stack depths the charts cover, in big blinds. The base charts are for 100bb. */
+export type Depth = 40 | 100 | 200;
+export const DEPTHS: Depth[] = [40, 100, 200];
+
+/** The chart depth for a table with `stacksBB` big blinds: 40bb up to 60bb, 200bb from 150bb. */
+export function chartDepth(stacksBB = 100): Depth {
+  return stacksBB <= 60 ? 40 : stacksBB >= 150 ? 200 : 100;
+}
+
+interface DepthSizes {
+  rfiMax: number;
+  raiseScale: number;
+  fourBetScale: number;
+  fourBetAllIn: boolean;
+}
+const DEPTH_LAYER = depthJson as unknown as Record<'40' | '200', { rules: Rule[]; sizes: DepthSizes }>;
+const SAME_SIZES: DepthSizes = { rfiMax: 99, raiseScale: 1, fourBetScale: 1, fourBetAllIn: false };
+
+export const depthRules = (depth: Depth): Rule[] => (depth === 100 ? [] : DEPTH_LAYER[depth].rules);
+export const depthSizes = (depth: Depth): DepthSizes => (depth === 100 ? SAME_SIZES : DEPTH_LAYER[depth].sizes);
+
 const cache = new Map<string, Strategy>();
 
-/** Strategy for a chart entry, with the adjustment layer for `audience` applied when `lowStakes` is on. */
-export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'baseline', lowStakes = true): Strategy {
-  const ck = `${kind}|${key}|${audience}|${lowStakes}`;
+/**
+ * Strategy for a chart entry at a stack depth, with the depth layer applied for everyone and the
+ * low-stakes layer for `audience` applied when `lowStakes` is on.
+ */
+export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'baseline', lowStakes = true, depth: Depth = 100): Strategy {
+  const ck = `${kind}|${key}|${audience}|${lowStakes}|${depth}`;
   const hit = cache.get(ck);
   if (hit) return hit;
   const entry = CHARTS[kind][key];
@@ -83,6 +108,10 @@ export function getStrategy(kind: SpotKind, key: string, audience: Audience = 'b
   const raise = parseRange(entry.raise);
   const call = parseRange(entry.call ?? '');
   const notes: string[] = [];
+  for (const rule of depthRules(depth)) {
+    if (rule.spot !== kind) continue;
+    if (applyRule(raise, call, rule)) notes.push(rule.note);
+  }
   if (lowStakes && audience !== 'baseline') {
     for (const rule of LOWSTAKES[audience]) {
       if (rule.spot !== kind) continue;

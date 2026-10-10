@@ -7,7 +7,7 @@ import { applyAction, legalActions, type HandState } from '../hand';
 import type { Card } from '../cards';
 import { preflopOrder } from '../positions';
 import { CHARTS, getStrategy } from '../preflop/charts';
-import { botAction, type PreflopOptions } from '../preflop/policy';
+import { botAction, depthOf, type PreflopOptions } from '../preflop/policy';
 import { DEFAULT_MIX, generatePreflopScenario, type PracticeSpot, type TableOptions } from '../preflop/scenario';
 import { vsOpenKey } from '../preflop/spot';
 import { randInt, type Rng } from '../rng';
@@ -222,8 +222,8 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, 
     const rest = order.filter((x) => preflopOrder(x.i, n) > preflopOrder(first.i, n));
     const bb = rest.find(({ p }) => p.position === 'BB');
     const second = bb && rng() < 0.5 ? bb : rest[randInt(rng, rest.length)];
-    const flat = sumWeights(getStrategy('vsOpen', vsOpenKey(state, first.i, hero), 'pool', opts.lowStakes), true);
-    const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes), true);
+    const flat = sumWeights(getStrategy('vsOpen', vsOpenKey(state, first.i, hero), 'pool', opts.lowStakes, depthOf(opts)), true);
+    const over = sumWeights(getStrategy('squeeze', isBlind(second.p.position) ? 'blinds' : 'IP', 'pool', opts.lowStakes, depthOf(opts)), true);
     if (!redeal(state, first.i, flat, rng) || !redeal(state, second.i, over, rng)) return null;
     return { ...base, villains: [first.i, second.i] };
   }
@@ -234,7 +234,7 @@ function tryHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, 
     if (!behind.length) return null;
     const bb = behind.find(({ p }) => p.position === 'BB');
     const pickd = bb && rng() < 0.5 ? bb : behind[randInt(rng, behind.length)];
-    const cont = sumWeights(getStrategy('vsOpen', vsOpenKey(state, pickd.i, hero), 'pool', opts.lowStakes), false);
+    const cont = sumWeights(getStrategy('vsOpen', vsOpenKey(state, pickd.i, hero), 'pool', opts.lowStakes, depthOf(opts)), false);
     if (!redeal(state, pickd.i, cont, rng)) return null;
     villain = pickd.i;
   }
