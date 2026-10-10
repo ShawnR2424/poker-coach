@@ -15,6 +15,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Progress charts.** The Session tab charts your mistake rate over the latest 50 graded decisions across every saved session, the EV you gave up after the flop per 100 hands in each session, and how often each of your most frequent leaks showed up in each session, with the same numbers in a table.
+- **Range quizzes.** The Quizzes tab deals a 6-max preflop line (an opponent opens, calls your open or 3-bets it), you paint their range on the 13x13 grid, then estimate your equity against it on a random flop. The painting is scored by how many combos it shares with the range the trainer's opponents play, next to the best score any painting could reach, and the equity guess against an exact enumeration. Your averages over the latest 20 quizzes show whether you paint ranges too wide or too tight and guess equity high or low.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
 - **Import your own hands.** Paste hand histories from PokerStars or GGPoker (or open a saved .txt file) on the Import tab. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt and every decision you made is graded with the same charts and postflop model as the Play tab. Save them as a session to get the Session tab's leaks and a replay of each hand; their leaks then steer leak-targeted practice. A Try sample hands button shows how it works.
 - **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
@@ -114,9 +115,10 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   session/replay.ts        Compact hand records and the replay that rebuilds each hand from them
   session/adapt.ts         The hero's postflop tendencies and how opponents adjust to them
   session/import.ts        Reads pasted hand histories, rebuilds each hand and grades the hero's decisions
+  quiz/quiz.ts             Range quizzes: dealing a line, scoring a painted range and an equity guess, quiz history
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
-src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), app/ (installing and offline use), and the engine lab
+src/ui/                  React UI: table/, play/, spots/, quiz/, session/, coach/ (settings and the Claude client), app/ (installing and offline use), and the engine lab
 data/                    Editable strategy data (see above)
 public/                  App manifest and icons, copied into the build as is
 scripts/                 Data generation, the service worker build plugin, icon rendering and the browser smoke test
@@ -143,6 +145,7 @@ docs/                    Model notes and spec coverage
 - The production build passes Chromium's installability check (manifest, icons, service worker), and with the network off it still opens and plays a hand. The smoke test checks this.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - The progress numbers are checked on hand-built sessions: sessions come in the order played, the rolling mistake rate follows its window across sessions, EV given up per 100 hands counts only hands that recorded it, and each leak's rate per session matches its count. The smoke test checks the charts after the hands it plays, including the hover tooltip.
+- Range quizzes deal the player's hand from their own chart for the line and score the painting against exactly the chart the trainer's opponents play. The best possible painting is found exactly and no other painting beats it; random and one-hand-off paintings are checked against it on every kind of line. The smoke test paints by dragging and by keyboard, checks both results and that the score survives a reload.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

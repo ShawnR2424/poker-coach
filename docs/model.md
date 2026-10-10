@@ -151,6 +151,13 @@ With two or more opponents still in:
 - Sessions are stored in this browser's local storage only.
 - The progress charts measure skill, not results. The mistake rate is over the latest 50 graded decisions, so it moves with the spots dealt as well as with play. EV given up is the gap between the chosen action and the best one at each postflop decision, by the same model that grades it, so it inherits the model's limits below; preflop decisions are graded against chart frequencies and add nothing to it.
 
+## Range quizzes
+
+- A quiz is a heads-up 6-max line at 100bb: an opponent opens and you call, or you open and they call or 3-bet and you call. The opponent's range is the chart the trainer's opponents play for that action, with the low-stakes adjustments when that option is on (the default, as on the Play tab). For a call it is the calling range only; hands they would 3-bet instead are not part of it. Your hand is dealt from your own chart for the line, so it is a hand you would really have there.
+- The painting is all or nothing per hand, while charts play some hands part of the time. The match is the weighted overlap: combos in both ranges over combos in either, with a hand the range plays half the time counting half its combos. So a range full of mixed hands cannot be matched exactly. The trainer works out the best score any painting can reach (painting every hand played at least some share of the time; it tries each share) and grades your match against it. Opening ranges have no mixed hands, so their best is 100%; the median best is about 90% for calling ranges and 87% for low-stakes 3-bet ranges, with a few 3-bet ranges topping out near 74%.
+- The equity is your share of the pot on the flop against the opponent's whole range for the line, before any flop betting, with card removal: every turn and river against every combo your cards and the flop leave possible. It does not narrow the range for flop actions, so it is equity, not EV.
+- Quiz scores are stored in this browser only, separately from sessions, and do not affect leaks, adaptive opponents or level progress.
+
 ## Imported hands
 
 - The Import tab reads hand histories in the text format PokerStars and GGPoker write: no-limit hold'em cash games with 3 to 9 players dealt in, posting only the two blinds, with amounts in $, € or £. Tournaments, heads-up hands, antes, straddles, dead blinds, run-it-twice and other games are skipped, each with its reason.

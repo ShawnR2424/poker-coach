@@ -2,7 +2,7 @@
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Checks the Session tab's progress charts, and
+// hero turn that never offers a way to act. Checks the Session tab's progress charts, a range quiz, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -77,6 +77,51 @@ async function playHand(page, where) {
   }
   await page.click('.hand-result .primary');
   return true;
+}
+
+/**
+ * Range quizzes: a drag across the grid paints a stretch of hands, a key press toggles one, the
+ * range check shows the true range beside the painting, the equity check shows the trainer's
+ * exact equity, and the score survives a reload.
+ */
+async function quizCheck(page, tag) {
+  await page.goto(`${url}#quiz`);
+  await page.waitForSelector('.paint-grid button[data-cls="AA"]');
+  const cell = async (cls) => (await page.$(`.paint-grid button[data-cls="${cls}"]`)).boundingBox();
+  const from = await cell('AA'), to = await cell('A2s');
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await page.mouse.up();
+  const painted = await page.$$eval('.paint-grid button[aria-pressed="true"]', (b) => b.map((x) => x.dataset.cls));
+  if (painted.length !== 13 || !painted.includes('AKs') || !painted.includes('A2s')) failures.push(`${tag}: dragging across the top row painted ${painted.join(' ') || 'nothing'}`);
+  await page.focus('.paint-grid button[data-cls="KK"]');
+  await page.keyboard.press('Space');
+  if ((await page.getAttribute('.paint-grid button[data-cls="KK"]', 'aria-pressed')) !== 'true') failures.push(`${tag}: a key press does not paint a hand`);
+  const shown = await page.textContent('#painted-pct');
+  if (shown !== `${((6 + 6 + 12 * 4) / 1326 * 100).toFixed(1)}%`) failures.push(`${tag}: painting AA, KK and the suited aces shows ${shown} of hands`);
+  await noOverflow(page, `${tag}, quiz`);
+  await page.click('#check-range');
+  await page.waitForSelector('#range-result');
+  if ((await page.$$('.paint-grid.revealed .cell')).length !== 169) failures.push(`${tag}: the range result does not show the whole grid`);
+  if (!/matches \d+% of their range/.test(await page.textContent('#range-result'))) failures.push(`${tag}: the range result gives no match`);
+  try {
+    await page.waitForSelector('#check-equity:not([disabled])', { timeout: 20000 });
+  } catch {
+    failures.push(`${tag}: the quiz equity was never worked out`);
+    return;
+  }
+  await page.fill('#equity-guess', '40');
+  if ((await page.textContent('#guess-out')) !== '40%') failures.push(`${tag}: the equity slider does not show the guess`);
+  await page.click('#check-equity');
+  const eq = await page.textContent('#equity-result');
+  if (!/Your equity is \d+\.\d%; you said 40%/.test(eq)) failures.push(`${tag}: the equity result reads "${eq.slice(0, 120)}"`);
+  await noOverflow(page, `${tag}, quiz result`);
+  await page.click('#next-quiz');
+  await page.reload();
+  const summary = await page.$eval('#quiz-summary', (e) => e.textContent).catch(() => '');
+  if (!summary.includes('Quizzes1')) failures.push(`${tag}: the quiz score did not survive a reload ("${summary.slice(0, 80)}")`);
+  console.log(`${tag}: quiz painted by drag and key, range and equity scored, score kept`);
 }
 
 for (const vp of VIEWPORTS) {
@@ -205,6 +250,9 @@ for (const vp of VIEWPORTS) {
     if (tableRows < 1) failures.push(`${tag}: the progress table is empty`);
     await noOverflow(page, `${tag}, progress`);
   }
+
+  await quizCheck(page, tag);
+  await page.goto(`${url}#session`);
 
   // Every saved hand replays from its record; a few are stepped through action by action, and
   // each graded decision opens with its verdict and the opponents' ranges at that point.
