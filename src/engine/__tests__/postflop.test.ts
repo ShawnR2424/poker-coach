@@ -6,8 +6,9 @@ import { COMBO_CARDS, NUM_COMBOS, comboIndex, parseRange, type Range } from '../
 import { classifyHand, straightOuts } from '../postflop/classify';
 import { comboCategory, categorizePostflop, POSTFLOP_ORDER } from '../postflop/categories';
 import { narrowPostflop, responseFor } from '../postflop/model';
-import { analyze, gradePostflop, margins, situationFromState, type PostflopSituation } from '../postflop/recommend';
-import { buildSpot, POSTFLOP_SPOTS } from '../postflop/spots';
+import { analyze, gradePostflop, margins, situationFromState, type OptionRow, type PostflopSituation } from '../postflop/recommend';
+import { buildSpot, POSTFLOP_SPOTS, type AnswerKind } from '../postflop/spots';
+import type { Action } from '../hand';
 import { pot } from '../hand';
 import { narrowHand } from '../postflop/narrow';
 
@@ -218,6 +219,20 @@ describe('practice spots', () => {
       expect(a.facts.equity).toBeLessThan(1);
       expect(a.facts.liveCombos).toBeGreaterThan(1);
       for (const r of a.rows) if (r.fold !== undefined) expect(r.fold + r.call! + r.raise!).toBeCloseTo(1, 6);
+    });
+
+    it(`${def.id} grades the way its concept says`, () => {
+      const sp = buildSpot(def);
+      const sit = situationFromState(sp.state, sp.hero, sp.villain, sp.villainRange, { heroRange: sp.heroRange, heroPreflopAggressor: sp.heroPreflopAggressor });
+      const a = analyze(sit, comboEquities(sit.hero, sit.board, sp.villainRange));
+      const kindOf = (r: OptionRow): AnswerKind => (r.option.allIn ? 'allIn' : r.option.kind);
+      expect(def.answer.best).toContain(kindOf(a.best));
+      for (const r of a.rows) {
+        const action = r.option.to !== undefined ? { type: r.option.kind, to: r.option.to } : { type: r.option.kind };
+        const g = gradePostflop(sit, a, action as Action);
+        const named = def.answer.mistakes.includes(kindOf(r)) || (!r.option.allIn && def.answer.mistakes.includes(r.option.kind));
+        if (named) expect(g.verdict, `${def.id}: ${r.option.label}`).toBe('mistake');
+      }
     });
   }
 });
