@@ -1,0 +1,18 @@
+{
+  "_about": "How opponents adjust to the hero over a session (src/engine/session/adapt.ts). They compare the hero's latest postflop decisions of each kind with the trainer's best play in the same spots: how often the hero folds when facing a bet, and how often the hero bets when nobody has bet yet. Each rate needs at least minSample decisions, and opponents act on it once the hero's rate is more than gap (a share of those decisions) above or below the best play's. Every opponent's style is then adjusted: bluffMult scales how often air and weak draws bet or raise, and continueAdd is added to how often one-pair hands, draws and air keep going against the hero's bets (as in profiles.json).",
+  "window": 40,
+  "minSample": 10,
+  "gap": 0.2,
+  "overfolds": {
+    "bluffMult": 1.8
+  },
+  "overcalls": {
+    "bluffMult": 0.4
+  },
+  "betsOften": {
+    "continueAdd": 0.1
+  },
+  "rarelyBets": {
+    "continueAdd": -0.1
+  }
+}

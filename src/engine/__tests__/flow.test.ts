@@ -6,12 +6,11 @@
 import { describe, expect, it } from 'vitest';
 import { comboEquities } from '../equity';
 import { POSTFLOP_DRILLS, practiceHand } from '../game/drills';
-import { advance, heroDecides, LEAK_SPOTS, LEVEL_IDS, LEVELS, liveVillains, newGameHand, type GameHand } from '../game/levels';
+import { advance, heroDecides, LEAK_SPOTS, LEVEL_IDS, LEVELS, liveVillains, newGameHand, profileOf, type GameHand } from '../game/levels';
 import { applyAction, legalActions, type Action, type HandState } from '../hand';
 import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiway';
 import { postflopHeroLine, rangeActions } from '../postflop/heroRange';
 import { currentContext, narrowHand } from '../postflop/narrow';
-import { PROFILES } from '../postflop/model';
 import { analyze, gradePostflop, heroOptions, leaksAtRisk, situationFromState } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
 import type { TableOptions } from '../preflop/scenario';
@@ -51,7 +50,7 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
   const live = liveVillains(g, s);
   expect(live.length, `a postflop hero turn needs an opponent to read (level ${g.level}, ${s.players.length}-handed, villains ${g.villains.map((v) => s.players[v].position).join(' ')}, still in ${s.players.filter((p) => !p.folded).map((p) => p.position).join(' ')}; ${s.actions.filter((a) => a.type !== 'post').map((a) => `${s.players[a.player].position} ${a.type}`).join(', ')})`).toBeGreaterThan(0);
   expect(heroOptions(s).length).toBeGreaterThan(0);
-  const views = live.map((seat) => ({ seat, range: narrowHand(s, seat, 'pool', opts, PROFILES[g.profiles[seat]]).range, profile: PROFILES[g.profiles[seat]] }));
+  const views = live.map((seat) => ({ seat, range: narrowHand(s, seat, 'pool', opts, profileOf(g, seat)).range, profile: profileOf(g, seat) }));
   // The hero's own read: their line, and the split of their range across the actions on offer.
   const heroN = narrowHand(s, g.hero, 'baseline', opts);
   const line = postflopHeroLine(s, g.hero, heroN.range, heroN.steps, views.map((v) => v.range), false);

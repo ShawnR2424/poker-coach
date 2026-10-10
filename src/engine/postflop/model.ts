@@ -26,12 +26,20 @@ export interface Profile {
   betMult: number;
   raiseMult: number;
   continueAdd: number;
+  /** Scales how often air and weak draws bet or raise (1 when missing). Set by adaptation. */
+  bluffMult?: number;
+  /** How this opponent plays differently from its base style, when it has adjusted to the hero. */
+  adjustments?: string[];
 }
 export const PROFILES = Object.fromEntries(
   Object.entries(profileTable).filter(([k]) => !k.startsWith('_')),
 ) as Record<ProfileId, Profile>;
 export const PROFILE_IDS = Object.keys(PROFILES) as ProfileId[];
 const DEFAULT: Profile = PROFILES.regular;
+
+/** Classes that bet or raise only as bluffs or semi-bluffs; bluffMult scales them. */
+const BLUFFS = new Set<PostflopClass>(['air', 'weakDraw']);
+const bluffScale = (cls: PostflopClass, profile: Profile) => (BLUFFS.has(cls) ? profile.bluffMult ?? 1 : 1);
 
 /** Classes whose willingness to continue does not depend on the player's style. */
 const STYLE_FREE = new Set<PostflopClass>(['setPlus', 'twoPair']);
@@ -62,7 +70,7 @@ export interface Response {
 
 export function responseFor(cls: PostflopClass, f: number, canRaise: boolean, beingRaised = false, profile: Profile = DEFAULT): Response {
   const cont = continueProb(cls, f, beingRaised, profile);
-  const raise = canRaise ? cont * Math.min(1, ACTIONS.facingBet.raise[cls] * profile.raiseMult) : 0;
+  const raise = canRaise ? cont * Math.min(1, ACTIONS.facingBet.raise[cls] * profile.raiseMult * bluffScale(cls, profile)) : 0;
   return { fold: 1 - cont, call: cont - raise, raise };
 }
 
@@ -73,8 +81,9 @@ export function firstToActFreq(
   profile: Profile = DEFAULT,
 ): { check: number; small: number; big: number } {
   const t = intoAggressor ? ACTIONS.leadIntoAggressor : ACTIONS.firstToAct;
-  let small = t.betSmall[cls] * profile.betMult;
-  let big = t.betBig[cls] * profile.betMult;
+  const m = profile.betMult * bluffScale(cls, profile);
+  let small = t.betSmall[cls] * m;
+  let big = t.betBig[cls] * m;
   if (small + big > 1) {
     const k = 1 / (small + big);
     small *= k;

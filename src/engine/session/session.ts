@@ -2,6 +2,7 @@
 // leak counts, and "leaks fixed" tracking. Pure functions over plain data, so the same
 // records can be saved to localStorage and read back.
 
+import type { PostflopMove } from './adapt';
 import type { HandReplay } from './replay';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
@@ -21,6 +22,10 @@ export interface DecisionRecord {
   atRisk: string[];
   /** Actions taken before this decision, not counting the blinds: its step in the replay. */
   step?: number;
+  /** The hero's action at a postflop decision, which adaptive opponents learn from. */
+  move?: PostflopMove;
+  /** The trainer's best action at that decision, which the hero's moves are compared with. */
+  bestMove?: PostflopMove;
 }
 
 export interface HandRecord {

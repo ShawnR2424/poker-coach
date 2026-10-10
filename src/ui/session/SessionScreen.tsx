@@ -2,6 +2,7 @@
 // "fixed" tracking. Earlier sessions stay available to look back at.
 
 import { useState } from 'react';
+import { ADAPT, ADJUSTMENT_SHORT, adaptationFor, heroTendencies, type Rate } from '../../engine/session/adapt';
 import { leakStats, totals, type Session } from '../../engine/session/session';
 import { LEVELS, type LevelId } from '../../engine/game/levels';
 import { dollars } from '../table/format';
@@ -146,6 +147,8 @@ function SessionView({ session }: { session: Session }) {
         )}
       </section>
 
+      <TendencyPanel hands={session.hands} />
+
       {replaying && <ReplayView key={`${session.id}-${replaying.n}`} hand={replaying} onClose={() => setReplayN(null)} />}
 
       <section className="panel" aria-labelledby="hands-h">
@@ -194,5 +197,44 @@ function SessionView({ session }: { session: Session }) {
         </div>
       </section>
     </>
+  );
+}
+
+/** The two postflop rates adaptive opponents watch, next to the best play's in the same spots. */
+function TendencyPanel({ hands }: { hands: Session['hands'] }) {
+  const t = heroTendencies(hands);
+  const a = adaptationFor(t);
+  const rows: { name: string; r: Rate }[] = [
+    { name: 'Folding to a bet', r: t.foldToBet },
+    { name: 'Betting when nobody has bet', r: t.betWhenFree },
+  ];
+  const p = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '–');
+  return (
+    <section className="panel" aria-labelledby="tendency-h">
+      <h2 id="tendency-h">How opponents read you</h2>
+      <p className="muted small">
+        With “Opponents adapt to me” on, opponents compare your latest {ADAPT.window} postflop decisions of each kind with the trainer's best play in the same spots. Once a rate has {ADAPT.minSample} decisions behind it and differs from the best play's by more than {Math.round(100 * ADAPT.gap)} points, every opponent adjusts, and the range reads and grades use the adjusted style.
+      </p>
+      <div className="table-scroll">
+        <table className="data">
+          <thead>
+            <tr><th scope="col">Postflop</th><th scope="col" className="n">You</th><th scope="col" className="n">Best play</th><th scope="col" className="n">Decisions</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(({ name, r }) => (
+              <tr key={name}>
+                <th scope="row">{name}</th>
+                <td className="n num">{p(r.you, r.of)}</td>
+                <td className="n num">{p(r.best, r.of)}</td>
+                <td className="n num">{r.of}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="small">
+        {a ? `Opponents are ${a.adjustments.map((x) => ADJUSTMENT_SHORT[x.kind]).join(' and ')}.` : 'Opponents play their usual styles against you.'}
+      </p>
+    </section>
   );
 }

@@ -60,3 +60,5 @@ table.hands .verdicts { white-space: nowrap; letter-spacing: 1px; }
 .replay-decision p { margin: 0; }
 .replay-decision .range-text { display: grid; gap: 2px; }
 .replay-result { margin: 0; }
+.adapt-note { margin: 0; background: color-mix(in srgb, var(--felt) 12%, transparent); border-left: 3px solid var(--felt); border-radius: 6px; padding: 6px 10px; display: grid; gap: 4px; }
+.adapt-note p { margin: 0; }

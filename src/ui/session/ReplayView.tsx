@@ -10,7 +10,8 @@ import type { HandState } from '../../engine/hand';
 import { PROFILES, type ProfileId } from '../../engine/postflop/model';
 import { narrowHand } from '../../engine/postflop/narrow';
 import { formatRange, summarizeRange } from '../../engine/range';
-import { replayStates } from '../../engine/session/replay';
+import { adaptProfile } from '../../engine/session/adapt';
+import { replayAdaptation, replayStates } from '../../engine/session/replay';
 import type { DecisionRecord, HandRecord } from '../../engine/session/session';
 import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
@@ -29,7 +30,7 @@ function rangesAt(s: HandState, hand: HandRecord) {
   const r = hand.replay!;
   const g = { villains: r.villains, hero: r.hero };
   return liveVillains(g as Parameters<typeof liveVillains>[0], s).map((v) => {
-    const profile = PROFILES[(r.profiles[v] ?? 'regular') as ProfileId];
+    const profile = adaptProfile(PROFILES[(r.profiles[v] ?? 'regular') as ProfileId], replayAdaptation(r));
     const range = narrowHand(s, v, 'pool', { lowStakes: r.lowStakes ?? true }, profile).range;
     const text = s.street === 'preflop'
       ? { core: formatRange(range), partial: '' }

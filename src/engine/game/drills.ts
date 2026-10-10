@@ -15,7 +15,8 @@ import { analyze, leaksAtRisk, situationFromState, type PostflopSituation } from
 import { botAction, type PreflopOptions } from '../preflop/policy';
 import type { TableOptions } from '../preflop/scenario';
 import type { Rng } from '../rng';
-import { advance, heroDecides, isMultiway, LEVELS, liveVillains, newGameHand, type GameHand, type LevelId } from './levels';
+import type { Adaptation } from '../session/adapt';
+import { advance, heroDecides, isMultiway, LEVELS, liveVillains, newGameHand, profileOf, type GameHand, type LevelId } from './levels';
 
 interface Spot {
   s: HandState;
@@ -60,7 +61,7 @@ function spotAt(g: GameHand, s: HandState, opts: PreflopOptions): Spot | null {
   const live = liveVillains(g, s);
   if (live.length !== 1) return null;
   const v = live[0];
-  const profile = PROFILES[g.profiles[v] ?? 'regular'];
+  const profile = profileOf(g, v);
   const range = narrowHand(s, v, 'pool', opts, profile).range;
   const pre = s.actions.filter((a) => a.street === 'preflop' && a.type === 'raise');
   const sit = situationFromState(s, g.hero, v, range, {
@@ -86,13 +87,13 @@ function spotAt(g: GameHand, s: HandState, opts: PreflopOptions): Spot | null {
  * earlier decisions played by the bots. Null when the level can't host it (preflop-only and
  * multiway levels) or no such decision came up within the search budget.
  */
-export function drillHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, tag: string): GameHand | null {
+export function drillHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, tag: string, adapt: Adaptation | null = null): GameHand | null {
   const check = POSTFLOP_DRILLS[tag];
   const L = LEVELS[level];
   if (!check || !L.postflop || isMultiway(level) || (L.riverOnly && FLOP_ONLY.has(tag))) return null;
   let analyses = 0;
   for (let hand = 0; hand < MAX_HANDS && analyses < MAX_ANALYSES; hand++) {
-    const g = newGameHand(level, rng, opts);
+    const g = newGameHand(level, rng, opts, [], adapt);
     let s = advance(g, g.state, rng, opts);
     for (let guard = 0; guard < 20 && heroDecides(g, s); guard++) {
       if (s.street !== 'preflop' && (!L.riverOnly || s.street === 'river')) {
@@ -116,16 +117,22 @@ export function drillHand(level: LevelId, rng: Rng, opts: PreflopOptions & Table
  * gets a drill hand when the level can host one, and everything else leans the preflop spot mix
  * (newGameHand). The leak is drawn in proportion to how often it has come up.
  */
-export function practiceHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, leaks: { tag: string; weight: number }[] = []): GameHand {
+export function practiceHand(
+  level: LevelId,
+  rng: Rng,
+  opts: PreflopOptions & TableOptions,
+  leaks: { tag: string; weight: number }[] = [],
+  adapt: Adaptation | null = null,
+): GameHand {
   const drillable = leaks.filter((l) => POSTFLOP_DRILLS[l.tag]);
   if (drillable.length && LEVELS[level].postflop && !isMultiway(level) && rng() < 0.5) {
     const total = leaks.reduce((t, l) => t + l.weight, 0);
     let x = rng() * total;
     const pick = leaks.find((l) => (x -= l.weight) < 0) ?? leaks[leaks.length - 1];
     if (POSTFLOP_DRILLS[pick.tag]) {
-      const g = drillHand(level, rng, opts, pick.tag);
+      const g = drillHand(level, rng, opts, pick.tag, adapt);
       if (g) return g;
     }
   }
-  return newGameHand(level, rng, opts, leaks);
+  return newGameHand(level, rng, opts, leaks, adapt);
 }
