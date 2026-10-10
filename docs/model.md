@@ -85,6 +85,8 @@ Every legal action and preset size is scored, and the hero's choice is compared 
 
 Thresholds scale with the pot so that tiny differences in big pots are not called mistakes. Close spots can change verdict when `actions.json` is tuned.
 
+**Overbet shoves.** EV covers the current street only, so an all-in for many times the pot can outscore a normal bet in the model: it folds out almost everything, or gets the whole stack in at once, while a normal bet's value on later streets is not counted. An all-in bigger than three times the pot is therefore never the recommended play, and choosing one is graded playable at best, with a note saying why. At a low stack-to-pot ratio the all-in is an ordinary option and can be best.
+
 ### Your own range
 
 After the flop the hero's range is narrowed the same way as an opponent's: the preflop chart range for the hero's actions, then the class tables for each postflop action the hero took. Two things are built from it:

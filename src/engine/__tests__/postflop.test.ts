@@ -6,7 +6,7 @@ import { COMBO_CARDS, NUM_COMBOS, comboIndex, parseRange, type Range } from '../
 import { classifyHand, straightOuts } from '../postflop/classify';
 import { comboCategory, categorizePostflop, POSTFLOP_ORDER } from '../postflop/categories';
 import { narrowPostflop, responseFor } from '../postflop/model';
-import { analyze, gradePostflop, margins, situationFromState, type OptionRow, type PostflopSituation } from '../postflop/recommend';
+import { analyze, bestOf, gradePostflop, margins, situationFromState, type Analysis, type OptionRow, type PostflopSituation } from '../postflop/recommend';
 import { buildSpot, POSTFLOP_SPOTS, type AnswerKind } from '../postflop/spots';
 import type { Action } from '../hand';
 import { pot } from '../hand';
@@ -235,6 +235,30 @@ describe('practice spots', () => {
       }
     });
   }
+});
+
+describe('overbet shoves', () => {
+  it('a shove for many times the pot is at most playable, even when it scores highest', () => {
+    const shove = { option: { kind: 'bet', to: 5000, label: 'All-in', allIn: true }, ev: 900, potShare: 15, fold: 0.95, call: 0.05, raise: 0 } as OptionRow;
+    const bet = { option: { kind: 'bet', to: 200, label: '66% pot' }, ev: 600, potShare: 0.66, fold: 0.6, call: 0.4, raise: 0 } as OptionRow;
+    const check = { option: { kind: 'check', label: 'Check' }, ev: 400 } as OptionRow;
+    const rows = [check, bet, shove];
+    const best = bestOf(rows);
+    expect(best).toBe(bet);
+    const a = { rows, best, facts: { equity: 0.5, potOdds: null, spr: 15, villainStrong: 0.1, heroStrong: null, heroClass: 'air', liveCombos: 100, realization: 0.9 } } as Analysis;
+    const sit = { pot: 300, bb: 50, street: 'flop', heroInvested: 125, heroBehind: 4875, heroFirstToAct: true, heroInPosition: true, heroPreflopAggressor: true } as unknown as PostflopSituation;
+    const g = gradePostflop(sit, a, { type: 'bet', to: 5000 });
+    expect(g.verdict).toBe('playable');
+    expect(g.sizeNote).toMatch(/one street at a time/);
+    expect(g.acceptable).not.toContain(shove);
+    expect(gradePostflop(sit, a, { type: 'bet', to: 200 }).verdict).toBe('correct');
+  });
+
+  it('a shove at a low stack-to-pot ratio can still be the best play', () => {
+    const shove = { option: { kind: 'bet', to: 600, label: 'All-in', allIn: true }, ev: 900, potShare: 2 } as OptionRow;
+    const bet = { option: { kind: 'bet', to: 200, label: '66% pot' }, ev: 600, potShare: 0.66 } as OptionRow;
+    expect(bestOf([bet, shove])).toBe(shove);
+  });
 });
 
 describe('narrowing through a whole hand', () => {

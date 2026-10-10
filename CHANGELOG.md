@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## No more deep-stack shove advice
+
+- An all-in for more than three times the pot is no longer recommended. Before, when stacks were deep, the trainer graded a 100bb shove as the best play in about one in five postflop spots where the hero was first to act, often with air or a weak pair, because EV counts only the current street. Choosing such a shove is now graded playable at best, with a note explaining the limit. Shoves at a low stack-to-pot ratio are unaffected.
+- The set-on-a-wet-turn practice spot now teaches a big raise rather than an all-in.
+- The hand-flow test checks that no analyzed decision, heads-up or multiway, at any level or table size recommends an overbet shove; unit tests cover the grading.
+
 ## More postflop practice spots
 
 - The Postflop spots tab grows from four spots to twelve. The new ones: a c-bet with nothing on an ace-high flop, top pair facing a flop raise, a gutshot facing a pot-sized turn bet, an overpair facing a turn check-raise, a set on a wet turn, top pair with a weak kicker checked to on the river, a missed flush draw on the river, and an underpair facing a river overbet.

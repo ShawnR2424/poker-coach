@@ -12,7 +12,7 @@ import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiwa
 import { postflopHeroLine, rangeActions } from '../postflop/heroRange';
 import { currentContext, narrowHand } from '../postflop/narrow';
 import { PROFILES } from '../postflop/model';
-import { analyze, gradePostflop, heroOptions, leaksAtRisk, situationFromState } from '../postflop/recommend';
+import { analyze, gradePostflop, heroOptions, isOverbetShove, leaksAtRisk, situationFromState } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
 import type { TableOptions } from '../preflop/scenario';
 import { hasChart, spotFor } from '../preflop/spot';
@@ -65,6 +65,8 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
     if (deep) {
       const a = analyze(sit, comboEquities(sit.hero, sit.board, sit.villainRange));
       for (const r of a.rows) expect(Number.isFinite(r.ev)).toBe(true);
+      // A shove for many times the pot is never the recommended play (see OVERBET_SHOVE).
+      if (a.rows.some((r) => !isOverbetShove(r))) expect(isOverbetShove(a.best)).toBe(false);
       gradePostflop(sit, a, { type: a.rows[0].option.kind } as Action);
       leaksAtRisk(sit, a);
     }
@@ -74,6 +76,7 @@ function checkTurn(g: GameHand, s: HandState, deep: boolean): 'preflop' | 'ungra
   if (deep) {
     const { analysis } = analyzeMultiway(sit, { iterations: 300 });
     for (const r of analysis.rows) expect(Number.isFinite(r.ev)).toBe(true);
+    if (analysis.rows.some((r) => !isOverbetShove(r))) expect(isOverbetShove(analysis.best)).toBe(false);
     leaksAtRisk(sit, analysis);
   }
   return 'multiway';

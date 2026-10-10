@@ -13,7 +13,7 @@ import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
 import { realization, responseFor, type Profile } from './model';
-import { heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
+import { bestOf, heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
 
 export interface MultiwayVillain {
   seat: number;
@@ -141,7 +141,7 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
     };
   }
 
-  const best = rows.reduce((a, r) => (r.ev > a.ev + 1e-9 ? r : a), rows[0]);
+  const best = bestOf(rows);
   const facing = sit.currentBet - hc;
   const deepest = Math.max(...sit.villains.map((v) => v.behind + v.committed));
   return {

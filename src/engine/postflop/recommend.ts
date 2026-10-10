@@ -144,6 +144,23 @@ export function situationFromState(
   };
 }
 
+/**
+ * An all-in bigger than this many pots is never recommended. EV here covers the current street
+ * only, so a shove for many times the pot can outscore a normal bet in the model (it folds out
+ * almost everything, or gets the whole stack in at once) while a normal bet's value on later
+ * streets goes uncounted.
+ */
+export const OVERBET_SHOVE = 3;
+
+export const isOverbetShove = (r: OptionRow): boolean => !!r.option.allIn && (r.potShare ?? 0) > OVERBET_SHOVE;
+
+/** The highest-EV option, leaving out overbet shoves unless nothing else is left. */
+export function bestOf(rows: OptionRow[]): OptionRow {
+  const pool = rows.filter((r) => !isOverbetShove(r));
+  const from = pool.length ? pool : rows;
+  return from.reduce((a, r) => (r.ev > a.ev + 1e-9 ? r : a), from[0]);
+}
+
 export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
   const dead = new Set([...sit.hero, ...sit.board]);
   const idx: number[] = [];
@@ -232,7 +249,7 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
     };
   }
 
-  const best = rows.reduce((a, r) => (r.ev > a.ev + 1e-9 ? r : a), rows[0]);
+  const best = bestOf(rows);
   const facing = vc - hc;
   return {
     rows,
@@ -297,15 +314,20 @@ export function gradePostflop(sit: DecisionBasics, a: Analysis, action: Action):
   const best = a.best;
   const m = margins(sit.pot, sit.bb);
   const loss = Math.max(0, best.ev - chosen.ev);
-  const acceptable = a.rows.filter((r) => best.ev - r.ev <= m.correct);
-  const verdict: Verdict = loss <= m.correct ? 'correct' : loss <= m.playable ? 'playable' : 'mistake';
+  const overbet = isOverbetShove(chosen) && chosen !== best;
+  const acceptable = a.rows.filter((r) => best.ev - r.ev <= m.correct && !isOverbetShove(r));
+  // An overbet shove is at most playable, however it scores: see OVERBET_SHOVE.
+  const verdict: Verdict = loss <= m.correct ? (overbet ? 'playable' : 'correct') : loss <= m.playable ? 'playable' : 'mistake';
   const name = describeOption(chosen.option);
   let heading =
     verdict === 'correct' ? `Correct: ${name.toLowerCase()}`
       : verdict === 'playable' ? `Playable, but ${describeOption(best.option).toLowerCase()} earns more`
         : `Mistake: ${name.toLowerCase()}`;
   let sizeNote: string | null = null;
-  if (verdict !== 'correct' && sized(chosen.option.kind) && sized(best.option.kind)) {
+  if (overbet && loss <= m.correct) {
+    heading = `Playable, but ${describeOption(best.option).toLowerCase()} is the better line`;
+    sizeNote = `A shove for ${(chosen.potShare ?? 0).toFixed(1)} times the pot risks your stack to win a small pot. The model scores one street at a time, so it can rate a shove this big above a normal bet whose value comes on later streets.`;
+  } else if (verdict !== 'correct' && sized(chosen.option.kind) && sized(best.option.kind)) {
     heading = 'Right idea, wrong size';
     sizeNote = `${describeOption(best.option)} earns ${bbs(loss, sit.bb)} more than ${name.toLowerCase()}.`;
   }
