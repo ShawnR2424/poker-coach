@@ -6,7 +6,12 @@ Each milestone was merged as its own pull request.
 
 - Each hand in the Session tab has a Replay button. The replay steps through the hand one action at a time with the table, board, timeline and every opponent's cards. Buttons jump to each of your graded decisions, marked with the verdict, and each decision shows what you chose, its leak tag and the opponents' ranges at that point.
 - Each hand is saved as a compact record (seats, stacks, hole cards, board and actions, about 1-2 KB) and rebuilt with the hand engine, so the replay shows exactly what was played. The newest 500 hands keep their records, which keeps saved sessions well inside the browser's storage limit. Hands played before this change have no record and show no Replay button.
+- The spec coverage page lists the replay under the session section.
 - Tests replay hands at every level at 6-max and 9 handed and check them against the hand as played. The smoke test opens every hand's replay, steps through several from start to end and checks for horizontal scroll at both widths.
+
+## Spec coverage page
+
+- Added [docs/spec-coverage.md](docs/spec-coverage.md), which maps each section of the original brief to the code that implements it and the tests or smoke checks that guard it.
 
 ## Opponent ranges in notation after the flop
 

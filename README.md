@@ -95,7 +95,7 @@ src/workers/             Equity Web Worker and its client
 src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
 data/                    Editable strategy data (see above)
 scripts/                 Data generation and the browser smoke test
-docs/                    Model notes
+docs/                    Model notes and spec coverage
 ```
 
 ## What the tests guarantee
@@ -113,6 +113,10 @@ docs/                    Model notes
 - A saved hand replays to exactly the actions, board, stacks and result that were played, at every level and table size, and the hero's decisions fall on the replay's steps. The smoke test opens the replay of every hand in the session.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
+
+## Spec coverage
+
+[docs/spec-coverage.md](docs/spec-coverage.md) maps each part of the original brief to the code that implements it and the tests that check it.
 
 ## History
 
