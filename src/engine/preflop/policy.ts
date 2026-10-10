@@ -1,10 +1,10 @@
 // Turns chart frequencies into engine actions, and narrows a player's range from their preflop actions.
 
 import { comboIndex } from '../range';
-import { legalActions, type Action, type ActionRecord, type HandState } from '../hand';
+import { legalActions, type Action, type ActionRecord, type HandState, type Rake } from '../hand';
 import type { Position } from '../positions';
 import type { Rng } from '../rng';
-import { chartDepth, frequencies, getStrategy, type Audience, type Choice, type Frequencies, type Strategy } from './charts';
+import { chartDepth, frequencies, getStrategy, type Audience, type Choice, type Frequencies, type SpotKind, type Strategy } from './charts';
 import { chartRaiseTo, classifySpot, hasChart, spotFor, type PreflopSpot } from './spot';
 import { NUM_COMBOS, type Range } from '../range';
 
@@ -12,13 +12,23 @@ export interface PreflopOptions {
   lowStakes: boolean;
   /** Starting stacks in big blinds (100 when missing); picks the chart depth. */
   stacksBB?: number;
+  /** The table's rake; with one, everyone plays the rake-adjusted charts. No rake when absent. */
+  rake?: Rake;
 }
 
 /** The chart depth these options play at. */
 export const depthOf = (opts: PreflopOptions) => chartDepth(opts.stacksBB);
 
+/** Whether these options play the rake-adjusted charts. */
+export const rakedOf = (opts: PreflopOptions) => !!opts.rake && opts.rake.pct > 0;
+
+/** The strategy for a chart entry with every layer these options call for. */
+export function chartStrategy(kind: SpotKind, key: string, audience: Audience, opts: PreflopOptions): Strategy {
+  return getStrategy(kind, key, audience, opts.lowStakes, depthOf(opts), rakedOf(opts));
+}
+
 export function strategyFor(spot: PreflopSpot, audience: Audience, opts: PreflopOptions): Strategy {
-  return getStrategy(spot.kind, spot.key, audience, opts.lowStakes, depthOf(opts));
+  return chartStrategy(spot.kind, spot.key, audience, opts);
 }
 
 /** Converts a chart choice into a legal engine action for the player to act. */
@@ -86,7 +96,7 @@ export function narrowPreflop(
     if (a.player !== player || a.type === 'post') return;
     const spot = classifySpot(positions, pre.slice(0, idx), player);
     if (!hasChart(spot)) return;
-    const strat = getStrategy(spot.kind, spot.key, audience, opts.lowStakes, depthOf(opts));
+    const strat = chartStrategy(spot.kind, spot.key, audience, opts);
     const choice = actionToChoice(a.type);
     const before = range;
     const after = new Float32Array(NUM_COMBOS);

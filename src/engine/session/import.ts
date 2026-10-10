@@ -333,7 +333,7 @@ const STREET_LABEL: Record<string, string> = { flop: 'Flop', turn: 'Turn', river
 /** Grades every hero decision in a replay with the trainer's preflop charts and postflop model. */
 export function gradeReplay(r: HandReplay): DecisionRecord[] {
   const states = replayStates(r);
-  const opts: PreflopOptions = { lowStakes: r.lowStakes, stacksBB: r.stacks[r.hero] / r.config.bb };
+  const opts: PreflopOptions = { lowStakes: r.lowStakes, stacksBB: r.stacks[r.hero] / r.config.bb, rake: r.config.rake };
   const profile = PROFILES.regular;
   const out: DecisionRecord[] = [];
   r.actions.forEach((entry, k) => {

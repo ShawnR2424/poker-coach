@@ -8,8 +8,8 @@ import { breakEvenFoldPct, potOdds } from '../math';
 import {
   ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, NUM_COMBOS, classOfCombo, comboIndex, type HandClass, type Range,
 } from '../range';
-import { chartDepth, classFrequencies, frequencies, getStrategy, type Choice, type Depth, type Frequencies, type SpotKind, type Strategy } from './charts';
-import { actionToChoice, choiceToAction, depthOf, narrowPreflop, type NarrowStep, type PreflopOptions } from './policy';
+import { chartDepth, classFrequencies, frequencies, rakeNoteFor, type Choice, type Depth, type Frequencies, type SpotKind, type Strategy } from './charts';
+import { actionToChoice, choiceToAction, chartStrategy, narrowPreflop, rakedOf, type NarrowStep, type PreflopOptions } from './policy';
 import { classifySpot, hasChart, spotFor, vsOpenKey, type PreflopSpot } from './spot';
 
 const RANK_ORDER: HandClass[] = handRank.order;
@@ -47,12 +47,24 @@ export interface Decision {
   canCheck: boolean;
   toCall: number;
   pot: number;
+  /** How the rake moved this hand's frequencies, when the table is raked and it moved them. */
+  rakeShift?: { choice: Choice; from: number; to: number; note: string };
+}
+
+/** The action the rake layer moved the most weight to for this hand, if it moved any noticeably. */
+function rakeShiftOf(spot: PreflopSpot, combo: number, freqs: Frequencies, opts: PreflopOptions): Decision['rakeShift'] {
+  if (!rakedOf(opts)) return undefined;
+  const note = rakeNoteFor(spot.kind, spot.key, combo);
+  if (!note) return undefined;
+  const off = frequencies(chartStrategy(spot.kind, spot.key, 'hero', { ...opts, rake: undefined }), combo);
+  const choice = (['fold', 'raise', 'call'] as Choice[]).reduce((a, c) => (freqs[c] - off[c] > freqs[a] - off[a] ? c : a));
+  return freqs[choice] - off[choice] >= 0.05 ? { choice, from: off[choice], to: freqs[choice], note } : undefined;
 }
 
 export function heroDecision(s: HandState, hero: number, opts: PreflopOptions): Decision {
   const spot = spotFor(s, hero);
   if (!hasChart(spot)) throw new Error(`No chart for ${spot.label}`);
-  const strategy = getStrategy(spot.kind, spot.key, 'hero', opts.lowStakes, depthOf(opts));
+  const strategy = chartStrategy(spot.kind, spot.key, 'hero', opts);
   const [a, b] = s.players[hero].hole;
   const combo = comboIndex(a, b);
   const freqs = frequencies(strategy, combo);
@@ -65,6 +77,7 @@ export function heroDecision(s: HandState, hero: number, opts: PreflopOptions): 
     canCheck: legal.check,
     toCall: legal.call ?? 0,
     pot: pot(s),
+    rakeShift: rakeShiftOf(spot, combo, freqs, opts),
   };
 }
 
@@ -197,6 +210,10 @@ export function preflopFeedback(
   const allInTo = s.players[hero].stack + s.players[hero].committed;
   const grade = gradePreflop(d, action, bb, allInTo);
   const bullets: string[] = [freqLine(d)];
+  if (d.rakeShift) {
+    const r = d.rakeShift;
+    bullets.push(`${r.note} With the rake on, the chart picks ${choiceName(d.spot.kind, r.choice, d.canCheck)} for this hand ${pct(r.to)} of the time instead of ${pct(r.from)}.`);
+  }
   const needed = d.toCall > 0 ? potOdds(d.toCall, d.pot) : null;
 
   if (needed !== null) {
@@ -335,7 +352,7 @@ export function opponentReads(s: HandState, hero: number, opts: PreflopOptions):
     const mine = pre.filter((a) => a.player === i && a.type !== 'post');
     const descs = mine.map((a) => describeAction(classifySpot(positions, pre.slice(0, pre.indexOf(a)), i), a, bb));
     const last = steps[steps.length - 1];
-    const notes = getStrategy(last.spot.kind, last.spot.key, 'pool', opts.lowStakes, depthOf(opts)).notes;
+    const notes = chartStrategy(last.spot.kind, last.spot.key, 'pool', opts).notes;
     reads.push({
       seat: i,
       line: `${p.position} · ${descs.join(', ')}`,
@@ -355,7 +372,7 @@ export function playersBehind(s: HandState, hero: number, opts: PreflopOptions):
   s.players.forEach((p, i) => {
     if (i === hero || p.folded) return;
     const key = vsOpenKey(s, i, hero);
-    const st = (() => { try { return getStrategy('vsOpen', key, 'pool', opts.lowStakes, depthOf(opts)); } catch { return null; } })();
+    const st = (() => { try { return chartStrategy('vsOpen', key, 'pool', opts); } catch { return null; } })();
     if (!st) return;
     const range = new Float32Array(NUM_COMBOS);
     for (let k = 0; k < NUM_COMBOS; k++) range[k] = Math.min(1, st.raise[k] + st.call[k]);
