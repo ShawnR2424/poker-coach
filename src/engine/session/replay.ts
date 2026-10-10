@@ -4,6 +4,7 @@
 
 import type { Card } from '../cards';
 import { applyAction, newHand, type Action, type HandConfig, type HandState } from '../hand';
+import type { Adaptation, AdjustmentKind } from './adapt';
 
 export interface HandReplay {
   v: 1;
@@ -19,10 +20,24 @@ export interface HandReplay {
   profiles: Record<number, string>;
   /** Whether the low-stakes layer was on, so the replay narrows ranges as the read did. */
   lowStakes: boolean;
+  /** How the opponents had adjusted to the hero, so the replay narrows ranges as the read did. */
+  adapt?: { bluffMult: number; continueAdd: number; kinds: AdjustmentKind[] };
+}
+
+/** The adaptation a replay was played under, in the form the opponents' styles take. */
+export function replayAdaptation(r: HandReplay): Adaptation | null {
+  return r.adapt ? { bluffMult: r.adapt.bluffMult, continueAdd: r.adapt.continueAdd, adjustments: [] } : null;
 }
 
 /** Saves a hand from its final state. */
-export function replayOf(final: HandState, hero: number, villains: number[], profiles: Record<number, string>, lowStakes = true): HandReplay {
+export function replayOf(
+  final: HandState,
+  hero: number,
+  villains: number[],
+  profiles: Record<number, string>,
+  lowStakes = true,
+  adapt: Adaptation | null = null,
+): HandReplay {
   return {
     v: 1,
     config: final.config,
@@ -36,6 +51,7 @@ export function replayOf(final: HandState, hero: number, villains: number[], pro
     villains: [...villains],
     profiles: { ...profiles },
     lowStakes,
+    ...(adapt ? { adapt: { bluffMult: adapt.bluffMult, continueAdd: adapt.continueAdd, kinds: adapt.adjustments.map((a) => a.kind) } } : {}),
   };
 }
 

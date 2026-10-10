@@ -119,6 +119,11 @@ export function OpponentPanel({ view, sit, eqs, breakdown, comboReason }: Oppone
       {view.profile && (
         <p className="tendency"><span className="eyebrow">{view.profile.label}</span> {view.profile.about}</p>
       )}
+      {!!view.profile?.adjustments?.length && (
+        <p className="tendency adjusted small">
+          <span className="eyebrow">Adjusted to you</span> {view.profile.adjustments.join('; ')}. The read and the grades use this adjusted style.
+        </p>
+      )}
       <div className="range-text">
         <p className="eyebrow">Approximate range now</p>
         <p>Still holds most of <code>{text.core || 'no hands'}</code></p>

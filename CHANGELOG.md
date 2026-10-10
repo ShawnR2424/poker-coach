@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Adaptive opponents
+
+- Opponents now adjust to how the hero plays after the flop. They compare the hero's latest 40 postflop decisions of each kind with the trainer's best play in the same spots. A hero who folds to bets much more often than the best play faces more bluffs, one who folds much less faces fewer, one who bets much more gets called lighter, and one who bets much less gets more folds. The thresholds and sizes of each change are in `data/postflop/adapt.json`.
+- The adjusted style drives the bots, the range reads and the EV grading together, so the grades reward exploiting it. In a seeded sample of 600 level 3 hands, folding to a bet was best in 61 of 276 decisions against unadjusted opponents, 34 of 327 when they bluff more and 80 of 244 when they bluff less.
+- The Play screen explains each adjustment with the counts behind it, each postflop opponent panel marks the adjusted style, and the Session tab has a "How opponents read you" table of the two rates next to the best play's. "Opponents adapt to me" on the Play screen switches it off, and is remembered in the browser.
+- Each postflop decision record now keeps the hero's action and the best action, and each hand's replay keeps the adjustment it was played under.
+- New tests cover the rates, when an adjustment starts, how it changes the opponents' styles, that each adjustment moves the grades the way it should, and that adapted opponents still hold their real hand inside the read. The smoke test checks the Session table, the Play screen note, the opponent panels and switching it off.
+
 ## Later streets in EV
 
 - Postflop EV now counts what a hand that is ahead wins on the streets still to come: one bet per later street, from the opponent hands it beats, in proportion to how often each would call. Before, EV covered only the current street, so with deep stacks a 100bb all-in could outscore a normal bet and was graded the best play in about one in five first-to-act postflop decisions.

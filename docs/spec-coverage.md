@@ -85,6 +85,7 @@ How each part of the original brief maps to the code and to the checks that guar
 | Six curriculum levels | `LEVELS` in `engine/game/levels.ts` | `flow.test.ts`, `game.test.ts`, smoke (every level) |
 | Leak tags and leak-targeted practice | `gradePreflop`, `gradePostflop`, `biasedMix`, `engine/game/drills.ts` | `session.test.ts`, `drills.test.ts`, `flow.test.ts` (every leak open), smoke |
 | Running P/L, hand table, leaks fixed, saved sessions | `engine/session/session.ts`, `ui/session/` | `session.test.ts`, smoke (sessions survive a reload) |
+| Adaptive opponents that adjust to the hero's postflop tendencies (beyond the brief) | `engine/session/adapt.ts`, `data/postflop/adapt.json`, `profileOf` in `engine/game/levels.ts` | `adapt.test.ts` (the grades follow each adjustment), `game.test.ts` (adjusted reads hold the real hand), smoke (session, Play note, opponent panels) |
 | Hand replay with opponents' cards and the read at each decision (beyond the brief) | `engine/session/replay.ts`, `ui/session/ReplayView.tsx` | `replay.test.ts` (rebuilt hands match the played ones), smoke (every hand replays) |
 
 ## Deliberate limits

@@ -3,7 +3,8 @@
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
-// held back when it contains a number the trainer did not compute.
+// held back when it contains a number the trainer did not compute, and that adaptive opponents
+// adjust to a session that folds and bets far more than the best play.
 //
 //   npm run smoke                 # 8 hands per level
 //   HANDS=20 npm run smoke        # more hands per level
@@ -173,6 +174,56 @@ for (const vp of VIEWPORTS) {
       stepped++;
     }
   }
+
+  // Adaptive opponents: on by default. A session where the hero folds to bets and bets far more
+  // often than the best play makes every opponent adjust; the Session tab says so, the Play
+  // screen explains it, and postflop opponent panels mark the adjusted style. Switching it off
+  // puts the base styles back.
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('sessions:v1'));
+    const pairs = [...Array(40).fill(['fold', 'call']), ...Array(40).fill(['bet', 'check'])];
+    for (const [move, bestMove] of pairs) {
+      saved.current.hands.push({
+        n: saved.current.hands.length + 1, at: new Date().toISOString(), level: 3, spot: 'Smoke test', hand: 'AhKd', net: 0, bb: 50, decided: true, lesson: '',
+        decisions: [{ label: 'Flop', hand: 'AhKd', you: move, verdict: 'mistake', heading: '', tags: [], atRisk: [], move, bestMove }],
+      });
+    }
+    localStorage.setItem('sessions:v1', JSON.stringify(saved));
+  });
+  await page.goto(`${url}#session`);
+  await page.reload();
+  const read = await page.$eval('section[aria-labelledby="tendency-h"]', (e) => e.textContent).catch(() => '');
+  if (!read.includes('bluffing more') || !read.includes('calling your bets lighter')) failures.push(`${tag}: the Session tab does not say how opponents adjusted ("${read.slice(-160)}")`);
+  await noOverflow(page, `${tag}, session tendencies`);
+  await page.goto(`${url}#table`);
+  if (!(await page.isChecked('#adaptive'))) failures.push(`${tag}: "Opponents adapt to me" is not on by default`);
+  await page.selectOption('#level', '3');
+  const adaptNote = await page.$eval('.adapt-note', (e) => e.textContent).catch(() => '');
+  if (!adaptNote.includes('opponents bluff more')) failures.push(`${tag}: the Play screen does not explain the adjustment ("${adaptNote}")`);
+  let markedPanels = 0;
+  for (let h = 0; h < 6 && !markedPanels; h++) {
+    for (let turn = 0; turn < 12 && !markedPanels; turn++) {
+      await page.waitForFunction(() => document.querySelector('.hand-result') || document.querySelector('.action-bar .act:not([disabled])'), null, { timeout: TURN_TIMEOUT });
+      if (await page.$('.hand-result')) break;
+      if (await page.$('#pf-rr, #mw-rr')) {
+        const panels = await page.$$eval('.opp', (ops) => ops.map((o) => !!o.querySelector('.tendency.adjusted')));
+        if (panels.some((x) => !x)) failures.push(`${tag}: a postflop opponent panel does not mark the adjusted style`);
+        markedPanels = panels.length;
+        break;
+      }
+      const buttons = await page.$$('.action-bar .act:not([type=submit])');
+      const call = await page.$('.action-bar .act:has-text("Call"), .action-bar .act:has-text("Check")');
+      await (call ?? buttons[0]).click();
+      await page.waitForFunction(() => document.querySelector('.feedback') || document.querySelector('.hand-result') || document.querySelector('.action-bar .act'), null, { timeout: TURN_TIMEOUT });
+      const next = await page.$('.feedback .primary');
+      if (next) await next.click();
+    }
+    if (!markedPanels) await page.click('button:has-text("New hand")');
+  }
+  if (!markedPanels) failures.push(`${tag}: no postflop opponent panel came up to check the adjusted style`);
+  await page.uncheck('#adaptive');
+  if (await page.$('.adapt-note')) failures.push(`${tag}: the adjustment note stays after switching adaptive opponents off`);
+  await page.check('#adaptive');
 
   // Every postflop practice spot renders its read and combo table.
   await page.goto(`${url}#spots`);

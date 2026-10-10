@@ -13,7 +13,8 @@ import { vsOpenKey } from '../preflop/spot';
 import { randInt, type Rng } from '../rng';
 import { botPostflopAction } from '../postflop/bot';
 import { classifyHand, type PostflopClass } from '../postflop/classify';
-import { PROFILE_IDS, PROFILES, type ProfileId } from '../postflop/model';
+import { PROFILE_IDS, PROFILES, type Profile, type ProfileId } from '../postflop/model';
+import { adaptProfile, type Adaptation } from '../session/adapt';
 
 
 export type LevelId = 1 | 2 | 3 | 4 | 5 | 6;
@@ -56,6 +57,13 @@ export interface GameHand {
   focus: string | null;
   /** The hero's earlier decisions were played by the bots to reach a postflop leak's spot (drills.ts). */
   drilled?: boolean;
+  /** How the opponents have adjusted to the hero's tendencies this session (session/adapt.ts). */
+  adapt?: Adaptation | null;
+}
+
+/** The style an opponent plays this hand with: its profile plus the session's adjustments. */
+export function profileOf(g: Pick<GameHand, 'profiles' | 'adapt'>, seat: number): Profile {
+  return adaptProfile(PROFILES[g.profiles[seat] ?? 'regular'], g.adapt);
 }
 
 /** Preflop spot types where each leak tends to show up, for leak-targeted practice. */
@@ -167,7 +175,13 @@ function redeal(s: HandState, seat: number, weights: Range, rng: Rng): boolean {
  * A new hand at `level`. With open leaks, about half the hands lean toward the spots where
  * those leaks show up, and `focus` names the leak being practiced.
  */
-export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions & TableOptions, leaks: { tag: string; weight: number }[] = []): GameHand {
+export function newGameHand(
+  level: LevelId,
+  rng: Rng,
+  opts: PreflopOptions & TableOptions,
+  leaks: { tag: string; weight: number }[] = [],
+  adapt: Adaptation | null = null,
+): GameHand {
   const L = LEVELS[level];
   const tries = L.riverOnly ? 200 : 30;
   for (let attempt = 0; attempt < tries; attempt++) {
@@ -176,6 +190,7 @@ export function newGameHand(level: LevelId, rng: Rng, opts: PreflopOptions & Tab
     if (!g) continue;
     const { spot, ...hand } = g;
     hand.focus = mix ? focusFor(spot, leaks) : null;
+    hand.adapt = adapt;
     if (!L.riverOnly) return hand;
     const r = playToRiver(hand, rng, opts);
     if (r) return r;
@@ -267,7 +282,7 @@ export function advance(g: GameHand, s: HandState, rng: Rng, opts: PreflopOption
       s = applyAction(s, legalActions(s).check ? { type: 'check' } : { type: 'fold' });
       continue;
     }
-    s = applyAction(s, s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, PROFILES[g.profiles[i] ?? 'regular']));
+    s = applyAction(s, s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, profileOf(g, i)));
   }
   return s;
 }

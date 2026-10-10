@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parseCards } from '../cards';
 import { applyAction, legalActions, newHand, pot, type HandState } from '../hand';
-import { advance, LEVELS, newGameHand, type GameHand, type LevelId } from '../game/levels';
+import { advance, LEVELS, newGameHand, profileOf, type GameHand, type LevelId } from '../game/levels';
+import { adaptationFor, heroTendencies, type PostflopMove } from '../session/adapt';
+import type { HandRecord } from '../session/session';
 import { botPostflopAction } from '../postflop/bot';
 import { classifyHand } from '../postflop/classify';
 import { continueProb, firstToActFreq, narrowPostflop, PROFILES, PROFILE_IDS } from '../postflop/model';
@@ -110,7 +112,7 @@ function playOut(g: GameHand, seed: number): { checks: number; state: HandState 
     for (const vi of g.villains) {
       if (s.players[vi].folded) continue;
       const v = s.players[vi];
-      const { range } = narrowHand(s, vi, 'pool', opts, PROFILES[g.profiles[vi]]);
+      const { range } = narrowHand(s, vi, 'pool', opts, profileOf(g, vi));
       expect(range[comboIndex(v.hole[0], v.hole[1])], `villain hand missing from read, seed ${seed}`).toBeGreaterThan(0);
       checks++;
     }
@@ -152,6 +154,40 @@ describe('levels 2-6', () => {
       expect(checks).toBeGreaterThanOrEqual(120);
       expect(postflop).toBeGreaterThan(20);
       if (level === 5) expect(threeWay).toBeGreaterThan(30);
+    });
+  }
+});
+
+/** An adaptation read from a session where the hero's moves differ from the best play's like this. */
+function adaptationOf(facing: [PostflopMove, PostflopMove], free: [PostflopMove, PostflopMove]) {
+  const pairs = [...Array(12).fill(facing), ...Array(12).fill(free)] as [PostflopMove, PostflopMove][];
+  const hands = pairs.map(([move, bestMove], i) => ({
+    n: i + 1, at: '', level: 3, spot: '', hand: '', net: 0, bb: 50, decided: true, lesson: '',
+    decisions: [{ label: '', hand: '', you: '', verdict: 'correct', heading: '', tags: [], atRisk: [], move, bestMove }],
+  })) as HandRecord[];
+  return adaptationFor(heroTendencies(hands))!;
+}
+
+describe('adapted opponents', () => {
+  const cases = [
+    ['bluffing more and calling lighter', adaptationOf(['fold', 'call'], ['bet', 'check'])],
+    ['bluffing less and folding more', adaptationOf(['call', 'fold'], ['check', 'bet'])],
+  ] as const;
+  for (const [name, adapt] of cases) {
+    it(`${name}: hands finish and the read always holds the villain's real hand`, () => {
+      expect(adapt.adjustments).toHaveLength(2);
+      let checks = 0;
+      for (const level of [3, 4, 5, 6] as LevelId[]) {
+        for (let seed = 1; seed <= 40; seed++) {
+          const g = newGameHand(level, makeRng(seed * 6007 + level), opts, [], adapt);
+          expect(g.adapt).toBe(adapt);
+          const { checks: c, state } = playOut(g, seed);
+          checks += c;
+          expect(state.result).not.toBeNull();
+          expect(state.result!.net.reduce((a, x) => a + x, 0)).toBe(0);
+        }
+      }
+      expect(checks).toBeGreaterThan(150);
     });
   }
 });

@@ -9,6 +9,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Range read before every decision.** Each opponent gets a 13x13 grid colored by how their hands fare against yours, a hand-class breakdown, and a combo table showing how many combos of each hand remain after card removal and which known cards removed the rest. Hands that drop out with an opponent's latest action are crossed out. After the flop, each opponent's narrowed range is also written in standard notation, split into the hands it still holds most of and the ones it holds some of. A "What your line says" note covers the hero's own range: whether the line so far caps it, who has the nut advantage, and which of the opponents' strongest hands the hero's cards block.
 - **Graded decisions.** Preflop decisions are graded against chart frequencies. Postflop decisions are graded by the EV each legal action and size gives up against the best one. Feedback covers equity, pot odds, sizing ("right idea, wrong size"), sunk-cost and results-oriented thinking. After the flop it also shows which hands in the hero's range take each action, with the hero's own hand placed in it.
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
+- **Adaptive opponents.** Opponents compare your postflop folds and bets with the trainer's best play in the same spots. If you fold to bets far more often, they bluff more; if you bet far more often, they call lighter; and the other way round. The Play screen says what they changed and why, the Session tab shows the rates they watch, and the range reads and grades use the adjusted style. It can be switched off.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
 - **Hand replay.** Any hand in the Session tab can be replayed action by action with every opponent's cards shown. Each of your graded decisions is marked with its verdict and opens with the opponents' ranges as they stood at that point.
@@ -73,6 +74,7 @@ All strategy numbers are plain JSON, so you can adjust them without touching cod
 | `data/preflop/lowstakes.json` | Low-stakes adjustments layered on the charts (fewer 4-bet bluffs, more calling) |
 | `data/postflop/actions.json` | Postflop behavior by hand class: betting, calling and raising shares, and equity realization |
 | `data/postflop/profiles.json` | How each opponent style scales that behavior |
+| `data/postflop/adapt.json` | When opponents adjust to the hero's tendencies, and by how much |
 
 The unit tests check that every chart parses and round-trips through range notation. Close postflop spots can change verdict when `actions.json` is tuned, so run `npm test` after editing it: each practice spot states which answer its lesson teaches, and a test fails if the model stops agreeing.
 
@@ -90,6 +92,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   game/drills.ts           Practice hands that reach the spot of a postflop leak
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
   session/replay.ts        Compact hand records and the replay that rebuilds each hand from them
+  session/adapt.ts         The hero's postflop tendencies and how opponents adjust to them
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
 src/ui/                  React UI: table/, play/, spots/, session/, coach/ (settings and the Claude client), and the engine lab
@@ -111,6 +114,7 @@ docs/                    Model notes and spec coverage
 - The approximate range text after the flop is valid notation for exactly the hands it names, names nothing the grid leaves empty, and leaves out only hands the grid holds at low weight. This is checked on every practice spot and on real decisions at every postflop level.
 - A practice hand for a postflop leak stops at a decision where that leak's tag is one a wrong action would earn, and plays on normally from there. The hand-flow test also runs every level with every leak open.
 - A saved hand replays to exactly the actions, board, stacks and result that were played, at every level and table size, and the hero's decisions fall on the replay's steps. The smoke test opens the replay of every hand in the session.
+- Adapted opponents still hold their real hand inside the range the trainer shows, and hands play through at every level. When opponents bluff more, folding to a bet grades best less often; when they bluff less, more often; and betting grades best more often against opponents who give the hero's bets credit than against ones who call them lighter.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.

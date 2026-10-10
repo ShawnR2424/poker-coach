@@ -60,6 +60,24 @@ Before the flop an opponent's range is written exactly, since chart weights are 
 
 The same tables do two jobs. They narrow an opponent's range after each action they take, and they predict how the opponent responds to the hero's bets. The bots also act from them, so the range the trainer shows always contains the opponent's real hand.
 
+### Adapting to the hero
+
+With "Opponents adapt to me" on (the default), each new hand starts from the hero's latest 40 graded postflop decisions of each kind in the current session (`src/engine/session/adapt.ts`, thresholds in `data/postflop/adapt.json`):
+
+- **Folding to a bet**: how many of the hero's decisions facing a bet were folds, next to how many the trainer's best play folded in the same spots.
+- **Betting when nobody has bet**: the same for bets when the hero could check.
+
+The comparison is with the best play rather than a fixed "normal" rate, because how often folding or betting is right depends on the spots that came up. Once a rate has at least 10 decisions behind it and the hero's count differs from the best play's by more than 20% of those decisions, every opponent adjusts for the hands that follow:
+
+| Hero tendency | Opponents | Change |
+|---|---|---|
+| Folds to bets more than the best play | Bluff more | Air and weak draws bet and raise 1.8 times as often |
+| Folds to bets less than the best play | Bluff less | Air and weak draws bet and raise 0.4 times as often |
+| Bets more than the best play | Call the hero's bets lighter | One-pair hands, draws and air continue 10 points more often |
+| Bets less than the best play | Give the hero's bets credit | One-pair hands, draws and air continue 10 points less often |
+
+The adjusted style is used everywhere the base style was: the bots' actions, the range read, and the EV of each option. So the grades follow the adjustment. In a seeded sample of 600 level 3 hands, folding was the best response to a bet in 61 of 276 decisions against unadjusted opponents, 34 of 327 when they bluff more and 80 of 244 when they bluff less. Checking was best in 139 of 906 decisions with no bet to face, 195 of 939 when opponents call lighter and 90 of 886 when they give the hero's bets credit. A hero who keeps folding is pushed toward calling, and the opponents move back once the hero's rates come back in line. Each hand's replay keeps the adjustment it was played under.
+
 ### Expected value
 
 EV is measured against folding now, so chips already in the pot are sunk. With `P` the pot before the hero acts, `eq` the hero's equity, `R` the share of it the hero realizes and `c` what the opponent adds to call:
@@ -131,5 +149,5 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 - No solver: mixed strategies postflop are not reproduced, and the model has no notion of balancing a range across bets and checks.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
-- Opponents do not adapt to the hero over a session.
+- Adaptive opponents only watch two postflop rates, adjust in fixed steps rather than in proportion to the gap, and adjust the same way on every street and board. They do not adapt preflop.
 - Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. Against a range that checked and is capped, an overbet shove can still grade best as a bluff; the model may overstate how often such a range folds.

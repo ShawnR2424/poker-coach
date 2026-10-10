@@ -6,7 +6,7 @@ import { preflopCategory, categorizeRange, type CellCategory, type PreflopCatego
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import { practiceHand } from '../../engine/game/drills';
-import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, type GameHand, type LevelId } from '../../engine/game/levels';
+import { advance, heroDecides, isMultiway, LEVEL_IDS, LEVELS, liveVillains as liveVillainsOf, profileOf, type GameHand, type LevelId } from '../../engine/game/levels';
 import { applyAction, legalActions, type Action, type HandState } from '../../engine/hand';
 import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
@@ -24,6 +24,7 @@ import { hasChart, spotFor } from '../../engine/preflop/spot';
 import { NUM_COMBOS } from '../../engine/range';
 import { makeRng, randomSeed } from '../../engine/rng';
 import { handLesson, levelProgress, openLeaks, totals } from '../../engine/session/session';
+import { adaptationFor, heroTendencies, type PostflopMove } from '../../engine/session/adapt';
 import { replayOf } from '../../engine/session/replay';
 import { currentHands, recordHand, useSessions } from '../session/store';
 import { dollars } from '../table/format';
@@ -85,6 +86,15 @@ function loadFocus(): boolean {
   }
 }
 
+const ADAPT_KEY = 'adaptiveOpponents';
+function loadAdapt(): boolean {
+  try {
+    return localStorage.getItem(ADAPT_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
 /** Running session totals on the Play screen, with curriculum progress for the current level. */
 function SessionStrip({ level, onLevel }: { level: LevelId; onLevel: (l: LevelId) => void }) {
   const { current } = useSessions();
@@ -119,7 +129,9 @@ export function GameScreen() {
   const opts = useMemo(() => ({ lowStakes, ...table }), [lowStakes, table]);
   const [focusLeaks, setFocusLeaks] = useState(loadFocus);
   const leaksFor = (on = focusLeaks) => (on ? openLeaks(currentHands()) : []);
-  const [game, setGame] = useState<GameHand>(() => practiceHand(loadLevel(), rngRef.current, { lowStakes: true, ...loadTable() }, leaksFor(loadFocus())));
+  const [adaptive, setAdaptive] = useState(loadAdapt);
+  const adaptFor = (on = adaptive) => (on ? adaptationFor(heroTendencies(currentHands())) : null);
+  const [game, setGame] = useState<GameHand>(() => practiceHand(loadLevel(), rngRef.current, { lowStakes: true, ...loadTable() }, leaksFor(loadFocus()), adaptFor(loadAdapt())));
   const [state, setState] = useState<HandState>(game.state);
   const hero = game.hero;
   const [phase, setPhase] = useState<Phase>('decide');
@@ -130,8 +142,8 @@ export function GameScreen() {
   const isPreflop = state.street === 'preflop';
   const heroToAct = phase === 'decide' && state.toAct === hero;
 
-  const nextHand = (lvl: LevelId = level, o = opts) => {
-    const g = practiceHand(lvl, rngRef.current, o, leaksFor());
+  const nextHand = (lvl: LevelId = level, o = opts, adapt = adaptive) => {
+    const g = practiceHand(lvl, rngRef.current, o, leaksFor(), adaptFor(adapt));
     setGame(g);
     const s0 = advance(g, g.state, rngRef.current, o);
     setState(s0);
@@ -153,6 +165,12 @@ export function GameScreen() {
     try { localStorage.setItem(FOCUS_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
   };
 
+  const changeAdaptive = (on: boolean) => {
+    setAdaptive(on);
+    try { localStorage.setItem(ADAPT_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
+    nextHand(level, opts, on);
+  };
+
   // Record each finished hand in the session once.
   const recorded = useRef<GameHand | null>(null);
   useEffect(() => {
@@ -172,7 +190,7 @@ export function GameScreen() {
       decided,
       decisions: log,
       lesson: handLesson(log, net, decided),
-      replay: replayOf(state, hero, game.villains, game.profiles, lowStakes),
+      replay: replayOf(state, hero, game.villains, game.profiles, lowStakes, game.adapt),
     });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -227,7 +245,7 @@ export function GameScreen() {
     if (!heroToAct || isPreflop || !liveVillains.length) return null;
     const pre = state.actions.filter((a) => a.street === 'preflop' && a.type === 'raise');
     const views: (OpponentView & { seat: number })[] = liveVillains.map((seat) => {
-      const profile = PROFILES[game.profiles[seat]];
+      const profile = profileOf(game, seat);
       const n = narrowHand(state, seat, 'pool', opts, profile);
       return {
         seat,
@@ -249,7 +267,7 @@ export function GameScreen() {
       split: rangeActions(heroN.range, state.players[hero].hole, state.board, ctx, legalActions(state).raise !== null),
       comboReason: comboTableReason(state.street, pre.length >= 3),
     };
-  }, [state, heroToAct, isPreflop, liveVillains, game.profiles, hero, opts]);
+  }, [state, heroToAct, isPreflop, liveVillains, game, hero, opts]);
   const multiway = !!postCtx && postCtx.views.length > 1;
 
   const post = useMemo(() => {
@@ -319,6 +337,8 @@ export function GameScreen() {
         you: describeOption(grade.chosen.option).toLowerCase(), verdict: grade.verdict, heading: grade.heading, tags: grade.tags,
         atRisk: leaksAtRisk(postSit, analysis),
         step: stepOf(state),
+        move: action.type as PostflopMove,
+        bestMove: analysis.best.option.kind,
       }]);
     }
     setPhase('feedback');
@@ -381,9 +401,19 @@ export function GameScreen() {
           <input id="focusleaks" type="checkbox" checked={focusLeaks} onChange={(e) => changeFocus(e.target.checked)} />
           Practice my leaks
         </label>
+        <label className="toggle">
+          <input id="adaptive" type="checkbox" checked={adaptive} onChange={(e) => changeAdaptive(e.target.checked)} />
+          Opponents adapt to me
+        </label>
         <button type="button" onClick={() => nextHand()}>New hand</button>
       </div>
       <SessionStrip level={level} onLevel={changeLevel} />
+      {level > 1 && game.adapt && (
+        <div className="adapt-note small">
+          <span className="eyebrow">Opponents have adjusted to you</span>
+          {game.adapt.adjustments.map((a) => <p key={a.kind}>{a.text}</p>)}
+        </div>
+      )}
       {game.focus && (
         <p className="focus-note small">
           <span className="eyebrow">Leak practice</span>{' '}
