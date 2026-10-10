@@ -11,7 +11,7 @@ Poker Coach is a browser-based trainer for No-Limit Hold'em cash games with 100b
 - **Full hands to showdown**, with opponents in four styles (regular, nit, calling station, aggressive) who act from the same model used to read their range.
 - **Multiway pots**, with one read per opponent and a note on how their actions interact.
 - **Session tracking.** Running profit and loss in dollars and big blinds, every hand with its main lesson, and leak tags that are marked fixed once you play the same kind of spot correctly. Sessions are saved in the browser.
-- **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up.
+- **Leak-targeted practice.** New hands lean toward the spots where your open leaks show up. For postflop leaks (a missed value bet, overfolding, a donk bet and so on) the trainer plays your earlier decisions for you and deals the hand straight to a decision where that leak can happen.
 - **Optional coaching voice from Claude.** Off by default. With your own Claude API key, each graded decision also gets a short explanation written by Claude from the trainer's computed facts. See [Coach voice](#coach-voice).
 
 ## Practice levels
@@ -86,6 +86,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   preflop/                 Charts, spot detection, scenarios, range narrowing, grading
   postflop/                Hand classes, opponent model, narrowing, bots, EV, multiway, combo table
   game/levels.ts           Practice levels, hand generation, leak-targeted spot mix, hand flow
+  game/drills.ts           Practice hands that reach the spot of a postflop leak
   session/session.ts       Session totals, leak tracking, curriculum progress, saved data
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
@@ -105,6 +106,7 @@ docs/                    Model notes
 - An opponent's actual hand is always inside the range the trainer shows for them.
 - Every hero turn on every level, under random play including custom bet sizes, can be read and graded, or ends the hand cleanly, at 6-max and at 7, 8 and 9 handed.
 - After the flop, the split of the hero's range across the available actions always accounts for the whole range, and the line read agrees with what the hero did. If the hero took a line the charts never take, the read says there is no range rather than showing one.
+- A practice hand for a postflop leak stops at a decision where that leak's tag is one a wrong action would earn, and plays on normally from there. The hand-flow test also runs every level with every leak open.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

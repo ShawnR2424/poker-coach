@@ -54,6 +54,8 @@ export interface GameHand {
   profiles: Record<number, ProfileId>;
   /** The open leak this hand was picked to practice, if any. */
   focus: string | null;
+  /** The hero's earlier decisions were played by the bots to reach a postflop leak's spot (drills.ts). */
+  drilled?: boolean;
 }
 
 /** Preflop spot types where each leak tends to show up, for leak-targeted practice. */
