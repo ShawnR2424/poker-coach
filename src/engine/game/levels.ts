@@ -12,6 +12,7 @@ import { DEFAULT_MIX, generatePreflopScenario, type PracticeSpot, type TableOpti
 import { vsOpenKey } from '../preflop/spot';
 import { randInt, type Rng } from '../rng';
 import { botPostflopAction } from '../postflop/bot';
+import { narrowHand } from '../postflop/narrow';
 import { classifyHand, type PostflopClass } from '../postflop/classify';
 import { PROFILE_IDS, PROFILES, type Profile, type ProfileId } from '../postflop/model';
 import { adaptProfile, type Adaptation } from '../session/adapt';
@@ -282,7 +283,9 @@ export function advance(g: GameHand, s: HandState, rng: Rng, opts: PreflopOption
       s = applyAction(s, legalActions(s).check ? { type: 'check' } : { type: 'fold' });
       continue;
     }
-    s = applyAction(s, s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, profileOf(g, i)));
+    const profile = profileOf(g, i);
+    const at = s;
+    s = applyAction(s, s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, profile, () => narrowHand(at, i, 'pool', opts, profile).range));
   }
   return s;
 }

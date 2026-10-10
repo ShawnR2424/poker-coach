@@ -113,7 +113,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['SB', { type: 'raise', to: 550 }],
       ['BTN', { type: 'call' }],
     ],
-    answer: { best: ['bet'], mistakes: [] },
+    answer: { best: ['bet', 'allIn'], mistakes: [] },
   },
   {
     id: 'btn-ace-high-cbet',
@@ -131,7 +131,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['BB', { type: 'call' }],
       ['BB', { type: 'check' }],
     ],
-    answer: { best: ['bet'], mistakes: ['check', 'allIn'] },
+    answer: { best: ['bet'], mistakes: [] },
   },
   {
     id: 'co-cbet-raised',

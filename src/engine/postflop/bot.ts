@@ -4,7 +4,8 @@
 import { legalActions, type Action, type HandState } from '../hand';
 import type { Rng } from '../rng';
 import { classifyHand } from './classify';
-import { firstToActFreq, responseFor, type Profile } from './model';
+import type { Range } from '../range';
+import { firstToActFreq, rangeDefenseOn, responseFor, type Profile } from './model';
 import { currentContext, facedShare } from './narrow';
 
 /** Pot shares the bots use for small and big bets (small is ≤ half pot, big is more). */
@@ -12,7 +13,11 @@ export const BOT_SIZES = { small: 0.33, big: 0.75, raiseMult: 3 };
 
 const roundTo = (x: number, unit: number) => Math.max(unit, Math.round(x / unit) * unit);
 
-export function botPostflopAction(s: HandState, rng: Rng, profile: Profile): Action {
+/**
+ * `rangeOf` gives the range the read assigns this player. Facing a bet, the bot defends with the
+ * same range-wide floor the read and the grading assume (see rangeDefense).
+ */
+export function botPostflopAction(s: HandState, rng: Rng, profile: Profile, rangeOf?: () => Range): Action {
   const i = s.toAct;
   if (i === null) throw new Error('Nobody to act');
   if (s.street === 'preflop') throw new Error('Postflop only');
@@ -32,7 +37,9 @@ export function botPostflopAction(s: HandState, rng: Rng, profile: Profile): Act
     return { type: 'bet', to: to > legal.bet.max * 0.8 ? legal.bet.max : to };
   }
 
-  const resp = responseFor(cls, facedShare(ctx), !!legal.raise && !ctx.facingAllIn, ctx.beingRaised, profile);
+  const f = facedShare(ctx);
+  const defense = rangeOf ? rangeDefenseOn(rangeOf(), s.board, f, ctx.beingRaised, profile) : 1;
+  const resp = responseFor(cls, f, !!legal.raise && !ctx.facingAllIn, ctx.beingRaised, profile, defense);
   const x = rng();
   if (x < resp.fold) return { type: 'fold' };
   if (x < resp.fold + resp.call || !legal.raise) return { type: 'call' };

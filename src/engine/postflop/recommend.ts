@@ -16,7 +16,7 @@ import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
-import { laterStreetValue, realization, responseFor, type Profile } from './model';
+import { laterStreetValue, rangeDefense, realization, responseFor, type Profile } from './model';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
 
@@ -211,10 +211,12 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
     const rCall = heroAllIn || cv >= V ? 1 : R;
     const shoveFinal = P + (T - hc) + (T - vc);
 
+    const defense = rangeDefense(cls, w, f, beingRaised, sit.villainProfile);
+
     let foldW = 0, callW = 0, raiseW = 0, callEqW = 0;
     let evFold = 0, evCall = 0, raiseCallEv = 0;
     for (let k = 0; k < idx.length; k++) {
-      const resp = responseFor(cls[k], f, canRaise, beingRaised, sit.villainProfile);
+      const resp = responseFor(cls[k], f, canRaise, beingRaised, sit.villainProfile, defense);
       foldW += w[k] * resp.fold;
       callW += w[k] * resp.call;
       raiseW += w[k] * resp.raise;

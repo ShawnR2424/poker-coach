@@ -12,7 +12,7 @@ import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
-import { laterStreetValue, realization, responseFor, type Profile } from './model';
+import { laterStreetValue, rangeDefense, realization, responseFor, type Profile } from './model';
 import { heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
 
 export interface MultiwayVillain {
@@ -125,10 +125,11 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
       const canRaise = !heroAllIn && v.behind > cv;
       const beingRaised = v.committed > 0;
       const p = vs[j];
+      const defense = rangeDefense(p.cls, p.w, f, beingRaised, v.profile);
       let fold = 0, call = 0, raise = 0;
       const callRange = new Float32Array(NUM_COMBOS);
       for (let k = 0; k < p.idx.length; k++) {
-        const resp = responseFor(p.cls[k], f, canRaise, beingRaised, v.profile);
+        const resp = responseFor(p.cls[k], f, canRaise, beingRaised, v.profile, defense);
         fold += p.w[k] * resp.fold;
         call += p.w[k] * resp.call;
         raise += p.w[k] * resp.raise;
