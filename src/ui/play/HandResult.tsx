@@ -61,6 +61,9 @@ export function HandResult({ state, hero, log, onNext, stopNote }: { state: Hand
           )}
         </ul>
       )}
+      {state.result && state.result.rake > 0 && (
+        <p className="small num">The house took {dollars(state.result.rake)} in rake from this pot.</p>
+      )}
       {!state.result && opponents.length > 0 && (
         <ul className="showdown">
           {opponents.map(({ p, i }) => (

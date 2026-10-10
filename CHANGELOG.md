@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Rake
+
+- The Play screen has a Rake setting: no rake (the default) or 5% of each pot capped at 3bb, a typical online cash-game rake. It is remembered in the browser.
+- With the rake on, the hand engine takes it from every pot that sees a flop, including pots won without a showdown; a hand that ends before the flop pays none ("no flop, no drop"). Chips only one player could win are not raked, and the rake is shared over the main and side pots by their size. The hand result says how much the house took, and results, session profit and loss and replays are all after rake.
+- The postflop best play counts the rake: every pot the hero can win is valued after the rake comes out of it, and value from later streets keeps 95% of each chip until the cap is reached. This applies heads-up and in multiway pots. In a seeded sample of 300 level 3 hands, the best play changed in 39 of 595 heads-up postflop decisions, mostly to a smaller bet or to checking instead of a thin bet, with a few calls becoming folds; the best option was worth 0.52bb less on average.
+- The preflop charts are not adjusted for the rake. Imported hands are graded without it, though their results already come after the site's rake.
+- New tests check the rake on a pot and at the cap, no flop no drop, a pot won without a showdown, side pots with an uncalled excess, that stacks plus rake always add up to the starting chips over 400 random hands, and that a raked hand replays to the same result. Others check that the rake never makes an option worth more, leaves folding at zero and never costs more than the cap, heads-up and multiway. The smoke test plays levels 3 and 5 with the rake on and checks the hand result shows the rake taken.
+
 ## Import your own hands
 
 - A new Import tab reads hand histories pasted from PokerStars or GGPoker, or opened from a saved .txt file. Each no-limit hold'em cash hand with 3 to 9 players is rebuilt with the hand engine, and every decision the hero made is graded with the same charts and postflop model as the Play tab. A preview lists each hand's verdicts, result and lesson, the most frequent leaks, and every skipped hand with the reason.

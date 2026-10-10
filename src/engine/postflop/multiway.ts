@@ -7,13 +7,13 @@
 
 import type { Card } from '../cards';
 import { comboEquities, computeEquity } from '../equity';
-import { pot as potOf, type HandState } from '../hand';
+import { pot as potOf, rakeKeep, type HandState } from '../hand';
 import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
 import { laterStreetValue, rangeDefense, realization, responseFor, type Profile } from './model';
-import { heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
+import { afterRake, heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
 
 export interface MultiwayVillain {
   seat: number;
@@ -81,6 +81,7 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
   const R = realization(sit.street, sit.heroInPosition, heroClass);
   const P = sit.pot, hc = sit.heroCommitted, H = sit.heroBehind;
   const rows: OptionRow[] = [];
+  const net = (amount: number) => afterRake(amount, sit);
   /**
    * Later-street value against opponent j's hands, weighted by `range` (their whole range, or
    * the part that called). With more than one opponent in, it is scaled by how much the others
@@ -97,7 +98,7 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
       tw += x;
     }
     const scale = others === 0 ? 1 : Math.min(1, eqAll / Math.max(1e-9, hu[j]));
-    return tw > 0 ? (t / tw) * scale : 0;
+    return tw > 0 ? (t / tw) * scale * rakeKeep(pot, sit) : 0;
   };
   /** Later-street value when everyone still in goes on to the next street. */
   const laterAll = (pot: number, heroBehind: number) =>
@@ -105,12 +106,12 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
 
   for (const opt of sit.options) {
     if (opt.kind === 'fold') rows.push({ option: opt, ev: 0 });
-    else if (opt.kind === 'check') rows.push({ option: opt, ev: R * equity * P + laterAll(P, H) });
+    else if (opt.kind === 'check') rows.push({ option: opt, ev: R * equity * net(P) + laterAll(P, H) });
     else if (opt.kind === 'call') {
       const toCall = Math.min(sit.currentBet - hc, H);
       const r = toCall >= H ? 1 : R;
       const later = toCall >= H ? 0 : laterAll(P + toCall, H - toCall);
-      rows.push({ option: opt, ev: r * equity * (P + toCall) - toCall + later });
+      rows.push({ option: opt, ev: r * equity * net(P + toCall) - toCall + later });
     } else rows.push(betRow(opt));
   }
 
@@ -148,11 +149,11 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
       const finalPot = P + b + inS.reduce((a, x) => a + x.cv, 0);
       const rCall = heroAllIn ? 1 : R;
       const later = heroAllIn ? 0 : inS.reduce((t, x) => t + laterVs(x.j, x.callRange, finalPot, Math.min(H - b, sit.villains[x.j].behind - x.cv), inS.length - 1, eqS), 0);
-      evCalled += pS * (rCall * eqS * finalPot - b + later);
+      evCalled += pS * (rCall * eqS * net(finalPot) - b + later);
       eqCalled += pS * eqS;
       pCalled += pS;
     }
-    const ev = allFold * P + evCalled - (1 - noRaise) * b;
+    const ev = allFold * net(P) + evCalled - (1 - noRaise) * b;
     return {
       option: opt,
       ev,
@@ -228,6 +229,7 @@ export function multiwaySituationFromState(
       profile: v.profile,
     })),
     options: heroOptions(s),
+    rake: s.config.rake,
   };
 }
 

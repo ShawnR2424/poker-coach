@@ -7,10 +7,12 @@
 //   call   R·eq·(P + c) − c
 //   bet b  Σ w · [fold·P + call·(R·eq·(P + b + c) − b) + raise·max(call the shove, −b)]
 // where P is the pot before the hero acts, R the share of equity the hero realizes
-// (1 on the river or when all-in), and c what the opponent adds to call.
+// (1 on the river or when all-in), and c what the opponent adds to call. With a rake, every
+// pot the hero wins is counted after the rake comes out of it, and value from later streets
+// keeps only the share of each chip that the rake leaves until it reaches its cap.
 
 import type { Card } from '../cards';
-import { legalActions, pot, type Action, type HandState } from '../hand';
+import { legalActions, pot, rakeKeep, rakeOf, type Action, type HandState, type Rake } from '../hand';
 import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
@@ -51,13 +53,18 @@ export interface PostflopSituation {
   heroFirstToAct: boolean;
   /** The opponent's style; the default model when not set. */
   villainProfile?: Profile;
+  /** The table's rake; none when not set. */
+  rake?: Rake;
 }
 
 /** The parts of a decision that grading and feedback need, shared by heads-up and multiway spots. */
 export type DecisionBasics = Pick<
   PostflopSituation,
-  'hero' | 'board' | 'street' | 'pot' | 'bb' | 'heroBehind' | 'heroInvested' | 'heroFirstToAct' | 'heroInPosition' | 'heroPreflopAggressor'
+  'hero' | 'board' | 'street' | 'pot' | 'bb' | 'heroBehind' | 'heroInvested' | 'heroFirstToAct' | 'heroInPosition' | 'heroPreflopAggressor' | 'rake'
 >;
+
+/** What the winner of a pot of `amount` takes home once the rake is out. */
+export const afterRake = (amount: number, sit: Pick<DecisionBasics, 'bb' | 'rake'>): number => amount - rakeOf(amount, sit);
 
 export interface OptionRow {
   option: HeroOption;
@@ -141,6 +148,7 @@ export function situationFromState(
     heroPreflopAggressor: extra.heroPreflopAggressor,
     heroFirstToAct: s.currentBet === 0 && streetActs.length === 0,
     villainProfile: extra.villainProfile,
+    rake: s.config.rake,
   };
 }
 
@@ -174,21 +182,22 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
   const later = (pot: number, behind: number) => {
     let t = 0;
     for (let k = 0; k < idx.length; k++) t += w[k] * laterStreetValue(sit.street, cls[k], eq(k), pot, behind, sit.villainProfile);
-    return t / W;
+    return (t / W) * rakeKeep(pot, sit);
   };
+  const net = (amount: number) => afterRake(amount, sit);
 
   for (const opt of sit.options) {
     if (opt.kind === 'fold') {
       rows.push({ option: opt, ev: 0 });
     } else if (opt.kind === 'check') {
-      rows.push({ option: opt, ev: R * equity * P + later(P, Math.min(H, V)) });
+      rows.push({ option: opt, ev: R * equity * net(P) + later(P, Math.min(H, V)) });
     } else if (opt.kind === 'call') {
       const toCall = Math.min(vc - hc, H);
       const excess = Math.max(0, vc - hc - H);
       const allIn = toCall >= H || V === 0;
       const r = allIn ? 1 : R;
       const after = P - excess + toCall;
-      rows.push({ option: opt, ev: r * equity * after - toCall + (allIn ? 0 : later(after, Math.min(H - toCall, V))) });
+      rows.push({ option: opt, ev: r * equity * net(after) - toCall + (allIn ? 0 : later(after, Math.min(H - toCall, V))) });
     } else {
       rows.push(betRow(opt));
     }
@@ -210,6 +219,7 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
     const callFinal = P + bEff + cv;
     const rCall = heroAllIn || cv >= V ? 1 : R;
     const shoveFinal = P + (T - hc) + (T - vc);
+    const keepCall = rakeKeep(callFinal, sit);
 
     const defense = rangeDefense(cls, w, f, beingRaised, sit.villainProfile);
 
@@ -221,9 +231,9 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
       callW += w[k] * resp.call;
       raiseW += w[k] * resp.raise;
       callEqW += w[k] * resp.call * eq(k);
-      evFold += w[k] * resp.fold * P;
-      evCall += w[k] * resp.call * (rCall * eq(k) * callFinal - bEff + (heroAllIn || cv >= V ? 0 : laterStreetValue(sit.street, cls[k], eq(k), callFinal, Math.min(H - bEff, V - cv), sit.villainProfile)));
-      raiseCallEv += w[k] * resp.raise * (eq(k) * shoveFinal - (T - hc));
+      evFold += w[k] * resp.fold * net(P);
+      evCall += w[k] * resp.call * (rCall * eq(k) * net(callFinal) - bEff + (heroAllIn || cv >= V ? 0 : keepCall * laterStreetValue(sit.street, cls[k], eq(k), callFinal, Math.min(H - bEff, V - cv), sit.villainProfile)));
+      raiseCallEv += w[k] * resp.raise * (eq(k) * net(shoveFinal) - (T - hc));
     }
     const raiseFoldEv = -raiseW * b;
     const callsShove = raiseW > 0 && raiseCallEv > raiseFoldEv;

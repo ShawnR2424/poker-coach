@@ -3,7 +3,7 @@
 // actions, the range read, and any showdown all agree.
 
 import type { Card } from '../cards';
-import { applyAction, newHand, type Action, type HandState } from '../hand';
+import { applyAction, newHand, type Action, type HandConfig, type HandState, type Rake } from '../hand';
 import { chartSeat, clockwiseFromSB } from '../positions';
 import {
   ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, NUM_COMBOS, cellOf, comboIndex, type HandClass, type Range,
@@ -20,6 +20,8 @@ export interface TableOptions {
   tableSize?: number;
   sb?: number;
   bb?: number;
+  /** No rake when absent. */
+  rake?: Rake;
 }
 
 export interface ScenarioOptions extends PreflopOptions, TableOptions {
@@ -35,7 +37,12 @@ export interface Scenario {
   spot: PracticeSpot;
 }
 
-export const tableConfig = (o: TableOptions) => ({ tableSize: o.tableSize ?? 6, sb: o.sb ?? 25, bb: o.bb ?? 50 });
+export const tableConfig = (o: TableOptions): HandConfig => ({
+  tableSize: o.tableSize ?? 6,
+  sb: o.sb ?? 25,
+  bb: o.bb ?? 50,
+  ...(o.rake ? { rake: o.rake } : {}),
+});
 
 /** Chart seats in preflop order; "EP" only exists at 7-9 handed. */
 const CHART_ORDER = ['EP', 'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
