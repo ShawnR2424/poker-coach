@@ -2,7 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
-## Unreleased
+## Milestone 8: optional Claude coach voice ([#8](https://github.com/ShawnR2424/poker-coach/pull/8))
+
+- A Settings tab with an opt-in coach voice, off by default. With the player's own API key, saved only in the browser, each graded decision also gets a short explanation written by Claude Opus 5.5.
+- The request carries only facts the feedback panel shows: the spot, the hero's cards and action, the verdict, the trainer's reasons, the EV table and the key concept. Opponents' cards and the hand's outcome are never sent.
+- A reply with any number the trainer did not compute is not shown, and the trainer's own explanation stays on screen either way.
+- The Claude SDK loads only when the coach voice is on, so the main bundle does not grow.
+- Tests check the prompt against real decisions from several levels; the smoke test checks that nothing is sent while the feature is off, and checks both reply outcomes against a mocked API.
+
+## Hardening and documentation ([#7](https://github.com/ShawnR2424/poker-coach/pull/7))
 
 - Moved the rule for whether the hero has a decision into the engine (`heroDecides`), and added a test that plays random hands on every level, including custom bet sizes. It checks that every hero turn can be read and graded or ends the hand cleanly. The test fails on the level 1 bug fixed in milestone 7.
 - The Play screen now falls back to an ungraded action bar if a hero turn has no range read, so a turn can never be left without buttons.

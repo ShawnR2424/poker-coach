@@ -101,6 +101,10 @@ With two or more opponents still in:
 - A leak is marked fixed after its spot recurs and is played without a mistake, so one good repetition can mark it fixed. It reopens if it shows up again.
 - Sessions are stored in this browser's local storage only.
 
+## Coach voice (optional)
+
+When switched on in Settings, Claude rewrites the trainer's feedback in a coaching voice. It is a presentation layer only: it receives the facts already on the feedback panel, never the opponents' cards or the hand's outcome, and any reply containing a number not in those facts is discarded. Nothing in the grading depends on it.
+
 ## Known gaps
 
 - No solver: mixed strategies postflop are not reproduced, and the model has no notion of balancing a range across bets and checks.
