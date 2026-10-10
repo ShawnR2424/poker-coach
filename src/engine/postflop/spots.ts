@@ -113,7 +113,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['SB', { type: 'raise', to: 550 }],
       ['BTN', { type: 'call' }],
     ],
-    answer: { best: ['bet'], mistakes: ['check'] },
+    answer: { best: ['bet'], mistakes: [] },
   },
   {
     id: 'btn-ace-high-cbet',
@@ -135,7 +135,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
   },
   {
     id: 'co-cbet-raised',
-    concept: 'Respect the raise. A flop raise from the button is mostly sets, two pair and strong draws, so top pair is a bluff-catcher now. Calling or folding are close; re-raising only gets called by hands that beat you.',
+    concept: 'Respect the raise. A flop raise from the button is mostly sets, two pair and strong draws, so top pair is a bluff-catcher now. Calling at this price keeps you in against their draws and bluffs, and lets you see the turn before putting in more; re-raising only gets called by hands that beat you.',
     title: 'Top pair facing a raise',
     setup: 'You opened the cutoff, the button called, and you c-bet top pair on J-8-3. The button raises.',
     hero: 'CO',
@@ -150,7 +150,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['CO', { type: 'bet', to: 100 }],
       ['BTN', { type: 'raise', to: 330 }],
     ],
-    answer: { best: ['fold', 'call'], mistakes: ['raise'] },
+    answer: { best: ['call'], mistakes: ['fold', 'raise'] },
   },
   {
     id: 'bb-gutshot-big-turn',
@@ -199,7 +199,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
   },
   {
     id: 'btn-turn-set-wet',
-    concept: 'Protecting a set. On a board full of draws, with about five pot-sized bets behind, get the money in now. Calling lets every flush and straight draw see the river at a fair price.',
+    concept: 'Protecting a set. On a board full of draws, raise big now: it charges every flush and straight draw, and the rest of the stack goes in on the river. Calling lets the draws see the river at a fair price.',
     title: 'Set on a wet turn',
     setup: 'You called a cutoff open on the button with sixes and flopped a set on 9-6-5 with two hearts. The cutoff bets again on the king turn.',
     hero: 'BTN',
@@ -215,7 +215,7 @@ export const POSTFLOP_SPOTS: PostflopSpotDef[] = [
       ['BTN', { type: 'call' }],
       ['CO', { type: 'bet', to: 300 }],
     ],
-    answer: { best: ['allIn'], mistakes: ['fold', 'call'] },
+    answer: { best: ['raise'], mistakes: ['fold', 'call'] },
   },
   {
     id: 'btn-river-thin-value',

@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Later streets in EV
+
+- Postflop EV now counts what a hand that is ahead wins on the streets still to come: one bet per later street, from the opponent hands it beats, in proportion to how often each would call. Before, EV covered only the current street, so with deep stacks a 100bb all-in could outscore a normal bet and was graded the best play in about one in five first-to-act postflop decisions.
+- Opponents now respond to overbets more realistically: past 1.5 times the pot, sets, two pair, overpairs and good top pairs keep calling a huge bet, while weak pairs, draws and air give up. Before, the straight-line formula had even overpairs folding to a shove.
+- In a seeded sample of 600 level 3 hands, an all-in is now the best play in 70 of 755 deep-stacked first-to-act decisions, down from 150. Most of the rest are bluff overbets into ranges that checked.
+- Three practice spot lessons changed with the new numbers: top pair facing a raise now calls, the set on a wet turn now raises big instead of shoving, and queens at a low stack-to-pot ratio can check without it being a mistake. The spot answer tests caught each one.
+- New tests cover later-street value, overbet responses, a flopped set betting instead of shoving, and the share of deep-stacked decisions where an all-in grades best.
+
 ## Opponents call raises more realistically
 
 - Opponents who bet and then face a raise now keep most of their pairs instead of folding them. Before, a player who bet folded about half their weak top pairs and most middle pairs to a single raise, so the trainer graded raising a bluff-catcher as best and calling as a mistake (for example, raising second pair against a small river bet). In a sample of 600 level 3 hands, raising was the best response to a bet in 194 of 289 decisions before and 156 of 291 after.

@@ -16,7 +16,7 @@ import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
-import { realization, responseFor, type Profile } from './model';
+import { laterStreetValue, realization, responseFor, type Profile } from './model';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
 
@@ -170,18 +170,25 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
   const heroClass = classifyHand(sit.hero, sit.board);
   const R = realization(sit.street, sit.heroInPosition, heroClass);
   const rows: OptionRow[] = [];
+  /** Later-street value against the whole range, for a hand that goes on with `pot` and `behind`. */
+  const later = (pot: number, behind: number) => {
+    let t = 0;
+    for (let k = 0; k < idx.length; k++) t += w[k] * laterStreetValue(sit.street, cls[k], eq(k), pot, behind, sit.villainProfile);
+    return t / W;
+  };
 
   for (const opt of sit.options) {
     if (opt.kind === 'fold') {
       rows.push({ option: opt, ev: 0 });
     } else if (opt.kind === 'check') {
-      rows.push({ option: opt, ev: R * equity * P });
+      rows.push({ option: opt, ev: R * equity * P + later(P, Math.min(H, V)) });
     } else if (opt.kind === 'call') {
       const toCall = Math.min(vc - hc, H);
       const excess = Math.max(0, vc - hc - H);
       const allIn = toCall >= H || V === 0;
       const r = allIn ? 1 : R;
-      rows.push({ option: opt, ev: r * equity * (P - excess + toCall) - toCall });
+      const after = P - excess + toCall;
+      rows.push({ option: opt, ev: r * equity * after - toCall + (allIn ? 0 : later(after, Math.min(H - toCall, V))) });
     } else {
       rows.push(betRow(opt));
     }
@@ -213,7 +220,7 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
       raiseW += w[k] * resp.raise;
       callEqW += w[k] * resp.call * eq(k);
       evFold += w[k] * resp.fold * P;
-      evCall += w[k] * resp.call * (rCall * eq(k) * callFinal - bEff);
+      evCall += w[k] * resp.call * (rCall * eq(k) * callFinal - bEff + (heroAllIn || cv >= V ? 0 : laterStreetValue(sit.street, cls[k], eq(k), callFinal, Math.min(H - bEff, V - cv), sit.villainProfile)));
       raiseCallEv += w[k] * resp.raise * (eq(k) * shoveFinal - (T - hc));
     }
     const raiseFoldEv = -raiseW * b;
