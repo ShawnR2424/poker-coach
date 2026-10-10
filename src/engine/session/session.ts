@@ -2,6 +2,8 @@
 // leak counts, and "leaks fixed" tracking. Pure functions over plain data, so the same
 // records can be saved to localStorage and read back.
 
+import type { HandReplay } from './replay';
+
 export type Verdict = 'correct' | 'playable' | 'mistake';
 
 export interface DecisionRecord {
@@ -17,6 +19,8 @@ export interface DecisionRecord {
   tags: string[];
   /** Leaks a wrong action could have shown here: the chance to prove a leak is fixed. */
   atRisk: string[];
+  /** Actions taken before this decision, not counting the blinds: its step in the replay. */
+  step?: number;
 }
 
 export interface HandRecord {
@@ -34,6 +38,8 @@ export interface HandRecord {
   decided: boolean;
   decisions: DecisionRecord[];
   lesson: string;
+  /** Everything needed to step through the hand again (hands saved before replays existed have none). */
+  replay?: HandReplay;
 }
 
 export interface Session {
@@ -158,6 +164,12 @@ export interface SavedSessions {
 }
 
 export const MAX_PAST = 20;
+/**
+ * Hands that keep their replay record, newest first across sessions. A record is about 1-2 KB,
+ * so this keeps the saved data well inside the browser's storage quota; older hands keep their
+ * row and lesson but can no longer be replayed.
+ */
+export const MAX_REPLAYS = 500;
 
 /** Parses saved data, falling back to a fresh session when it is missing or unreadable. */
 export function parseSaved(raw: string | null, now = new Date()): SavedSessions {
@@ -174,7 +186,25 @@ export function parseSaved(raw: string | null, now = new Date()): SavedSessions 
 
 export function addHand(saved: SavedSessions, hand: Omit<HandRecord, 'n'>): SavedSessions {
   const n = saved.current.hands.length + 1;
-  return { ...saved, current: { ...saved.current, hands: [...saved.current.hands, { ...hand, n }] } };
+  return trimReplays({ ...saved, current: { ...saved.current, hands: [...saved.current.hands, { ...hand, n }] } });
+}
+
+/** Drops the replay records of all but the newest MAX_REPLAYS hands. */
+export function trimReplays(saved: SavedSessions, max = MAX_REPLAYS): SavedSessions {
+  let kept = 0;
+  const trim = (x: Session): Session => {
+    let changed = false;
+    const hands = [...x.hands].reverse().map((h) => {
+      if (!h.replay) return h;
+      if (kept++ < max) return h;
+      changed = true;
+      return { ...h, replay: undefined };
+    }).reverse();
+    return changed ? { ...x, hands } : x;
+  };
+  const current = trim(saved.current);
+  const past = saved.past.map(trim);
+  return current === saved.current && past.every((x, i) => x === saved.past[i]) ? saved : { ...saved, current, past };
 }
 
 /** Archives the current session (if it has hands) and starts a new one. */

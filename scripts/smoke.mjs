@@ -147,6 +147,33 @@ for (const vp of VIEWPORTS) {
   if (rows !== played) failures.push(`${tag}: session shows ${rows} hands, ${played} were played`);
   await noOverflow(page, `${tag}, session`);
 
+  // Every saved hand replays from its record; a few are stepped through action by action, and
+  // each graded decision opens with its verdict and the opponents' ranges at that point.
+  const replays = await page.$$eval('table.hands button[aria-label^="Replay hand"]', (b) => b.map((x) => x.getAttribute('aria-label')));
+  if (replays.length !== played) failures.push(`${tag}: ${replays.length} of ${played} hands can be replayed`);
+  let stepped = 0;
+  for (const [i, label] of replays.entries()) {
+    await page.click(`button[aria-label="${label}"]`);
+    const where = `${tag}, ${label.toLowerCase()}`;
+    if (await page.$('.replay >> text=could not be replayed')) {
+      failures.push(`${where}: the saved record did not replay`);
+      continue;
+    }
+    for (const b of await page.$$('.replay-steps button')) {
+      await b.click();
+      const isEnd = (await b.textContent()) === 'End of hand';
+      if (!isEnd && !(await page.$('.replay-decision'))) failures.push(`${where}: a decision shows no verdict`);
+    }
+    if (!(await page.$('.replay-result'))) failures.push(`${where}: the end of the hand shows no lesson`);
+    if (i < 6) {
+      await page.click('.replay-nav button:has-text("Start")');
+      for (let n = 0; n < 60 && (await page.isEnabled('.replay-nav button:has-text("Next")')); n++) await page.click('.replay-nav button:has-text("Next")');
+      if (await page.isEnabled('.replay-nav button:has-text("Next")')) failures.push(`${where}: Next never reached the end`);
+      await noOverflow(page, where);
+      stepped++;
+    }
+  }
+
   // Every postflop practice spot renders its read and combo table.
   await page.goto(`${url}#spots`);
   const spots = await page.$$('.spot-pick button');
@@ -200,7 +227,7 @@ for (const vp of VIEWPORTS) {
     if (sent.body.model !== 'claude-opus-5-5') failures.push(`${tag}: the request used model ${sent.body.model}`);
   }
 
-  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session, ${spots.length} spots, ${requests.length} mocked coach requests`);
+  console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${requests.length} mocked coach requests`);
   await ctx.close();
 }
 
