@@ -22,6 +22,7 @@ const custom = (over: Partial<PostflopSpotDef>): PostflopSpotDef => ({
   id: 'test', title: 'test', setup: '', concept: '', hero: 'BTN', villain: 'BB', heroCards: 'AsKd', villainCards: '9c8c',
   board: '2s7sJs 4h 5d', stacksBB: 100,
   script: [['BTN', { type: 'raise', to: 125 }], ['BB', { type: 'call' }], ['BB', { type: 'check' }]],
+  answer: { best: [], mistakes: [] },
   ...over,
 });
 

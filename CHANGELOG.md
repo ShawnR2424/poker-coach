@@ -2,6 +2,11 @@
 
 Each milestone was merged as its own pull request.
 
+## More postflop practice spots
+
+- The Postflop spots tab grows from four spots to twelve. The new ones: a c-bet with nothing on an ace-high flop, top pair facing a flop raise, a gutshot facing a pot-sized turn bet, an overpair facing a turn check-raise, a set on a wet turn, top pair with a weak kicker checked to on the river, a missed flush draw on the river, and an underpair facing a river overbet.
+- Each spot now states the answer its lesson teaches: which actions can be best and which are mistakes. A test grades every spot with the model and fails if the model stops agreeing with the lesson, so tuning `actions.json` cannot quietly turn a spot's lesson wrong.
+
 ## Hand replay
 
 - Each hand in the Session tab has a Replay button. The replay steps through the hand one action at a time with the table, board, timeline and every opponent's cards. Buttons jump to each of your graded decisions, marked with the verdict, and each decision shows what you chose, its leak tag and the opponents' ranges at that point.

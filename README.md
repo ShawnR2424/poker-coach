@@ -30,7 +30,7 @@ The Play screen also sets the table size (6-max, or 7, 8 or 9 handed) and the st
 
 After 20 decisions at a level with at least 70% non-mistakes, the Play screen offers the next level.
 
-The **Postflop spots** tab holds four hand-built practice spots, and the **Engine lab** tab exposes the evaluator, range parser and equity calculator directly.
+The **Postflop spots** tab holds twelve hand-built practice spots, one for each common postflop decision (c-betting, bluff-catching, pricing draws, facing raises, thin value and giving up on a missed draw), and the **Engine lab** tab exposes the evaluator, range parser and equity calculator directly.
 
 ## Getting started
 
@@ -74,7 +74,7 @@ All strategy numbers are plain JSON, so you can adjust them without touching cod
 | `data/postflop/actions.json` | Postflop behavior by hand class: betting, calling and raising shares, and equity realization |
 | `data/postflop/profiles.json` | How each opponent style scales that behavior |
 
-The unit tests check that every chart parses and round-trips through range notation. Close postflop spots can change verdict when `actions.json` is tuned, so run `npm test` after editing it.
+The unit tests check that every chart parses and round-trips through range notation. Close postflop spots can change verdict when `actions.json` is tuned, so run `npm test` after editing it: each practice spot states which answer its lesson teaches, and a test fails if the model stops agreeing.
 
 ## Project layout
 
@@ -111,6 +111,7 @@ docs/                    Model notes and spec coverage
 - The approximate range text after the flop is valid notation for exactly the hands it names, names nothing the grid leaves empty, and leaves out only hands the grid holds at low weight. This is checked on every practice spot and on real decisions at every postflop level.
 - A practice hand for a postflop leak stops at a decision where that leak's tag is one a wrong action would earn, and plays on normally from there. The hand-flow test also runs every level with every leak open.
 - A saved hand replays to exactly the actions, board, stacks and result that were played, at every level and table size, and the hero's decisions fall on the replay's steps. The smoke test opens the replay of every hand in the session.
+- Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - Session profit and loss equals the sum of hand results, and leaks are marked fixed and reopened as described above.
 - The coach voice prompt contains only numbers the feedback panel shows and never an opponent's hidden cards, and a reply with an invented or rounded number is rejected. The smoke test checks that no request is made while the coach voice is off.
 

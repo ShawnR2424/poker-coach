@@ -81,6 +81,7 @@ How each part of the original brief maps to the code and to the checks that guar
 |---|---|---|
 | Hole cards sampled from the range at the start | `redeal` in `engine/game/levels.ts`, `engine/preflop/scenario.ts` | `game.test.ts`, `preflop.test.ts` |
 | Profiles shown as seat tags | `data/postflop/profiles.json`, `ui/table/view.ts` | `game.test.ts` |
+| Hand-built postflop practice spots whose lesson matches the model | `engine/postflop/spots.ts`, `ui/spots/SpotsScreen.tsx` | `postflop.test.ts` (each spot grades the way its lesson says), smoke (every spot renders) |
 | Six curriculum levels | `LEVELS` in `engine/game/levels.ts` | `flow.test.ts`, `game.test.ts`, smoke (every level) |
 | Leak tags and leak-targeted practice | `gradePreflop`, `gradePostflop`, `biasedMix`, `engine/game/drills.ts` | `session.test.ts`, `drills.test.ts`, `flow.test.ts` (every leak open), smoke |
 | Running P/L, hand table, leaks fixed, saved sessions | `engine/session/session.ts`, `ui/session/` | `session.test.ts`, smoke (sessions survive a reload) |
