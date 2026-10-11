@@ -1,15 +1,17 @@
-// Tournament mode: push/fold spots with antes, graded in chips or by ICM. A spot is either folded
-// to you (go all-in or fold) or an all-in in front of you (call or fold); the answer is compared
-// with the solved ranges for that table, stacks and payouts.
+// Tournament mode: short-stack spots with antes, graded in chips or by ICM. A spot is folded to
+// you (go all-in or fold), an all-in in front of you (call or fold), or an open in front of you
+// (reshove all-in or fold); the answer is compared with the solved ranges for that table, stacks
+// and payouts.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeRng, randomSeed } from '../../engine/rng';
 import { ALL_CLASSES } from '../../engine/range';
-import type { PayoutMode } from '../../engine/tournament/pushfold';
+import type { ClassRange, PayoutMode } from '../../engine/tournament/pushfold';
+import { callingHands, OPEN_TO } from '../../engine/tournament/reshove';
 import {
-  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, handClass, isPush, MARGINS, MODE_LABELS,
+  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, handClass, MARGINS, MODE_LABELS, SPOT_LABELS,
   parseTally, payoutText, positionNames, postedLabel, rangeText, shareText, type SolvedSpot, type TableSize, type TournamentAnswer,
-  type TournamentOptions, type TournamentTally,
+  type SpotChoice, type TournamentOptions, type TournamentTally,
 } from '../../engine/tournament/spots';
 import { PlayingCard } from '../PlayingCard';
 import { StrategyGrid } from '../play/StrategyGrid';
@@ -35,6 +37,7 @@ function load(): Saved {
         players: o.players === 9 ? 9 : 6,
         ante: o.ante !== false,
         mode: o.mode === 'chips' || o.mode === 'bubble' ? o.mode : 'final',
+        spots: o.spots === 'pushfold' || o.spots === 'reshove' ? o.spots : 'both',
       },
       tally: parseTally(JSON.stringify(raw?.tally ?? null)),
     };
@@ -80,7 +83,7 @@ export function TournamentScreen() {
       <div className="session-head">
         <div>
           <p className="eyebrow">Tournament mode</p>
-          <h1>Push or fold</h1>
+          <h1>Short-stack spots</h1>
         </div>
       </div>
 
@@ -91,6 +94,12 @@ export function TournamentScreen() {
             <select id="t-players" value={options.players} onChange={(e) => setOptions({ players: Number(e.target.value) as TableSize })}>
               <option value={6}>6 (6-max final table)</option>
               <option value={9}>9 (full final table)</option>
+            </select>
+          </label>
+          <label>
+            <span className="eyebrow">Spots</span>
+            <select id="t-spots" value={options.spots} onChange={(e) => setOptions({ spots: e.target.value as SpotChoice })}>
+              {(Object.keys(SPOT_LABELS) as SpotChoice[]).map((m) => <option key={m} value={m}>{SPOT_LABELS[m]}</option>)}
             </select>
           </label>
           <label>
@@ -120,7 +129,7 @@ export function TournamentScreen() {
               <div className="action-buttons">
                 <button type="button" className="act fold" onClick={() => act(false)}>Fold</button>
                 <button type="button" className="act allin" onClick={() => act(true)}>
-                  {isPush(solved.spot) ? 'All-in' : 'Call'}
+                  {solved.kind === 'call' ? 'Call' : 'All-in'}
                   <span className="num">{bb(playAmount(solved))}</span>
                 </button>
               </div>
@@ -132,7 +141,7 @@ export function TournamentScreen() {
       )}
 
       <p className="small muted chart-source">
-        Ranges are worked out in the browser for each table: the player who goes all-in and every player behind them answer each other until their ranges settle. Only the first caller plays; see <code>docs/model.md</code> for the simplifications. They are not solver output.
+        Ranges are worked out in the browser for each table: the player who goes all-in and the players who can call answer each other until their ranges settle. Only the first caller plays, and an open comes from the trainer's 40bb opening chart; see <code>docs/model.md</code> for the simplifications. They are not solver output.
       </p>
     </div>
   );
@@ -145,7 +154,7 @@ function playAmount(s: SolvedSpot): number {
   const { spot } = s;
   const n = spot.stacks.length;
   const live = (i: number) => spot.stacks[i] - (spot.ante && i === n - 1 ? 1 : 0);
-  if (isPush(spot)) return live(spot.hero);
+  if (s.kind !== 'call') return live(spot.hero);
   return Math.min(live(spot.hero), live(spot.opener));
 }
 
@@ -166,15 +175,20 @@ function Tally({ tally, onReset }: { tally: TournamentTally; onReset: () => void
 function SpotView({ s }: { s: SolvedSpot }) {
   const { spot } = s;
   const pos = positionNames(spot.stacks.length);
-  const push = isPush(spot);
+  const push = s.kind === 'push';
   return (
     <section className="panel t-spot" aria-labelledby="t-spot-h">
       <h2 id="t-spot-h">
         {push
           ? `Folded to you in the ${pos[spot.hero]}`
-          : `${pos[spot.opener]} goes all-in for ${bb(spot.stacks[spot.opener])}; folded to you in the ${pos[spot.hero]}`}
+          : s.kind === 'reshove'
+            ? `${pos[spot.opener]} raises to ${OPEN_TO}bb; folded to you in the ${pos[spot.hero]}`
+            : `${pos[spot.opener]} goes all-in for ${bb(spot.stacks[spot.opener])}; folded to you in the ${pos[spot.hero]}`}
       </h2>
-      <p className="small muted">Blinds 0.5/1{spot.ante ? ', big blind ante 1' : ''}. {push ? 'Go all-in or fold.' : 'Call or fold; players after you who have not acted yet still can.'}</p>
+      <p className="small muted">
+        Blinds 0.5/1{spot.ante ? ', big blind ante 1' : ''}.{' '}
+        {push ? 'Go all-in or fold.' : s.kind === 'reshove' ? `Go all-in over the raise or fold; the ${pos[spot.opener]} then calls or folds.` : 'Call or fold; players after you who have not acted yet still can.'}
+      </p>
       <div className="t-hero">
         <span className="t-cards">{spot.hand.map((c) => <PlayingCard key={c} card={c} />)}</span>
         <span><span className="eyebrow">Your hand</span> <strong>{handClass(spot)}</strong> · <span className="num">{bb(spot.stacks[spot.hero])}</span></span>
@@ -188,7 +202,7 @@ function SpotView({ s }: { s: SolvedSpot }) {
                 <th scope="row">{pos[i]}{i === spot.hero ? ' (you)' : ''}</th>
                 <td className="n num">{bb(st)}</td>
                 <td>
-                  {i < spot.opener ? 'Folded' : i === spot.opener && !push ? 'All-in' : i === spot.hero ? 'To act' : 'Still to act'}
+                  {i < spot.opener ? 'Folded' : i === spot.opener && !push ? (s.kind === 'reshove' ? `Raised to ${OPEN_TO}bb` : 'All-in') : i === spot.hero ? 'To act' : i < spot.hero ? 'Folded' : 'Still to act'}
                   {postedLabel(spot, i) && <span className="muted"> · posted {postedLabel(spot, i)}</span>}
                 </td>
               </tr>
@@ -201,29 +215,31 @@ function SpotView({ s }: { s: SolvedSpot }) {
 }
 
 function Feedback({ s, a, onNext }: { s: SolvedSpot; a: TournamentAnswer; onNext: () => void }) {
-  const { spot, sol } = s;
-  const push = isPush(spot);
+  const { spot } = s;
+  const shoving = s.kind !== 'call';
   const pos = positionNames(spot.stacks.length);
   const icm = spot.mode !== 'chips';
-  const playName = push ? 'all-in' : 'call';
+  const playName = shoving ? 'all-in' : 'call';
   const g = a.g;
   const bestName = g.best === 'play' ? playName : 'fold';
   const heading = a.verdict === 'correct'
     ? `${cap(a.played ? playName : 'fold')} is right${g.freq > 0.05 && g.freq < 0.95 ? ' (a close hand that the ranges mix)' : ''}`
     : a.verdict === 'playable' ? `Close, but ${bestName} is a little better` : `This is a ${bestName}`;
   const chipFlip = a.chipG && a.chipG.best !== g.best;
-  const range = push ? sol.push : sol.call[spot.hero];
-  const freqs = useMemo(() => new Map(ALL_CLASSES.map((c, i) => [c, push
+  const range: ClassRange = s.kind === 'push' ? s.sol.push : s.kind === 'reshove' ? s.sol.shove : s.sol.call[spot.hero];
+  const freqs = useMemo(() => new Map(ALL_CLASSES.map((c, i) => [c, shoving
     ? { raise: range[i], call: 0, fold: 1 - range[i] }
-    : { raise: 0, call: range[i], fold: 1 - range[i] }])), [range, push]);
+    : { raise: 0, call: range[i], fold: 1 - range[i] }])), [range, shoving]);
 
   const bullets: string[] = [];
-  if (push) {
+  if (s.kind === 'push') {
     bullets.push(`Everyone behind you folds ${pct(g.foldOdds ?? 0)} of the time; when someone calls, your hand has ${pct(g.calledEquity ?? 0.5)} equity against their calling range.`);
+  } else if (s.kind === 'reshove') {
+    bullets.push(`The ${pos[spot.opener]} folds its raise ${pct(g.foldOdds ?? 0)} of the time, giving you ${bb(OPEN_TO)} plus the blinds${spot.ante ? ' and ante' : ''}; when it calls, your hand has ${pct(g.calledEquity ?? 0.5)} equity against its calling range.`);
   } else {
-    const needed = equityNeeded(sol, spot.hero);
+    const needed = equityNeeded(s.sol, spot.hero);
     const chipNeeded = a.chipG ? equityNeeded(s.chips, spot.hero) : null;
-    bullets.push(`Your hand has ${pct(g.equity)} equity against the ${pos[spot.opener]}'s all-in range (${shareText(sol.push)} of hands).`);
+    bullets.push(`Your hand has ${pct(g.equity)} equity against the ${pos[spot.opener]}'s all-in range (${shareText(s.sol.push)} of hands).`);
     bullets.push(chipNeeded !== null
       ? `Calling needs ${pct(needed)} equity with these payouts, against ${pct(chipNeeded)} in chips. The difference is ICM's risk premium: chips you lose cost more prize money than chips you win add.`
       : `Calling needs ${pct(needed)} equity to win more chips than folding.`);
@@ -264,20 +280,25 @@ function Feedback({ s, a, onNext }: { s: SolvedSpot; a: TournamentAnswer; onNext
         Correct within {MARGINS.correct}bb of the best option, playable within {MARGINS.playable}bb.
       </p>
       <div>
-        <p className="eyebrow">{push ? `Your all-in range from the ${pos[spot.hero]}` : `Your calling range in the ${pos[spot.hero]}`}: {shareText(range)}</p>
+        <p className="eyebrow">{shoving ? `Your all-in range from the ${pos[spot.hero]}` : `Your calling range in the ${pos[spot.hero]}`}: {shareText(range)}</p>
         <StrategyGrid
           freqs={freqs}
           heroClass={handClass(spot)}
           names={{ raise: 'all-in', call: 'call', fold: 'fold' }}
-          label={push ? 'Your all-in range for this spot' : 'Your calling range for this spot'}
+          label={shoving ? 'Your all-in range for this spot' : 'Your calling range for this spot'}
         />
       </div>
       <div className="range-texts small">
-        {push
+        {s.kind === 'push'
           ? spot.stacks.map((_, i) => i > spot.opener && (
-            <p key={i}><span className="eyebrow">{pos[i]} calls {shareText(sol.call[i])}</span> <code>{rangeText(sol.call[i]) || 'nothing'}</code></p>
+            <p key={i}><span className="eyebrow">{pos[i]} calls {shareText(s.sol.call[i])}</span> <code>{rangeText(s.sol.call[i]) || 'nothing'}</code></p>
           ))
-          : <p><span className="eyebrow">{pos[spot.opener]} goes all-in with {shareText(sol.push)}</span> <code>{rangeText(sol.push) || 'nothing'}</code></p>}
+          : s.kind === 'reshove'
+            ? <>
+              <p><span className="eyebrow">{pos[spot.opener]} opens {shareText(s.sol.open)}</span> <code>{rangeText(s.sol.open) || 'nothing'}</code></p>
+              <p><span className="eyebrow">and calls your all-in with {shareText(callingHands(s.sol))}</span> <code>{rangeText(callingHands(s.sol)) || 'nothing'}</code></p>
+            </>
+            : <p><span className="eyebrow">{pos[spot.opener]} goes all-in with {shareText(s.sol.push)}</span> <code>{rangeText(s.sol.push) || 'nothing'}</code></p>}
       </div>
       <div className="fb-actions">
         <button type="button" className="primary" onClick={onNext}>Next spot</button>

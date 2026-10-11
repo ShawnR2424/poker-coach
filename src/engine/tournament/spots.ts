@@ -8,16 +8,27 @@ import { randInt, type Rng } from '../rng';
 import type { Verdict } from '../session/session';
 import { CLASS_INDEX } from './classEquity';
 import { heroValues, payoutsFor, rangeShare, solve, unitPerBB, type ClassRange, type PayoutMode, type Solution, type TableSetup } from './pushfold';
+import { shoveValues, solveReshove, type ReshoveSolution } from './reshove';
 
 export type TableSize = 6 | 9;
+
+export type SpotChoice = 'pushfold' | 'reshove' | 'both';
 
 export interface TournamentOptions {
   players: TableSize;
   ante: boolean;
   mode: PayoutMode;
+  /** Which kinds of spot to deal. */
+  spots: SpotChoice;
 }
 
-export const DEFAULT_OPTIONS: TournamentOptions = { players: 6, ante: true, mode: 'final' };
+export const DEFAULT_OPTIONS: TournamentOptions = { players: 6, ante: true, mode: 'final', spots: 'both' };
+
+export const SPOT_LABELS: Record<SpotChoice, string> = {
+  pushfold: 'Push or fold (4-15bb)',
+  reshove: 'Reshove over an open (12-25bb)',
+  both: 'Both',
+};
 
 export const MODE_LABELS: Record<PayoutMode, string> = {
   chips: 'Chip EV (no payouts yet)',
@@ -33,22 +44,29 @@ export interface TournamentSpot extends TableSetup {
 /** Short stacks for the hero, where push/fold is the standard play; any depth for the others. */
 const HERO_STACKS = [4, 15] as const;
 const OTHER_STACKS = [3, 40] as const;
+/** Reshoves: the hero has enough to make an all-in over a raise worth it; the opener has enough to open. */
+const RESHOVE_HERO = [12, 25] as const;
+const RESHOVE_OPENER = [15, 40] as const;
 const half = (x: number) => Math.round(x * 2) / 2;
+const between = (rng: Rng, [lo, hi]: readonly [number, number]) => half(lo + rng() * (hi - lo));
+
+export type SpotKind = 'push' | 'call' | 'reshove';
 
 /** Deals the table and the situation, before the hero's cards. */
-export function dealTable(rng: Rng, o: TournamentOptions): Omit<TournamentSpot, 'hand'> {
+export function dealTable(rng: Rng, o: TournamentOptions): Omit<TournamentSpot, 'hand'> & { kind: SpotKind } {
   const n = o.players;
-  const push = rng() < 0.6;
+  const kind: SpotKind = o.spots === 'reshove' || (o.spots === 'both' && rng() < 0.4) ? 'reshove' : rng() < 0.6 ? 'push' : 'call';
   const opener = randInt(rng, n - 1);
-  const hero = push ? opener : opener + 1 + randInt(rng, n - 1 - opener);
+  const hero = kind === 'push' ? opener : opener + 1 + randInt(rng, n - 1 - opener);
   const stacks = Array.from({ length: n }, (_, i) =>
     i === hero
-      ? half(HERO_STACKS[0] + rng() * (HERO_STACKS[1] - HERO_STACKS[0]))
-      : half(OTHER_STACKS[0] + (OTHER_STACKS[1] - OTHER_STACKS[0]) * rng() ** 1.6));
-  return { stacks, ante: o.ante, mode: o.mode, opener, hero };
+      ? between(rng, kind === 'reshove' ? RESHOVE_HERO : HERO_STACKS)
+      : kind === 'reshove' && i === opener
+        ? between(rng, RESHOVE_OPENER)
+        : half(OTHER_STACKS[0] + (OTHER_STACKS[1] - OTHER_STACKS[0]) * rng() ** 1.6));
+  return { kind, stacks, ante: o.ante, mode: o.mode, opener, hero };
 }
 
-export const isPush = (s: Pick<TournamentSpot, 'hero' | 'opener'>) => s.hero === s.opener;
 
 export interface Graded {
   /** The two options' payouts in big blinds (chip EV) or big-blind equivalents (ICM). */
@@ -76,11 +94,24 @@ export function gradeClass(sol: Solution, hero: number, cls: HandClass): Graded 
   return { ...v, play, fold, best: play >= fold ? 'play' : 'fold', freq: range[k] };
 }
 
-export interface SolvedSpot {
-  spot: TournamentSpot;
-  /** The spot solved with its payouts, and in chips for comparison (the same object in chip EV). */
-  sol: Solution;
-  chips: Solution;
+/** The hero's options in a solved reshove spot, in big blinds. */
+export function gradeReshove(sol: ReshoveSolution, cls: HandClass): Graded & ReturnType<typeof heroValues> {
+  const k = CLASS_INDEX.get(cls)!;
+  const v = shoveValues(sol, k);
+  const unit = unitPerBB(sol.setup);
+  const play = v.play / unit, fold = v.fold / unit;
+  return { ...v, play, fold, best: play >= fold ? 'play' : 'fold', freq: sol.shove[k] };
+}
+
+/** A dealt spot with its solution under its payouts, and in chips for comparison (the same object in chip EV). */
+export type SolvedSpot =
+  | { kind: 'push' | 'call'; spot: TournamentSpot; sol: Solution; chips: Solution }
+  | { kind: 'reshove'; spot: TournamentSpot; sol: ReshoveSolution; chips: ReshoveSolution };
+
+/** The hero's options for a hand class in a solved spot, under its payouts or in chips. */
+export function gradeSpot(s: SolvedSpot, cls: HandClass, chips = false): Graded & ReturnType<typeof heroValues> {
+  if (s.kind === 'reshove') return gradeReshove(chips ? s.chips : s.sol, cls);
+  return gradeClass(chips ? s.chips : s.sol, s.spot.hero, cls);
 }
 
 /**
@@ -89,17 +120,25 @@ export interface SolvedSpot {
  * chance; about a third of the spots are still clear-cut.
  */
 export function dealSpot(rng: Rng, o: TournamentOptions): SolvedSpot {
-  const table = dealTable(rng, o);
-  const sol = solve(table);
-  const chips = table.mode === 'chips' ? sol : solve({ ...table, mode: 'chips' });
+  const { kind, ...table } = dealTable(rng, o);
+  const placeholder: TournamentSpot = { ...table, hand: [0, 1] };
+  const solved: SolvedSpot = kind === 'reshove'
+    ? (() => {
+      const sol = solveReshove(table);
+      return { kind, spot: placeholder, sol, chips: table.mode === 'chips' ? sol : solveReshove({ ...table, mode: 'chips' }) };
+    })()
+    : (() => {
+      const sol = solve(table);
+      return { kind, spot: placeholder, sol, chips: table.mode === 'chips' ? sol : solve({ ...table, mode: 'chips' }) };
+    })();
   let hand: [Card, Card] = [0, 0];
   for (let tries = 0; tries < 4; tries++) {
     const [a, b] = COMBO_CARDS[randInt(rng, NUM_COMBOS)];
     hand = [a, b];
-    const g = gradeClass(sol, table.hero, classOfCombo(a, b));
+    const g = gradeSpot(solved, classOfCombo(a, b));
     if (Math.abs(g.play - g.fold) <= 3 || rng() >= 0.6) break;
   }
-  return { spot: { ...table, hand }, sol, chips };
+  return { ...solved, spot: { ...table, hand } };
 }
 
 export interface TournamentAnswer {
@@ -114,8 +153,8 @@ export interface TournamentAnswer {
 
 export function answer(s: SolvedSpot, played: boolean): TournamentAnswer {
   const cls = classOfCombo(s.spot.hand[0], s.spot.hand[1]);
-  const g = gradeClass(s.sol, s.spot.hero, cls);
-  const chipG = s.spot.mode === 'chips' ? null : gradeClass(s.chips, s.spot.hero, cls);
+  const g = gradeSpot(s, cls);
+  const chipG = s.spot.mode === 'chips' ? null : gradeSpot(s, cls, true);
   const loss = Math.max(0, (played ? g.fold - g.play : g.play - g.fold));
   return { verdict: verdictFor(loss), loss, played, g, chipG };
 }

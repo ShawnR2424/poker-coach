@@ -8,8 +8,10 @@ import { CLASS_INDEX, EQUITY, NUM_CLASSES } from '../tournament/classEquity';
 import { icmEquities } from '../tournament/icm';
 import { openerValues, rangeShare, solve, stacksAfter, unitPerBB, type TableSetup } from '../tournament/pushfold';
 import {
-  addAnswer, answer, dealSpot, emptyTally, equityNeeded, gradeClass, MARGINS, parseTally, rangeText, verdictFor,
+  addAnswer, answer, dealSpot, emptyTally, equityNeeded, gradeClass, gradeSpot, MARGINS, parseTally, rangeText, verdictFor,
 } from '../tournament/spots';
+import { callingHands, openRange, reshoveStacks, shoveValues, solveReshove, type ReshoveSetup } from '../tournament/reshove';
+import { getStrategy } from '../preflop/charts';
 
 /** Harville by brute force: every finishing order, with its probability. */
 function bruteIcm(stacks: number[], payouts: number[]): number[] {
@@ -151,6 +153,68 @@ describe('push/fold ranges', () => {
   });
 });
 
+describe('reshove spots', () => {
+  const table = (mode: ReshoveSetup['mode'], heroStack = 15, ante = true): ReshoveSetup => {
+    const stacks = [30, 30, 30, 30, 30, 30];
+    stacks[5] = heroStack;
+    return { stacks, ante, mode, opener: 2, hero: 5 };
+  };
+
+  it('keep every chip in play and pay the opener\'s raise to a successful all-in', () => {
+    const rng = makeRng(23);
+    for (let t = 0; t < 40; t++) {
+      const n = rng() < 0.5 ? 6 : 9;
+      const opener = Math.floor(rng() * (n - 1));
+      const hero = opener + 1 + Math.floor(rng() * (n - 1 - opener));
+      const setup: ReshoveSetup = { stacks: Array.from({ length: n }, () => 3 + Math.round(rng() * 60) / 2), ante: rng() < 0.5, mode: 'chips', opener, hero };
+      const total = sum(setup.stacks);
+      for (const o of ['fold', 'steal', 'heroWins', 'openerWins'] as const) {
+        const after = reshoveStacks(setup, o);
+        expect(sum(after)).toBeCloseTo(total, 9);
+        expect(Math.min(...after)).toBeGreaterThanOrEqual(-1e-9);
+      }
+    }
+    // BB reshoves over a CO open and the CO folds: +2bb from the CO, +0.5 from the SB, the ante back.
+    const steal = reshoveStacks(table('chips'), 'steal');
+    expect(steal).toEqual([30, 30, 28, 30, 29.5, 17.5]);
+    expect(reshoveStacks(table('chips'), 'fold')).toEqual([30, 30, 32.5, 30, 29.5, 13]);
+  });
+
+  it('open from the 40bb chart, shove a top range that narrows with depth and under ICM, and call with the best opens', () => {
+    const open = openRange(6, 2);
+    const chart = getStrategy('rfi', 'CO', 'baseline', false, 40, false);
+    expect(rangeShare(open)).toBeCloseTo(Array.from(chart.raise).reduce((a, b) => a + b, 0) / 1326, 6);
+    const s15 = solveReshove(table('chips', 15)), s25 = solveReshove(table('chips', 25));
+    expect(rangeShare(s25.shove)).toBeLessThan(rangeShare(s15.shove));
+    expect(rangeShare(solveReshove(table('final', 15)).shove)).toBeLessThan(rangeShare(s15.shove));
+    expect(rangeShare(solveReshove(table('bubble', 15)).call)).toBeLessThan(rangeShare(s15.call));
+    expect(s15.shove[CLASS_INDEX.get('AA')!]).toBe(1);
+    expect(s15.shove[CLASS_INDEX.get('72o')!]).toBe(0);
+    // The calls are the opens that do best against the all-in range, and lie inside the opens.
+    const calls = callingHands(s15);
+    for (let k = 0; k < NUM_CLASSES; k++) expect(calls[k]).toBeLessThanOrEqual(open[k] + 1e-12);
+    // The all-in range is the hero's best answer to the calls, within the correct margin.
+    let wrong = 0;
+    for (let j = 0; j < NUM_CLASSES; j++) {
+      const v = shoveValues(s15, j);
+      if (s15.shove[j] === 1 && v.play - v.fold < -MARGINS.correct) wrong++;
+      if (s15.shove[j] === 0 && v.play - v.fold > MARGINS.correct) wrong++;
+    }
+    expect(wrong).toBe(0);
+  });
+
+  it('only deal reshoves when asked, with the opener deep enough to open', () => {
+    const rng = makeRng(31);
+    for (let i = 0; i < 6; i++) {
+      const s = dealSpot(rng, { players: 9, ante: true, mode: 'final', spots: 'reshove' });
+      expect(s.kind).toBe('reshove');
+      expect(s.spot.stacks[s.spot.opener]).toBeGreaterThanOrEqual(15);
+      expect(gradeSpot(s, 'AA').best).toBe('play');
+    }
+    for (let i = 0; i < 6; i++) expect(dealSpot(rng, { players: 6, ante: false, mode: 'chips', spots: 'pushfold' }).kind).not.toBe('reshove');
+  }, 30_000);
+});
+
 describe('grading', () => {
   it('grades by the gap to the better option, and the needed equity agrees with calling', () => {
     expect(verdictFor(0)).toBe('correct');
@@ -158,24 +222,29 @@ describe('grading', () => {
     expect(verdictFor(MARGINS.playable + 0.01)).toBe('mistake');
     const rng = makeRng(17);
     let tally = emptyTally();
+    const kinds = new Set<string>();
     for (let i = 0; i < 25; i++) {
-      const s = dealSpot(rng, { players: i % 2 ? 9 : 6, ante: i % 3 !== 0, mode: (['chips', 'final', 'bubble'] as const)[i % 3] });
+      const s = dealSpot(rng, { players: i % 2 ? 9 : 6, ante: i % 3 !== 0, mode: (['chips', 'final', 'bubble'] as const)[i % 3], spots: 'both' });
       const { spot } = s;
-      expect(spot.stacks[spot.hero]).toBeGreaterThanOrEqual(4);
-      expect(spot.stacks[spot.hero]).toBeLessThanOrEqual(15);
-      expect(spot.hero).toBeGreaterThanOrEqual(spot.opener);
+      kinds.add(s.kind);
+      const [lo, hi] = s.kind === 'reshove' ? [12, 25] : [4, 15];
+      expect(spot.stacks[spot.hero]).toBeGreaterThanOrEqual(lo);
+      expect(spot.stacks[spot.hero]).toBeLessThanOrEqual(hi);
+      if (s.kind === 'push') expect(spot.hero).toBe(spot.opener);
+      else expect(spot.hero).toBeGreaterThan(spot.opener);
       const best = answer(s, true).g.best === 'play';
       const right = answer(s, best), wrong = answer(s, !best);
       expect(right.verdict).toBe('correct');
       expect(right.loss).toBe(0);
       expect(wrong.loss).toBeCloseTo(Math.abs(right.g.play - right.g.fold), 9);
       expect(wrong.verdict).toBe(verdictFor(wrong.loss));
-      if (spot.hero !== spot.opener) {
+      if (s.kind === 'call') {
         const need = equityNeeded(s.sol, spot.hero);
         if (Math.abs(right.g.equity - need) > 1e-6) expect(right.g.play > right.g.fold).toBe(right.g.equity > need);
       }
       tally = addAnswer(tally, wrong);
     }
+    expect([...kinds].sort()).toEqual(['call', 'push', 'reshove']);
     expect(tally.spots).toBe(25);
     expect(tally.correct + tally.playable + tally.mistake).toBe(25);
     expect(parseTally(JSON.stringify(tally))).toEqual(tally);
