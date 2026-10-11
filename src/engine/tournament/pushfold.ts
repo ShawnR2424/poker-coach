@@ -133,7 +133,7 @@ const N = NUM_CLASSES;
 const CF = COMPAT_F, CE = COMPAT_EQ, CT = COMPAT_TOTAL, SIZE = CLASS_SIZE;
 
 /** Range `r` against a player holding class j: how often j faces it after card removal, and j's equity against it. */
-function hitRate(r: ClassRange, j: number): { eq: number; p: number } {
+export function hitRate(r: ClassRange, j: number): { eq: number; p: number } {
   let w = 0, we = 0;
   const row = j * N;
   for (let k = 0; k < N; k++) {

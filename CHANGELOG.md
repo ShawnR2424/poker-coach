@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Reshove spots
+
+- The Tournament tab adds reshove spots: a player opens to 2bb, it is folded to you with 12bb to 25bb, and you go all-in or fold. The opener then calls or folds. A new Spots setting deals push/fold spots, reshove spots or both (the default), and is kept in the browser.
+- The opener's range is the trainer's 40bb opening chart for its seat. Your all-in range and the opener's calling range are worked out for the table's stacks and payouts in chip EV or by ICM, the same way as push/fold.
+- Feedback shows how often the opener folds its raise and your equity when it calls, the value of each option, your all-in range with your hand ringed, and the opener's opening and calling ranges.
+- Fixed: in a spot facing an all-in, players between the all-in and you were listed as still to act; they have folded.
+- `tournament.test.ts` adds reshove checks: every outcome keeps all the chips and a successful all-in wins the raise, the opening range matches the chart, the all-in range narrows with a deeper stack and under ICM, the calls lie inside the opens, the all-in range is the hero's best answer to the calls, and the Spots setting deals what it says. The smoke test plays reshove spots and checks the setting after a reload.
+
 ## Tournament mode
 
 - New Tournament tab for short-stack push/fold play at a final table of 6 or 9 players, with blinds of 0.5/1 and an optional big blind ante of 1bb. Each spot is either folded to you (go all-in or fold) or an all-in in front of you (call or fold), with your stack between 4bb and 15bb and the others between 3bb and 40bb.
