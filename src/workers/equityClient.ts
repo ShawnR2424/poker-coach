@@ -1,5 +1,6 @@
 // Promise wrapper around the equity worker, with a main-thread fallback if workers are unavailable.
 
+import { calcEquity, type CalcResult } from '../engine/calc/equityCalc';
 import { classEquities } from '../engine/classEquity';
 import { comboEquities, computeEquity, type EquityResult } from '../engine/equity';
 import { analyzeMultiway, type MultiwayResult, type MultiwaySituation } from '../engine/postflop/multiway';
@@ -61,6 +62,10 @@ function send(job: JobInput): Promise<EquityReply & { ok: true }> {
       if (job.kind === 'multiway') {
         return Promise.resolve({ id: 0, ok: true, kind: 'multiway', result: analyzeMultiway(job.sit), ms: performance.now() - t0 });
       }
+      if (job.kind === 'calc') {
+        const result = calcEquity({ players: job.players, board: job.board, dead: job.dead, samples: job.samples });
+        return Promise.resolve({ id: 0, ok: true, kind: 'calc', result, ms: performance.now() - t0 });
+      }
       const m = classEquities(job.hero, job.board, job.range, job.iterations);
       return Promise.resolve({ id: 0, ok: true, kind: 'classEquity', result: [...m], ms: performance.now() - t0 });
     } catch (e) {
@@ -98,4 +103,11 @@ export async function runMultiway(sit: MultiwaySituation): Promise<MultiwayResul
   const r = await send({ kind: 'multiway', sit });
   if (r.kind !== 'multiway') throw new Error('Unexpected reply');
   return r.result;
+}
+
+/** Equity for two to four players, each with an exact hand or a range (the Equity tab). */
+export async function runCalc(players: Range[], board: number[], dead: number[], samples?: number): Promise<{ result: CalcResult; ms: number }> {
+  const r = await send({ kind: 'calc', players: players.map((p) => new Float32Array(p)), board, dead, samples });
+  if (r.kind !== 'calc') throw new Error('Unexpected reply');
+  return { result: r.result, ms: r.ms };
 }

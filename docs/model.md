@@ -15,7 +15,7 @@ These are computed, not estimated, and the unit tests check them:
 - Hand strength. A 5-7 card evaluator, checked against an independent brute-force evaluator.
 - Betting rules. Minimum raises, short all-ins that do not reopen the action, side pots, uncalled bets returned.
 - Card removal. Combos that use the hero's cards or the board are removed from every range before anything is counted.
-- Equity. Exact enumeration heads-up from the flop on. Monte Carlo preflop and in multiway pots, which matches exact enumeration to within 1% in the tests.
+- Equity. Exact enumeration heads-up from the flop on (and on the Equity tab, whenever the count is small enough). Monte Carlo preflop and in multiway pots, which matches exact enumeration to within 1% in the tests.
 - Pot odds, break-even fold share, SPR and the EV formulas themselves.
 
 Given a range for each opponent and a response model, the EV numbers are exact. The range and the responses are the approximate part.
@@ -177,6 +177,13 @@ With two or more opponents still in:
 - The Charts tab reads the same charts and layers as the rest of the trainer (`chartStrategy`), so what it shows is exactly what the Play tab recommends or what the opponents play. "Yours" is the hero chart and "The opponents'" the pool chart; they differ only when the low-stakes adjustments are on.
 - Changed hands are measured against the plain 100bb chart with no rake and no low-stakes adjustments, per hand class, and listed when any action's frequency moved by at least 1 point. The notes are the ones the adjustment rules in `data/preflop/` attach when they change a chart.
 - Sizes are the chart sizes at that depth: an open in big blinds, a 3-bet as a multiple of the open, a 4-bet as a multiple of the 3-bet (all-in at 40bb), and an isolation raise in big blinds plus one per limper. On the Play tab they are rounded to the table's chips and capped by the stack.
+
+## Equity calculator
+
+- Each player holds a weighted range; an exact hand is a range of one combo. Combos that use a board or dead card are removed first, and the combos column counts what is left (by weight).
+- Exact when the count of hand deals times runouts times players is at most 4 million evaluations: every combination of the players' combos that shares no card, each weighted by the product of the combo weights, and every runout of the remaining deck. Two exact hands preflop (1.7 million runouts) and a hand against a few ranges on the flop are exact.
+- Otherwise it samples: each player is dealt from their range by weight, and the whole deal is redealt if two players share a card, so the sample follows the same distribution as the exact count; the board is then completed at random. The margin shown is 1.96 standard errors of the least certain player's equity.
+- Equity is a share of the pot: a split between k players gives each 1/k. Wins counts deals a player wins alone; splits counts deals they share.
 
 ## Tournament mode
 

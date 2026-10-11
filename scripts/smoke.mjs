@@ -3,7 +3,7 @@
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
-// every chart in the chart explorer, mistake review cards made from the imported sample hands, the
+// every chart in the chart explorer, the equity calculator, mistake review cards made from the imported sample hands, the
 // opponent stats on the Play and Session tabs, tournament push/fold and reshove spots, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
@@ -397,6 +397,34 @@ for (const vp of VIEWPORTS) {
   await page.waitForSelector('#chart-key');
   if ((await page.$eval('#chart-key', (e) => e.value)) !== 'BB_vs_BTN' || !(await page.isChecked('#chart-rake'))) failures.push(`${tag}: the chosen chart was not kept after a reload`);
   await page.uncheck('#chart-rake');
+
+  // Equity calculator: an exact matchup, a range from a chart in a three-way pot on a flop, a card
+  // clash reported as an error, and the fields kept after a reload.
+  await page.goto(`${url}#equity`);
+  await page.waitForSelector('#eq-p1');
+  await page.click('.equity-screen .chip >> nth=0');
+  await page.waitForSelector('#eq-method', { timeout: TURN_TIMEOUT });
+  const eqShares = async () => (await page.$$eval('.eq-table .eq-value', (c) => c.map((x) => parseFloat(x.textContent)))).filter((x) => !Number.isNaN(x));
+  let shares = await eqShares();
+  if (shares.length !== 2 || Math.abs(shares[0] - 81.2) > 0.2) failures.push(`${tag}: aces against kings shows ${shares.join(' / ')}`);
+  if (!(await page.textContent('#eq-method')).startsWith('Exact')) failures.push(`${tag}: two exact hands were not enumerated exactly`);
+  await page.click('.eq-add');
+  await page.selectOption('#eq-chart-3', 'rfi:BTN');
+  await page.fill('#eq-board', 'Th7h2c');
+  await page.waitForSelector('#eq-method', { timeout: TURN_TIMEOUT });
+  shares = await eqShares();
+  const total = shares.reduce((a, b) => a + b, 0);
+  if (shares.length !== 3 || Math.abs(total - 100) > 0.3) failures.push(`${tag}: a three-way equity shows ${shares.join(' + ')}`);
+  if (!(await page.inputValue('#eq-p3')).includes('22+')) failures.push(`${tag}: the button opening chart did not fill player 3`);
+  await noOverflow(page, `${tag}, equity calculator`);
+  await page.fill('#eq-p2', 'AhKd');
+  await page.fill('#eq-p1', 'AhQs');
+  if (!(await page.textContent('.equity-screen')).includes('Ah is in the hands of players 1 and 2')) {
+    await page.waitForFunction(() => document.querySelector('.equity-screen .errors')?.textContent.includes('Ah is in the hands of players 1 and 2'), null, { timeout: TURN_TIMEOUT }).catch(() => failures.push(`${tag}: a card in two hands was not reported`));
+  }
+  await page.reload();
+  await page.waitForSelector('#eq-p3');
+  if ((await page.inputValue('#eq-board')) !== 'Th7h2c' || (await page.inputValue('#eq-p1')) !== 'AhQs') failures.push(`${tag}: the equity fields were not kept after a reload`);
 
   // Tournament mode: spots at every table size and payout setting deal, answer with a verdict,
   // a grid and the EV of both options, and the tally of answered spots survives a reload.
