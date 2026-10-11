@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Lab } from './Lab';
 import { GameScreen } from './play/GameScreen';
 import { SettingsScreen } from './coach/SettingsScreen';
@@ -11,10 +11,13 @@ import { useDeck } from './review/store';
 import { dueCards } from '../engine/review/review';
 import { SpotsScreen } from './spots/SpotsScreen';
 
-type Tab = 'table' | 'spots' | 'charts' | 'quiz' | 'review' | 'session' | 'import' | 'settings' | 'lab';
+// Tournament mode carries its own equity table, so it loads only when opened.
+const TournamentScreen = lazy(() => import('./tournament/TournamentScreen').then((m) => ({ default: m.TournamentScreen })));
+
+type Tab = 'table' | 'tournament' | 'spots' | 'charts' | 'quiz' | 'review' | 'session' | 'import' | 'settings' | 'lab';
 type Theme = 'system' | 'light' | 'dark';
 
-const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#charts' ? 'charts' : location.hash === '#quiz' ? 'quiz' : location.hash === '#review' ? 'review' : location.hash === '#session' ? 'session' : location.hash === '#import' ? 'import' : location.hash === '#settings' ? 'settings' : 'table');
+const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#tournament' ? 'tournament' : location.hash === '#charts' ? 'charts' : location.hash === '#quiz' ? 'quiz' : location.hash === '#review' ? 'review' : location.hash === '#session' ? 'session' : location.hash === '#import' ? 'import' : location.hash === '#settings' ? 'settings' : 'table');
 
 function loadTheme(): Theme {
   try {
@@ -54,6 +57,7 @@ export function App() {
         <p className="brand">Poker Coach <span className="approx">approximate GTO</span></p>
         <nav className="tabs" aria-label="Sections">
           <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Play</button>
+          <button type="button" className={tab === 'tournament' ? 'on' : ''} aria-pressed={tab === 'tournament'} onClick={() => go('tournament')}>Tournament</button>
           <button type="button" className={tab === 'spots' ? 'on' : ''} aria-pressed={tab === 'spots'} onClick={() => go('spots')}>Postflop spots</button>
           <button type="button" className={tab === 'charts' ? 'on' : ''} aria-pressed={tab === 'charts'} onClick={() => go('charts')}>Charts</button>
           <button type="button" className={tab === 'quiz' ? 'on' : ''} aria-pressed={tab === 'quiz'} onClick={() => go('quiz')}>Quizzes</button>
@@ -74,7 +78,7 @@ export function App() {
           </select>
         </label>
       </header>
-      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : tab === 'charts' ? <ChartsScreen /> : tab === 'quiz' ? <QuizScreen /> : tab === 'review' ? <ReviewScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'import' ? <ImportScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
+      {tab === 'table' ? <GameScreen /> : tab === 'tournament' ? <Suspense fallback={<div className="screen"><p className="muted">Loading tournament mode…</p></div>}><TournamentScreen /></Suspense> : tab === 'spots' ? <SpotsScreen /> : tab === 'charts' ? <ChartsScreen /> : tab === 'quiz' ? <QuizScreen /> : tab === 'review' ? <ReviewScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'import' ? <ImportScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
     </>
   );
 }

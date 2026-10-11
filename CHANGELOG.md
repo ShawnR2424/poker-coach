@@ -2,6 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
+## Tournament mode
+
+- New Tournament tab for short-stack push/fold play at a final table of 6 or 9 players, with blinds of 0.5/1 and an optional big blind ante of 1bb. Each spot is either folded to you (go all-in or fold) or an all-in in front of you (call or fold), with your stack between 4bb and 15bb and the others between 3bb and 40bb.
+- Payouts can be chip EV, a final table where everyone is paid, or the bubble with one player from the money. Answers are graded against push/fold ranges worked out in the browser for that table's stacks and payouts by the Independent Chip Model (ICM).
+- Feedback shows the value of folding and of going all-in or calling (in big blinds, or big-blind equivalents of prize money under ICM), how often everyone folds and your equity when called, and for a call the equity needed in chips and with these payouts, so ICM's risk premium is visible. When chip EV and ICM disagree on a hand, a note says so. The grid shows your range for the spot with your hand ringed, and the opponents' ranges are listed in standard notation.
+- A tally of answered spots, including mistakes that would have been right in chips, and the settings are kept in the browser. The tab loads on demand, so the rest of the app does not carry its equity table.
+- New `scripts/class-equity.ts` (`npm run gen:class-equity`) generates `data/tournament/class-equity.json`, the all-in equity of every starting-hand class against every other.
+- New `tournament.test.ts` checks the equity table against known matchups, ICM against a brute-force model, that every outcome keeps all the chips, that the ranges match the published heads-up push/fold equilibrium at 10bb and widen as stacks shrink or with an ante, that the opener's range is its best answer to the calls, that calls tighten under ICM and more on the bubble, and the grading and tally. The smoke test answers spots at each table size and payout setting and checks the tally after a reload.
+
 ## Opponent stats
 
 - Each opponent style now has a stats line built from the session's practice hands: how many hands it played after the flop, how often it folded when facing a bet, and how often it bet or raised, next to the whole table's rates. The Play tab shows the styles in the current hand, under the table; the Session tab shows all four.

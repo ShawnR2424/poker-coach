@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc",
     "gen:hand-rank": "tsx scripts/hand-rank.ts",
+    "gen:class-equity": "tsx scripts/class-equity.ts",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "check": "tsc && vitest run"
   },
