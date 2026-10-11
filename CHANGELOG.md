@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Chart explorer
+
+- New Charts tab to browse every preflop chart the trainer plays: opens, limps, facing an open, squeezes, facing a 3-bet, cold 4-bets, facing a 4-bet and facing an all-in, each named in plain words.
+- Each chart shows a 13x13 grid with each hand's split between actions, the raise size, the share of all hands that raise, call and fold, and the ranges in standard notation.
+- Settings choose your chart or the opponents', 40bb, 100bb or 200bb stacks, the rake, and the low-stakes adjustments. Hands those settings moved from the plain 100bb chart are ringed on the grid and listed before and after, biggest change first, with the reason for each adjustment. The choice is remembered in the browser.
+- New `explorer.test.ts` checks that the explorer shows the trainer's own strategy for every chart under every setting, that its ranges parse back, its names and sizes, and its changed hands. The smoke test opens every kind of chart and checks the rake's changes to the big blind's defense.
+
 ## Mistake review
 
 - New Review tab. Every decision graded a mistake, on the Play tab or in imported hands, becomes a card that deals the same spot again with the opponents' cards hidden. Your new answer is graded with the same charts, ranges and model, with the full feedback panel, and a note says what you chose the first time and when the card comes back.

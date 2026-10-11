@@ -64,3 +64,5 @@ table.verdicts th { font-weight: 700; font-size: 0.8rem; color: var(--fg-muted);
 /* Postflop: a class that mostly dropped out keeps its color, faded, under the cross. */
 .cell.cat.strong.crossed { filter: saturate(0.5); opacity: 0.6; }
 .cell.cat.strong.crossed::after { opacity: 0.95; }
+.cell.strat.marked { box-shadow: inset 0 0 0 2px var(--fg); }
+.legend-marked { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--fg); }

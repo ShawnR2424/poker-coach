@@ -3,7 +3,7 @@
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
-// mistake review cards made from the imported sample hands, and
+// every chart in the chart explorer, mistake review cards made from the imported sample hands, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -360,6 +360,30 @@ for (const vp of VIEWPORTS) {
     await noOverflow(page, `${tag}, spot ${i + 1} feedback`);
   }
   if (!mixedSpots) failures.push(`${tag}: no practice spot shows a mix`);
+
+  // Chart explorer: every spot type shows a full grid, the rake on the BB's defense lists the hands
+  // it moved, and the chosen chart survives a reload.
+  await page.goto(`${url}#charts`);
+  await page.waitForSelector('#chart-kind');
+  for (const kind of await page.$$eval('#chart-kind option', (o) => o.map((x) => x.value))) {
+    await page.selectOption('#chart-kind', kind);
+    const cells = await page.$$eval('.chart-view .range-grid .cell', (c) => c.length);
+    if (cells !== 169) failures.push(`${tag}: the ${kind} chart shows ${cells} cells`);
+    await noOverflow(page, `${tag}, ${kind} chart`);
+  }
+  await page.selectOption('#chart-kind', 'vsOpen');
+  await page.selectOption('#chart-key', 'BB_vs_BTN');
+  await page.uncheck('#chart-lowstakes');
+  if (await page.$('.chart-changes')) failures.push(`${tag}: the plain BB vs BTN chart lists changed hands`);
+  await page.check('#chart-rake');
+  const moved = await page.$$eval('.chart-changes tbody tr', (r) => r.length);
+  const ringed = await page.$$eval('.chart-view .cell.marked', (c) => c.length);
+  if (moved < 10 || ringed !== moved) failures.push(`${tag}: the raked BB vs BTN chart lists ${moved} changed hands and rings ${ringed}`);
+  await noOverflow(page, `${tag}, raked chart`);
+  await page.reload();
+  await page.waitForSelector('#chart-key');
+  if ((await page.$eval('#chart-key', (e) => e.value)) !== 'BB_vs_BTN' || !(await page.isChecked('#chart-rake'))) failures.push(`${tag}: the chosen chart was not kept after a reload`);
+  await page.uncheck('#chart-rake');
 
   // Import: the sample hand histories grade, save as a new session, and replay with their verdicts.
   await page.goto(`${url}#import`);

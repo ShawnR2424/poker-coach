@@ -172,6 +172,12 @@ With two or more opponents still in:
 - The equity is your share of the pot on the flop against the opponent's whole range for the line, before any flop betting, with card removal: every turn and river against every combo your cards and the flop leave possible. It does not narrow the range for flop actions, so it is equity, not EV.
 - Quiz scores are stored in this browser only, separately from sessions, and do not affect leaks, adaptive opponents or level progress.
 
+## Chart explorer
+
+- The Charts tab reads the same charts and layers as the rest of the trainer (`chartStrategy`), so what it shows is exactly what the Play tab recommends or what the opponents play. "Yours" is the hero chart and "The opponents'" the pool chart; they differ only when the low-stakes adjustments are on.
+- Changed hands are measured against the plain 100bb chart with no rake and no low-stakes adjustments, per hand class, and listed when any action's frequency moved by at least 1 point. The notes are the ones the adjustment rules in `data/preflop/` attach when they change a chart.
+- Sizes are the chart sizes at that depth: an open in big blinds, a 3-bet as a multiple of the open, a 4-bet as a multiple of the 3-bet (all-in at 40bb), and an isolation raise in big blinds plus one per limper. On the Play tab they are rounded to the table's chips and capped by the stack.
+
 ## Mistake review
 
 - Every decision graded a mistake, at the practice table or in an imported hand, becomes a card, newest first, up to 150 cards in the deck at once. The card keeps its own copy of the hand, so it lasts after the session drops the hand's replay.

@@ -1,0 +1,18 @@
+/* Chart explorer. */
+.chart-pick { display: grid; gap: 12px; }
+.chart-selects { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 12px; }
+.chart-selects label { display: grid; gap: 4px; min-width: 0; }
+.chart-selects select { width: 100%; }
+.chart-toggles { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.chart-toggles input[type='checkbox'] { width: auto; }
+.chart-view { display: grid; gap: 12px; }
+.chart-view h2 { text-wrap: balance; }
+.chart-view p { margin: 0; }
+.range-texts { display: grid; gap: 6px; }
+.range-texts p { margin: 0; max-width: 80ch; overflow-wrap: anywhere; }
+.range-texts .eyebrow { margin-right: 6px; }
+table.chart-changes { max-width: 520px; }
+.chart-source { max-width: 75ch; }
+@media (max-width: 560px) {
+  table.chart-changes th, table.chart-changes td { padding: 6px 4px; font-size: 0.8rem; }
+}
