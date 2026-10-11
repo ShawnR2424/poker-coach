@@ -134,7 +134,8 @@ describe('dealing and grading a card', () => {
     });
     expect(pre).toBeGreaterThan(5);
     expect(post).toBeGreaterThan(5);
-  });
+    // Grades every card twice with full equity work: about 3.5s locally, so give CI runners room.
+  }, 60_000);
 
   it('gives full feedback, so the review panel matches the practice table', () => {
     for (const card of deck.cards.slice(0, 20)) {
