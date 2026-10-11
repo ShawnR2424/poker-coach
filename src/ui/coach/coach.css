@@ -14,3 +14,8 @@
 
 .coach-voice { border-left: 3px solid var(--felt); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
 .coach-voice p { margin: 0; }
+/* Backup and restore. */
+.backup-restore { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+.backup-restore label { font-weight: 600; }
+.backup-restore input[type='file'] { max-width: 100%; }
+.backup-confirm { display: grid; gap: 8px; padding: 12px; border-radius: 8px; background: var(--surface-2); min-width: 0; overflow-wrap: anywhere; }

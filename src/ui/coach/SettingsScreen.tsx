@@ -1,9 +1,10 @@
-// Settings: the optional Claude coach voice (off by default; the trainer works fully without it)
-// and installing the trainer as an app.
+// Settings: the optional Claude coach voice (off by default; the trainer works fully without it),
+// backing up saved progress, and installing the trainer as an app.
 
 import { useState } from 'react';
 import { SYSTEM_PROMPT } from '../../engine/coach/explain';
 import { useInstall } from '../app/install';
+import { BackupPanel } from './BackupPanel';
 import { MODEL_NAME } from './model';
 import { coachVoiceOn, setCoachSettings, useCoachSettings } from './settings';
 import './coach.css';
@@ -18,7 +19,7 @@ export function SettingsScreen() {
     <div className="screen settings-screen">
       <div>
         <p className="eyebrow">Settings</p>
-        <h1>Coach voice and app</h1>
+        <h1>Coach voice, backups and app</h1>
       </div>
 
       <section className="panel" aria-labelledby="voice-h">
@@ -68,6 +69,8 @@ export function SettingsScreen() {
         <p className="muted small">The instructions sent with every request. The facts that follow them are the spot, your cards, your action, the verdict, the trainer's reasons, the EV table and the key concept. Opponents' cards are never sent.</p>
         <pre className="prompt">{SYSTEM_PROMPT}</pre>
       </details>
+
+      <BackupPanel />
 
       <InstallPanel />
     </div>

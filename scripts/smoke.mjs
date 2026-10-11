@@ -4,7 +4,8 @@
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
 // every chart in the chart explorer, the equity calculator, mistake review cards made from the imported sample hands, the
-// opponent stats on the Play and Session tabs, tournament push/fold and reshove spots, and
+// opponent stats on the Play and Session tabs, tournament push/fold and reshove spots, backup and
+// restore into a new browser, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -13,6 +14,9 @@
 //   npm run smoke                 # 8 hands per level
 //   HANDS=20 npm run smoke        # more hands per level
 
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 
@@ -539,6 +543,44 @@ for (const vp of VIEWPORTS) {
   else {
     if (sent.key !== 'sk-ant-smoke-test') failures.push(`${tag}: the request did not carry the saved key`);
     if (sent.body.model !== 'claude-opus-5-5') failures.push(`${tag}: the request used model ${sent.body.model}`);
+  }
+
+  // Backup and restore: the saved file holds the hands but not the API key, a file that is not a
+  // backup is refused, and restoring into an empty browser brings back the same hands and review
+  // cards and leaves the key out.
+  await page.goto(`${url}#settings`);
+  await page.waitForSelector('#backup-here');
+  const holds = await page.textContent('#backup-here');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#backup-save')]);
+  const dir = mkdtempSync(join(tmpdir(), 'poker-backup-'));
+  const file = join(dir, download.suggestedFilename());
+  await download.saveAs(file);
+  const text = readFileSync(file, 'utf8');
+  if (!/^poker-coach-backup-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename())) failures.push(`${tag}: the backup is named ${download.suggestedFilename()}`);
+  if (text.includes('sk-ant-smoke-test')) failures.push(`${tag}: the backup file contains the API key`);
+  if (!/[1-9]\d* hands? in/.test(holds)) failures.push(`${tag}: the backup panel says "${holds}"`);
+  const notBackup = join(dir, 'not-a-backup.json');
+  writeFileSync(notBackup, '{"hello":1}');
+  await page.setInputFiles('#backup-file', notBackup);
+  await page.waitForSelector('.backup .errors');
+  if (!(await page.textContent('.backup .errors')).includes('not a Poker Coach backup')) failures.push(`${tag}: a file that is not a backup was not refused`);
+  await noOverflow(page, `${tag}, backup`);
+  {
+    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const p2 = await fresh.newPage();
+    p2.on('pageerror', (e) => failures.push(`${tag}, restore: ${e.message}`));
+    await p2.goto(`${url}#settings`);
+    await p2.waitForSelector('#backup-here');
+    if (!(await p2.textContent('#backup-here')).includes('0 hands')) failures.push(`${tag}: a new browser already holds hands`);
+    await p2.setInputFiles('#backup-file', file);
+    await p2.waitForSelector('#backup-restore');
+    await noOverflow(p2, `${tag}, restore confirmation`);
+    await Promise.all([p2.waitForEvent('load'), p2.click('#backup-restore')]);
+    await p2.waitForSelector('#backup-here');
+    const restored = await p2.textContent('#backup-here');
+    if (restored !== holds) failures.push(`${tag}: after a restore the browser holds "${restored}", expected "${holds}"`);
+    if (!(await p2.$('#api-key'))) failures.push(`${tag}: the restore brought back an API key`);
+    await fresh.close();
   }
 
   console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${imported} imported hands, ${requests.length} mocked coach requests`);
