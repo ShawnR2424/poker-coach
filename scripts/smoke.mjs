@@ -2,7 +2,7 @@
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Checks the Session tab's progress charts, a range quiz, and
+// hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -334,6 +334,7 @@ for (const vp of VIEWPORTS) {
   // Every postflop practice spot renders its read and combo table.
   await page.goto(`${url}#spots`);
   const spots = await page.$$('.spot-pick button');
+  let mixedSpots = 0;
   for (let i = 0; i < spots.length; i++) {
     await (await page.$$('.spot-pick button'))[i].click();
     await page.waitForSelector('.combo-table', { timeout: TURN_TIMEOUT });
@@ -348,8 +349,16 @@ for (const vp of VIEWPORTS) {
       you: document.querySelectorAll('.range-actions .you-tag').length,
     }));
     if (split.rows < 2 || split.you !== 1) failures.push(`${tag}, spot ${i + 1}: range-by-action table has ${split.rows} rows and ${split.you} marked as yours`);
+    // A close spot tags each part of its mix in the EV table, with shares that add up to 100%.
+    const mix = await page.$$eval('.ev-table .mix-tag', (t) => t.map((x) => Number(x.textContent.match(/(\d+)%/)[1])));
+    if (mix.length) {
+      mixedSpots++;
+      if (mix.length < 2 || mix.reduce((a, b) => a + b, 0) !== 100) failures.push(`${tag}, spot ${i + 1}: mix shares ${mix.join(' + ')} do not make a mix of 100%`);
+      if (!(await page.textContent('.feedback')).includes('This is a close spot, so it is played as a mix')) failures.push(`${tag}, spot ${i + 1}: a mixed spot's feedback does not explain the mix`);
+    }
     await noOverflow(page, `${tag}, spot ${i + 1} feedback`);
   }
+  if (!mixedSpots) failures.push(`${tag}: no practice spot shows a mix`);
 
   // Import: the sample hand histories grade, save as a new session, and replay with their verdicts.
   await page.goto(`${url}#import`);

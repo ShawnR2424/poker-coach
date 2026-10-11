@@ -1,4 +1,4 @@
-import { bbs, describeOption, type Analysis, type OptionRow } from '../../engine/postflop/recommend';
+import { bbs, describeOption, type Analysis, type MixPart, type OptionRow } from '../../engine/postflop/recommend';
 
 const pct = (x: number | undefined) => (x === undefined ? '–' : `${Math.round(x * 100)}%`);
 
@@ -7,12 +7,15 @@ interface Props {
   bb: number;
   chosen: OptionRow | null;
   acceptable: OptionRow[];
+  /** In a close spot, how often to take each kind of action; its rows are tagged with their share. */
+  mix?: MixPart[];
   /** Response columns mean "everyone folds" and "someone calls / raises". */
   multiway?: boolean;
 }
 
 /** Every legal action with the opponent's predicted response and its expected value. */
-export function EvTable({ analysis, bb, chosen, acceptable, multiway }: Props) {
+export function EvTable({ analysis, bb, chosen, acceptable, mix, multiway }: Props) {
+  const mixed = mix && mix.length > 1 ? mix : null;
   const max = Math.max(...analysis.rows.map((r) => Math.abs(r.ev)), 1);
   return (
     <div className="ev-wrap">
@@ -33,12 +36,13 @@ export function EvTable({ analysis, bb, chosen, acceptable, multiway }: Props) {
           {analysis.rows.map((r) => {
             const isBest = r === analysis.best;
             const isChosen = r === chosen;
-            const fine = !isBest && acceptable.includes(r);
+            const part = mixed?.find((p) => p.row === r);
+            const fine = !isBest && !part && acceptable.includes(r);
             return (
               <tr key={describeOption(r.option)} className={`${isBest ? 'best' : ''}${isChosen ? ' chosen' : ''}`}>
                 <th scope="row">
                   {describeOption(r.option)}
-                  {isBest && <span className="tag best-tag">Best</span>}
+                  {part ? <span className="tag best-tag mix-tag">Mix {Math.round(part.freq * 100)}%</span> : isBest && <span className="tag best-tag">Best</span>}
                   {fine && <span className="tag fine-tag">Also fine</span>}
                   {isChosen && <span className="tag you-tag">You</span>}
                 </th>
@@ -57,6 +61,7 @@ export function EvTable({ analysis, bb, chosen, acceptable, multiway }: Props) {
         </tbody>
       </table>
       <p className="muted small">
+        {mixed && <>A close spot: the actions tagged Mix are within a small margin of each other, so a balanced strategy takes each about that share of the time. </>}
         EV is measured against folding now, so chips already in the pot don't count. Responses come from the opponent model in data/postflop/actions.json.{multiway ? ' With several opponents, each one responds on their own; if anyone raises, the model has you fold.' : ''}
       </p>
     </div>

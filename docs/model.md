@@ -110,6 +110,12 @@ Every legal action and preset size is scored, and the hero's choice is compared 
 
 Thresholds scale with the pot so that tiny differences in big pots are not called mistakes. Close spots can change verdict when `actions.json` is tuned.
 
+### Mixed spots
+
+Where a solver would mix, the trainer shows a mix too. For each kind of action (fold, check, call, bet, raise) it takes the best size, and every kind whose EV is within the correct margin of the best becomes part of the mix. Each part is weighted by `exp((EV − best EV) / (margin / 2))`, so options that tie split evenly and one a full margin behind gets about 12%, which rounds to 10% since the weights are rounded to 5% steps. Every part of a mix is graded correct, and the feedback names the whole mix with its EVs instead of a single best play.
+
+The frequencies are a teaching heuristic that says how close the options are, not solver output: a solver mixes to keep a range balanced, which this model does not track. In a seeded sample of 300 level 3 hands, 98 of 595 heads-up postflop decisions were mixed, almost all between two kinds of action (bet or check 66, call or raise 17, call or fold 11). Adaptive opponents count a mixed spot by its share, so checking in a 50/50 bet-or-check spot counts as half a check where the best play checks.
+
 ### Your own range
 
 After the flop the hero's range is narrowed the same way as an opponent's: the preflop chart range for the hero's actions, then the class tables for each postflop action the hero took. Two things are built from it:
@@ -181,7 +187,7 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 
 ## Known gaps
 
-- No solver: mixed strategies postflop are not reproduced, and the model has no notion of balancing a range across bets and checks. The trainer names the single option with the highest EV as best, so where a solver would mix (a semi-bluff raise with a weak draw, a bet or check with middle pair), the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more. Options within the correct margin are all graded correct, so this mostly affects which option the feedback names.
+- No solver: the model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
 - The defense floor spreads the extra defense across classes in proportion to how often each already continues. A real defender adds the hands that do best against the bettor's range, so the calling range can be a little weaker than it should be.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Only 40bb, 100bb and 200bb charts exist, and the 40bb and 200bb ones are rule-based adjustments of the 100bb charts. Stacks are always equal at the start of a hand.

@@ -15,7 +15,7 @@ import { applyAction, legalActions, newHand, type Action, type HandConfig, type 
 import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiway';
 import { PROFILES } from '../postflop/model';
 import { narrowHand } from '../postflop/narrow';
-import { analyze, describeOption, gradePostflop, leaksAtRisk, situationFromState } from '../postflop/recommend';
+import { analyze, describeOption, gradePostflop, leaksAtRisk, mixMoves, situationFromState } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
 import type { PreflopOptions } from '../preflop/policy';
 import { hasChart, spotFor } from '../preflop/spot';
@@ -370,7 +370,7 @@ export function gradeReplay(r: HandReplay): DecisionRecord[] {
         out.push({
           label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
           atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
-          lossBB: g.loss / sit.bb,
+          ...(mixMoves(g.mix) ? { bestMix: mixMoves(g.mix)! } : {}), lossBB: g.loss / sit.bb,
         });
       } else {
         const sit = multiwaySituationFromState(s, r.hero, views, { heroRange, heroPreflopAggressor });
@@ -379,7 +379,7 @@ export function gradeReplay(r: HandReplay): DecisionRecord[] {
         out.push({
           label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
           atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
-          lossBB: g.loss / sit.bb,
+          ...(mixMoves(g.mix) ? { bestMix: mixMoves(g.mix)! } : {}), lossBB: g.loss / sit.bb,
         });
       }
     } catch {

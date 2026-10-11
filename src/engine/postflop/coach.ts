@@ -7,7 +7,7 @@ import { COMBO_CARDS, NUM_COMBOS } from '../range';
 import { classifyHand, POSTFLOP_CLASS_LABEL, type PostflopClass } from './classify';
 import type { PostflopBreakdown } from './categories';
 import type { PostflopMove } from './model';
-import { bbs, describeOption, type Analysis, type OptionRow, type PostflopGrade, type DecisionBasics } from './recommend';
+import { bbs, describeOption, mixText, type Analysis, type OptionRow, type PostflopGrade, type DecisionBasics } from './recommend';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -60,7 +60,16 @@ export function postflopFeedback(
     );
   }
   const chosen = grade.chosen, best = grade.best;
-  if (chosen !== best && grade.verdict === 'correct') {
+  if (grade.mix.length > 1) {
+    const evs = grade.mix.map((p) => p.row.ev);
+    const inMix = grade.mix.some((p) => p.row === chosen);
+    bullets.push(
+      `This is a close spot, so it is played as a mix: ${mixText(grade.mix)}. Their EVs are within ${bbs(Math.max(...evs) - Math.min(...evs), bb)} of each other (${grade.mix.map((p) => rowLine(p.row, bb)).join('; ')}).`
+        + (inMix ? ' Yours is part of the mix.'
+          : grade.verdict === 'correct' ? ` Yours, ${rowLine(chosen, bb)}, is within ${bbs(grade.loss, bb)} of the best, close enough to count as correct.`
+            : ` You chose ${rowLine(chosen, bb)}, which gives up ${bbs(grade.loss, bb)} against the best part of the mix.`),
+    );
+  } else if (chosen !== best && grade.verdict === 'correct') {
     bullets.push(`The top play is ${rowLine(best, bb)}. Yours, ${rowLine(chosen, bb)}, is within ${bbs(grade.loss, bb)} of it, close enough to count as correct.`);
   } else if (chosen !== best) {
     bullets.push(`The best play is ${rowLine(best, bb)}. You chose ${rowLine(chosen, bb)}, which gives up ${bbs(grade.loss, bb)}.`);

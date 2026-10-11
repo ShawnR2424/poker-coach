@@ -282,6 +282,18 @@ export interface PostflopGrade {
   acceptable: OptionRow[];
   tags: string[];
   sizeNote: string | null;
+  /**
+   * How often to take each kind of action when the spot is close (see `mixOf`). A single entry at
+   * 100% when one action is clearly best.
+   */
+  mix: MixPart[];
+}
+
+export interface MixPart {
+  /** The best-sized row of this kind of action. */
+  row: OptionRow;
+  /** Share of the time to take it, a multiple of 5%. */
+  freq: number;
 }
 
 /** Margins in chips: correct within max(0.25bb, 4% pot), playable within max(1bb, 15% pot). */
@@ -290,6 +302,43 @@ export function margins(potSize: number, bb: number) {
 }
 
 const sized = (k: HeroOption['kind']) => k === 'bet' || k === 'raise';
+
+/**
+ * A mixed strategy for close spots. Each kind of action (fold, check, call, bet, raise) is
+ * represented by its best size; every kind within the "correct" margin of the best play is part of
+ * the mix, weighted by exp(-(EV gap) / (half the margin)), so two options with the same EV split
+ * 50/50 and an option a full margin behind gets about a seventh of the weight of the best.
+ * Frequencies are rounded to 5% with at least 5% each. This is a teaching heuristic that makes the
+ * near-indifference of close spots visible, not solver frequencies.
+ */
+export function mixOf(a: Analysis, potSize: number, bb: number): MixPart[] {
+  const m = margins(potSize, bb);
+  const byKind = new Map<HeroOption['kind'], OptionRow>();
+  for (const r of a.rows) {
+    const cur = byKind.get(r.option.kind);
+    if (!cur || r.ev > cur.ev) byKind.set(r.option.kind, r);
+  }
+  const close = [...byKind.values()].filter((r) => a.best.ev - r.ev <= m.correct).sort((x, y) => y.ev - x.ev);
+  if (close.length < 2) return [{ row: a.best, freq: 1 }];
+  const tau = m.correct / 2;
+  const w = close.map((r) => Math.exp((r.ev - a.best.ev) / tau));
+  const total = w.reduce((x, y) => x + y, 0);
+  const freqs = w.map((x) => Math.max(1, Math.round((x / total) * 20)));
+  // Put any rounding remainder on the most frequent option so the parts add up to 100%.
+  freqs[0] += 20 - freqs.reduce((x, y) => x + y, 0);
+  return close.map((row, i) => ({ row, freq: freqs[i] / 20 }));
+}
+
+/** The share of each kind of action in a mix, for session records; null for a pure spot. */
+export function mixMoves(mix: readonly MixPart[]): Partial<Record<HeroOption['kind'], number>> | null {
+  return mix.length > 1 ? Object.fromEntries(mix.map((p) => [p.row.option.kind, p.freq])) : null;
+}
+
+/** "check (60%) and bet 33% pot (40%)". */
+export function mixText(mix: readonly MixPart[]): string {
+  const parts = mix.map((p) => `${describeOption(p.row.option).toLowerCase()} (${Math.round(p.freq * 100)}%)`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
+}
 
 export function describeOption(o: HeroOption): string {
   if (o.kind === 'bet') return o.allIn ? 'Shove' : `Bet ${o.label}`;
@@ -318,10 +367,12 @@ export function gradePostflop(sit: DecisionBasics, a: Analysis, action: Action):
   const loss = Math.max(0, best.ev - chosen.ev);
   const acceptable = a.rows.filter((r) => best.ev - r.ev <= m.correct);
   const verdict: Verdict = loss <= m.correct ? 'correct' : loss <= m.playable ? 'playable' : 'mistake';
+  const mix = mixOf(a, sit.pot, sit.bb);
+  const mixed = mix.length > 1;
   const name = describeOption(chosen.option);
   let heading =
-    verdict === 'correct' ? `Correct: ${name.toLowerCase()}`
-      : verdict === 'playable' ? `Playable, but ${describeOption(best.option).toLowerCase()} earns more`
+    verdict === 'correct' ? `Correct: ${name.toLowerCase()}${mixed ? ' (a mixed spot)' : ''}`
+      : verdict === 'playable' ? `Playable, but ${mixed ? mix.map((p) => describeOption(p.row.option).toLowerCase()).join(' or ') : describeOption(best.option).toLowerCase()} earns more`
         : `Mistake: ${name.toLowerCase()}`;
   let sizeNote: string | null = null;
   if (verdict !== 'correct' && sized(chosen.option.kind) && sized(best.option.kind)) {
@@ -352,7 +403,7 @@ export function gradePostflop(sit: DecisionBasics, a: Analysis, action: Action):
   if (verdict !== 'correct' && sit.street === 'flop' && chosen.option.kind === 'bet' && sit.heroFirstToAct && !sit.heroInPosition && !sit.heroPreflopAggressor) {
     tags.push('donk bet into the preflop raiser');
   }
-  return { verdict, heading, chosen, best, loss, acceptable, tags, sizeNote };
+  return { verdict, heading, chosen, best, loss, acceptable, tags, sizeNote, mix };
 }
 
 export const bbs = (chips: number, bb: number): string => {
