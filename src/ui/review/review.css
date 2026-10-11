@@ -1,0 +1,9 @@
+/* Mistake review. */
+.review-card { display: grid; gap: 12px; }
+.review-card-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 6px 16px; }
+.review-card-head h2 { text-wrap: balance; }
+.review-card-head p { margin: 0; }
+.first-time { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--surface-2); border-left: 4px solid var(--line); max-width: 75ch; }
+.boxes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.boxes li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.box-n { font-size: 1.3rem; font-weight: 700; }

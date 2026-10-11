@@ -2,7 +2,8 @@
 // Serves dist/ with Vite's preview server, then plays hands on every level at phone and
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
-// hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz, and
+// hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
+// mistake review cards made from the imported sample hands, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -382,6 +383,34 @@ for (const vp of VIEWPORTS) {
     }
     await noOverflow(page, where);
   }
+
+  // Mistake review: every saved mistake is a card (the sample hands alone hold 5); each card deals
+  // its spot, grades a new answer with full feedback, and leaves the due list until it is scheduled.
+  await page.goto(`${url}#review`);
+  await page.waitForSelector('.review h1');
+  const dueNow = async () => Number(await page.$eval('.review .tiles .stat:first-child .stat-value', (e) => e.textContent));
+  const due0 = await dueNow();
+  const badge = await page.$eval('.tabs .tab-count', (e) => Number(e.textContent)).catch(() => 0);
+  if (due0 < 5) failures.push(`${tag}: review has ${due0} cards due, expected at least the 5 mistakes in the sample hands`);
+  if (badge !== due0) failures.push(`${tag}: the Review tab badge says ${badge} but ${due0} cards are due`);
+  const answered = Math.min(4, due0);
+  for (let i = 0; i < answered; i++) {
+    const where = `${tag}, review card ${i + 1}`;
+    await page.waitForSelector('.review-card .action-buttons .act');
+    if (!(await page.$('.review-card h2:has-text("what do you do?")'))) failures.push(`${where}: the card does not ask for a decision`);
+    const acts = await page.$$('.review-card .action-buttons .act');
+    await acts[i % acts.length].click();
+    await page.waitForSelector('.review-card .feedback .verdict-badge', { timeout: TURN_TIMEOUT });
+    if (!(await page.$('.review-card .first-time'))) failures.push(`${where}: no note of the first answer and the schedule`);
+    if (!(await page.$('.review-card .feedback .why li'))) failures.push(`${where}: the feedback has no reasons`);
+    await noOverflow(page, where);
+    await page.click('.review-card .fb-actions .primary:has-text("Next card")');
+  }
+  await page.reload();
+  await page.waitForSelector('.review h1');
+  const due1 = await dueNow();
+  if (due1 !== due0 - answered) failures.push(`${tag}: after answering ${answered} cards and reloading, ${due1} are due, expected ${due0 - answered}`);
+  await noOverflow(page, `${tag}, review`);
 
   // Switch the coach voice on with a test key and check both outcomes against the mocked API.
   await page.goto(`${url}#settings`);

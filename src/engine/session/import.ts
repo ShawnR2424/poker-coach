@@ -10,16 +10,12 @@
 // puts the small blind first after the flop, while heads-up the small blind is the button.
 
 import { formatCards, parseCard, type Card } from '../cards';
-import { comboEquities } from '../equity';
 import { applyAction, legalActions, newHand, type Action, type HandConfig, type HandState } from '../hand';
-import { analyzeMultiway, multiwaySituationFromState } from '../postflop/multiway';
-import { PROFILES } from '../postflop/model';
-import { narrowHand } from '../postflop/narrow';
-import { analyze, describeOption, gradePostflop, leaksAtRisk, mixMoves, situationFromState } from '../postflop/recommend';
+import { describeOption, gradePostflop, leaksAtRisk, mixMoves } from '../postflop/recommend';
 import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach';
-import type { PreflopOptions } from '../preflop/policy';
 import { hasChart, spotFor } from '../preflop/spot';
 import type { PostflopMove } from './adapt';
+import { postflopSpotAt, replayOptions } from './gradeAt';
 import { replayStates, type HandReplay } from './replay';
 import { handLesson, type DecisionRecord, type HandRecord } from './session';
 
@@ -328,13 +324,10 @@ function describe(s: HandState, a: Action): string {
   return `${a.type} to ${fmt(a.to, s.config.bb)}`;
 }
 
-const STREET_LABEL: Record<string, string> = { flop: 'Flop', turn: 'Turn', river: 'River' };
-
 /** Grades every hero decision in a replay with the trainer's preflop charts and postflop model. */
 export function gradeReplay(r: HandReplay): DecisionRecord[] {
   const states = replayStates(r);
-  const opts: PreflopOptions = { lowStakes: r.lowStakes, stacksBB: r.stacks[r.hero] / r.config.bb, rake: r.config.rake };
-  const profile = PROFILES.regular;
+  const opts = replayOptions(r);
   const out: DecisionRecord[] = [];
   r.actions.forEach((entry, k) => {
     if (entry[0] !== r.hero) return;
@@ -353,35 +346,14 @@ export function gradeReplay(r: HandReplay): DecisionRecord[] {
         });
         return;
       }
-      const live = r.villains.filter((v) => !s.players[v].folded);
-      if (!live.length) return;
-      const pre = s.actions.filter((x) => x.street === 'preflop' && x.type === 'raise');
-      const heroPreflopAggressor = pre.length > 0 && pre[pre.length - 1].player === r.hero;
-      const heroRange = narrowHand(s, r.hero, 'baseline', opts).range;
-      const views = live.map((v) => ({ seat: v, range: narrowHand(s, v, 'pool', opts, profile).range, profile }));
-      // A line the charts never take leaves no range to grade against.
-      if (views.some((v) => !v.range.some((x) => x > 0))) return;
-      const label = `${STREET_LABEL[s.street]} ${formatCards(s.board)}`;
-      if (views.length === 1) {
-        const v = views[0];
-        const sit = situationFromState(s, r.hero, v.seat, v.range, { heroRange, heroPreflopAggressor, villainProfile: profile });
-        const an = analyze(sit, comboEquities(sit.hero, sit.board, sit.villainRange));
-        const g = gradePostflop(sit, an, a);
-        out.push({
-          label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
-          atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
-          ...(mixMoves(g.mix) ? { bestMix: mixMoves(g.mix)! } : {}), lossBB: g.loss / sit.bb,
-        });
-      } else {
-        const sit = multiwaySituationFromState(s, r.hero, views, { heroRange, heroPreflopAggressor });
-        const an = analyzeMultiway(sit, { seed: k + 1 }).analysis;
-        const g = gradePostflop(sit, an, a);
-        out.push({
-          label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
-          atRisk: leaksAtRisk(sit, an), step: k, move: a.type as PostflopMove, bestMove: an.best.option.kind,
-          ...(mixMoves(g.mix) ? { bestMix: mixMoves(g.mix)! } : {}), lossBB: g.loss / sit.bb,
-        });
-      }
+      const at = postflopSpotAt(r, s, k);
+      if (!at) return;
+      const g = gradePostflop(at.sit, at.analysis, a);
+      out.push({
+        label: at.label, hand, you: describeOption(g.chosen.option).toLowerCase(), verdict: g.verdict, heading: g.heading, tags: g.tags,
+        atRisk: leaksAtRisk(at.sit, at.analysis), step: k, move: a.type as PostflopMove, bestMove: at.analysis.best.option.kind,
+        ...(mixMoves(g.mix) ? { bestMix: mixMoves(g.mix)! } : {}), lossBB: g.loss / at.sit.bb,
+      });
     } catch {
       // A spot the models cannot read stays ungraded, as it does at the practice table.
     }

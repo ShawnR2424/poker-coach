@@ -23,7 +23,7 @@ const ICON = { correct: '✅', playable: '👍', mistake: '⚠️' } as const;
 const GLYPH: Record<string, string> = { c: '♣', d: '♦', h: '♥', s: '♠' };
 
 /** "Flop 8hQhJh" reads as "Flop 8♥Q♥J♥": only whole runs of card codes are rewritten. */
-const withSuits = (text: string) =>
+export const withSuits = (text: string) =>
   text.replace(/\b((?:[2-9TJQKA][cdhs])+)\b/g, (run) => run.replace(/([2-9TJQKA])([cdhs])/g, (_, r, su) => r + GLYPH[su]));
 
 /** Each live opponent's range at this state, in notation: exact preflop, approximate after. */

@@ -10,7 +10,9 @@ const BADGE: Record<string, { icon: string; label: string }> = {
 };
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function FeedbackPanel({ fb, decision, onContinue, voice }: { fb: Feedback; decision: Decision; onContinue: () => void; voice?: ReactNode }) {
+export function FeedbackPanel({ fb, decision, onContinue, voice, continueLabel = 'Continue', children }: {
+  fb: Feedback; decision: Decision; onContinue: () => void; voice?: ReactNode; continueLabel?: string; children?: ReactNode;
+}) {
   const g = fb.grade;
   const name = (c: Choice) => choiceName(decision.spot.kind, c, decision.canCheck);
   return (
@@ -39,7 +41,10 @@ export function FeedbackPanel({ fb, decision, onContinue, voice }: { fb: Feedbac
         <p className="eyebrow">Key concept</p>
         <p>{fb.concept}</p>
       </div>
-      <button type="button" className="primary" onClick={onContinue}>Continue</button>
+      <div className="fb-actions">
+        <button type="button" className="primary" onClick={onContinue}>{continueLabel}</button>
+        {children}
+      </div>
     </section>
   );
 }
