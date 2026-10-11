@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Equity calculator
+
+- New Equity tab: two to four players, each given an exact hand (`AhKd`), a range in standard notation (`QQ+, AKs, AQo:0.5`), `random` for any two cards, or a range filled from the trainer's 100bb charts (opens by seat, and each seat's 3-bets and calls against an open). Add a board of 0, 3, 4 or 5 cards and any dead cards you saw.
+- Results show each player's equity, outright wins and split pots, the combos left in each range once the board and dead cards are removed, and a bar of the equity shares. A split pot counts as a share of the pot.
+- The answer is exact when every deal of the players' hands and every runout can be counted within 4 million hand evaluations (two exact hands preflop, or a hand against ranges on the flop, for example). Otherwise it samples 100,000 or 400,000 deals and gives the margin of error. Sampling deals every player from their range and redeals the whole hand on a card clash, so no player's range is favoured by the dealing order. The work runs in the equity worker, and the tab loads on demand.
+- The fields are kept in the browser. A card in two players' hands, or a range left with no hands, is reported by name.
+- New `equityCalc.test.ts` checks the exact preflop matchups against published values (AhAs against KhKs 82.6%, against KdKc 81.2%), agreement with the existing hero-against-ranges engine, that sampling agrees with exact enumeration within its error, that a range against itself splits evenly, card removal, error messages, and that every chart range parses. The smoke test runs an exact matchup, a three-way pot with a chart range on a flop, a card clash, and a reload.
+
 ## Reshove spots
 
 - The Tournament tab adds reshove spots: a player opens to 2bb, it is folded to you with 12bb to 25bb, and you go all-in or fold. The opener then calls or folds. A new Spots setting deals push/fold spots, reshove spots or both (the default), and is kept in the browser.
