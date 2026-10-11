@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Mistake review
+
+- New Review tab. Every decision graded a mistake, on the Play tab or in imported hands, becomes a card that deals the same spot again with the opponents' cards hidden. Your new answer is graded with the same charts, ranges and model, with the full feedback panel, and a note says what you chose the first time and when the card comes back.
+- Cards follow a spaced-repetition schedule in five boxes: a right answer spaces a card out to 1, 3, 7 and then 21 days and five in a row mark it learned; a mistake brings it back 10 minutes later; a playable answer comes back the next day. The tab shows how many cards are due, and the screen shows the cards in each box. A card can be removed from the deck.
+- Each card keeps its own copy of the hand, so it lasts after the session's replay limit drops the hand.
+- Grading a decision inside a saved hand moved to `session/gradeAt.ts`, shared by imports and review. Imports grade exactly as before.
+- New `review.test.ts` checks that every mistake becomes one card, the deck limit, that a card deals the spot that was played, grades the original play a mistake and the best play correct, the schedule, and saving. The smoke test answers review cards made from the imported sample hands and checks the due count after a reload.
+
 ## Mixed postflop play
 
 - Close postflop spots are now played as a mix. Every kind of action whose EV is within the correct margin of the best becomes part of the mix, weighted toward the better one, and the frequencies are shown in 5% steps. In a seeded sample of 300 level 3 hands, 98 of 595 heads-up postflop decisions were mixed.

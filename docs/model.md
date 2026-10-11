@@ -172,6 +172,13 @@ With two or more opponents still in:
 - The equity is your share of the pot on the flop against the opponent's whole range for the line, before any flop betting, with card removal: every turn and river against every combo your cards and the flop leave possible. It does not narrow the range for flop actions, so it is equity, not EV.
 - Quiz scores are stored in this browser only, separately from sessions, and do not affect leaks, adaptive opponents or level progress.
 
+## Mistake review
+
+- Every decision graded a mistake, at the practice table or in an imported hand, becomes a card, newest first, up to 150 cards in the deck at once. The card keeps its own copy of the hand, so it lasts after the session drops the hand's replay.
+- A card rebuilds the hand up to that decision and grades the new answer with the same charts, ranges and opponent styles (including any adaptive adjustments) the hand was played with, and the same feedback as the practice table. Imported hands use the regular style for every opponent, as when they were imported. If the charts or model have changed so that a spot can no longer be graded, the card says so and can be removed.
+- Scheduling is a Leitner box system with five boxes. New cards are due at once. A correct answer moves a card up a box and brings it back after 1, 3, 7 and then 21 days; a correct answer in the last box marks it learned and takes it out of the deck. A mistake sends it back to the first box, due again 10 minutes later. A playable answer keeps its box and brings it back the next day, since it is close but not the play the card teaches.
+- Grading a card again uses today's model, so a spot whose grade has changed since it was played is graded by the current model. The deck is stored in this browser only and does not change leaks, adaptive opponents or level progress.
+
 ## Imported hands
 
 - The Import tab reads hand histories in the text format PokerStars and GGPoker write: no-limit hold'em cash games with 3 to 9 players dealt in, posting only the two blinds, with amounts in $, € or £. Tournaments, heads-up hands, antes, straddles, dead blinds, run-it-twice and other games are skipped, each with its reason.
