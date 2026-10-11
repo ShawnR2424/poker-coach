@@ -220,6 +220,12 @@ With two or more opponents still in:
 - The result of an imported hand is what the history says the hero collected minus what they put in, so it is after rake, unlike practice hands. The amounts are shown in dollars whatever the currency.
 - Imported hands are saved under their own level, so they never count toward a practice level's progress. Their leaks and postflop tendencies count like any other hand's: they steer leak-targeted practice, and adaptive opponents read them.
 
+## Backup and restore
+
+- A backup is one JSON file, `{ app: "poker-coach", v: 1, savedAt, data }`, where `data` holds each saved item exactly as the browser stores it: the sessions and hands, the review deck, quiz history, the tournament settings and tally, the table and level settings, the chart explorer and equity calculator fields, and the theme.
+- The coach voice settings, which hold the Claude API key, are never written to a backup and are never read from one.
+- A restore checks the version and every item first and changes nothing if any check fails. It then replaces the saved data: items in the file are written, and items the file does not have are cleared, so data from two browsers is never mixed. The page reloads so every tab reads the restored data.
+
 ## Coach voice (optional)
 
 When switched on in Settings, Claude rewrites the trainer's feedback in a coaching voice. It is a presentation layer only: it receives the facts already on the feedback panel, never the opponents' cards or the hand's outcome, and any reply containing a number not in those facts is discarded. Nothing in the grading depends on it.

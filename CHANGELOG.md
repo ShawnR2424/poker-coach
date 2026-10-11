@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Backup and restore
+
+- The Settings tab has a new Back up your progress panel. It says what this browser holds (hands, sessions, review cards, quiz results and tournament spots) and saves it all to one file, `poker-coach-backup-YYYY-MM-DD.json`, along with the table, level, chart explorer, equity calculator and theme settings.
+- Restoring reads a backup file, checks every item in it, shows what the file holds and when it was saved, and replaces this browser's saved data with it after you confirm. A file that is not a Poker Coach backup, is from a newer version or holds data the trainer cannot read is refused with a plain explanation, and nothing is changed.
+- The Claude API key is never written to a backup, and a restore leaves this browser's key as it is.
+- New `backup.test.ts` checks that a backup keeps every item exactly and never the key, that it round-trips into an empty browser, that a restore replaces rather than merges, that bad files are refused with the right message, and that unknown items are ignored. The smoke test saves a backup after its hands, checks the file has no key, refuses a file that is not a backup, and restores it into a new browser with the same hands and review cards.
+
 ## Equity calculator
 
 - New Equity tab: two to four players, each given an exact hand (`AhKd`), a range in standard notation (`QQ+, AKs, AQo:0.5`), `random` for any two cards, or a range filled from the trainer's 100bb charts (opens by seat, and each seat's 3-bets and calls against an open). Add a board of 0, 3, 4 or 5 cards and any dead cards you saw.
