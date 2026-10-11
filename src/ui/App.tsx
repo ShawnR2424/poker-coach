@@ -5,15 +5,16 @@ import { SettingsScreen } from './coach/SettingsScreen';
 import { ImportScreen } from './session/ImportScreen';
 import { SessionScreen } from './session/SessionScreen';
 import { QuizScreen } from './quiz/QuizScreen';
+import { ChartsScreen } from './charts/ChartsScreen';
 import { ReviewScreen } from './review/ReviewScreen';
 import { useDeck } from './review/store';
 import { dueCards } from '../engine/review/review';
 import { SpotsScreen } from './spots/SpotsScreen';
 
-type Tab = 'table' | 'spots' | 'quiz' | 'review' | 'session' | 'import' | 'settings' | 'lab';
+type Tab = 'table' | 'spots' | 'charts' | 'quiz' | 'review' | 'session' | 'import' | 'settings' | 'lab';
 type Theme = 'system' | 'light' | 'dark';
 
-const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#quiz' ? 'quiz' : location.hash === '#review' ? 'review' : location.hash === '#session' ? 'session' : location.hash === '#import' ? 'import' : location.hash === '#settings' ? 'settings' : 'table');
+const readHash = (): Tab => (location.hash === '#lab' ? 'lab' : location.hash === '#spots' ? 'spots' : location.hash === '#charts' ? 'charts' : location.hash === '#quiz' ? 'quiz' : location.hash === '#review' ? 'review' : location.hash === '#session' ? 'session' : location.hash === '#import' ? 'import' : location.hash === '#settings' ? 'settings' : 'table');
 
 function loadTheme(): Theme {
   try {
@@ -54,6 +55,7 @@ export function App() {
         <nav className="tabs" aria-label="Sections">
           <button type="button" className={tab === 'table' ? 'on' : ''} aria-pressed={tab === 'table'} onClick={() => go('table')}>Play</button>
           <button type="button" className={tab === 'spots' ? 'on' : ''} aria-pressed={tab === 'spots'} onClick={() => go('spots')}>Postflop spots</button>
+          <button type="button" className={tab === 'charts' ? 'on' : ''} aria-pressed={tab === 'charts'} onClick={() => go('charts')}>Charts</button>
           <button type="button" className={tab === 'quiz' ? 'on' : ''} aria-pressed={tab === 'quiz'} onClick={() => go('quiz')}>Quizzes</button>
           <button type="button" className={tab === 'review' ? 'on' : ''} aria-pressed={tab === 'review'} onClick={() => go('review')}>
             Review{dueNow > 0 && <span className="tab-count num" aria-label={`, ${dueNow} due`}>{dueNow}</span>}
@@ -72,7 +74,7 @@ export function App() {
           </select>
         </label>
       </header>
-      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : tab === 'quiz' ? <QuizScreen /> : tab === 'review' ? <ReviewScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'import' ? <ImportScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
+      {tab === 'table' ? <GameScreen /> : tab === 'spots' ? <SpotsScreen /> : tab === 'charts' ? <ChartsScreen /> : tab === 'quiz' ? <QuizScreen /> : tab === 'review' ? <ReviewScreen /> : tab === 'session' ? <SessionScreen /> : tab === 'import' ? <ImportScreen /> : tab === 'settings' ? <SettingsScreen /> : <Lab />}
     </>
   );
 }
