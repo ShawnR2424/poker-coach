@@ -4,7 +4,7 @@
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
 // every chart in the chart explorer, mistake review cards made from the imported sample hands, the
-// opponent stats on the Play and Session tabs, and
+// opponent stats on the Play and Session tabs, tournament push/fold spots, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -397,6 +397,33 @@ for (const vp of VIEWPORTS) {
   await page.waitForSelector('#chart-key');
   if ((await page.$eval('#chart-key', (e) => e.value)) !== 'BB_vs_BTN' || !(await page.isChecked('#chart-rake'))) failures.push(`${tag}: the chosen chart was not kept after a reload`);
   await page.uncheck('#chart-rake');
+
+  // Tournament mode: spots at every table size and payout setting deal, answer with a verdict,
+  // a grid and the EV of both options, and the tally of answered spots survives a reload.
+  await page.goto(`${url}#tournament`);
+  let tSpots = 0;
+  for (const [players, mode] of [['6', 'final'], ['9', 'bubble'], ['6', 'chips']]) {
+    await page.selectOption('#t-players', players);
+    await page.selectOption('#t-mode', mode);
+    for (let i = 0; i < 2; i++) {
+      await page.waitForSelector('.t-spot', { timeout: TURN_TIMEOUT });
+      const seats = await page.$$eval('.t-seats tbody tr', (r) => r.length);
+      if (seats !== Number(players)) failures.push(`${tag}: a ${players}-player tournament spot shows ${seats} seats`);
+      await page.click(i ? '.action-bar .act.fold' : '.action-bar .act.allin');
+      await page.waitForSelector('#t-fb-h');
+      const evRows = await page.$$eval('.t-ev tbody tr', (r) => r.length);
+      const cells = await page.$$eval('.feedback .range-grid .cell', (c) => c.length);
+      if (evRows !== 2 || cells !== 169) failures.push(`${tag}: tournament feedback shows ${evRows} options and ${cells} grid cells`);
+      await noOverflow(page, `${tag}, tournament ${players} ${mode}`);
+      tSpots++;
+      await page.click('.feedback button:has-text("Next spot")');
+    }
+  }
+  await page.reload();
+  await page.waitForSelector('.t-tally');
+  const tTally = await page.$eval('.t-tally', (e) => e.textContent);
+  if (!tTally.includes(`${tSpots} answered`)) failures.push(`${tag}: the tournament tally after a reload says "${tTally}"`);
+  if ((await page.$eval('#t-players', (e) => e.value)) !== '6' || (await page.$eval('#t-mode', (e) => e.value)) !== 'chips') failures.push(`${tag}: tournament settings were not kept after a reload`);
 
   // Import: the sample hand histories grade, save as a new session, and replay with their verdicts.
   await page.goto(`${url}#import`);

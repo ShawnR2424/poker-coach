@@ -5,7 +5,7 @@ Poker Coach grades decisions with exact arithmetic (equity, pot odds, expected v
 ## Scope
 
 - No-Limit Hold'em, 6 to 9 handed, $0.25/$0.50 or $0.50/$1 blinds, every stack 40bb, 100bb or 200bb at the start of each hand (100bb by default). The stakes change the dollar amounts only: in big blinds every spot plays the same.
-- No rake by default; the Rake setting adds 5% of each pot that sees a flop, capped at 3bb (see [Rake](#rake)). No antes, no straddles, no deeper or shorter stacks.
+- No rake by default; the Rake setting adds 5% of each pot that sees a flop, capped at 3bb (see [Rake](#rake)). No antes, no straddles, no deeper or shorter stacks at the cash table; the separate Tournament tab covers short-stack push/fold with antes (see [Tournament mode](#tournament-mode)).
 - One hero seat; the opponents are bots driven by the model below.
 
 ## What is exact
@@ -178,6 +178,16 @@ With two or more opponents still in:
 - Changed hands are measured against the plain 100bb chart with no rake and no low-stakes adjustments, per hand class, and listed when any action's frequency moved by at least 1 point. The notes are the ones the adjustment rules in `data/preflop/` attach when they change a chart.
 - Sizes are the chart sizes at that depth: an open in big blinds, a 3-bet as a multiple of the open, a 4-bet as a multiple of the 3-bet (all-in at 40bb), and an isolation raise in big blinds plus one per limper. On the Play tab they are rounded to the table's chips and capped by the stack.
 
+## Tournament mode
+
+- The Tournament tab is separate from the cash game model: its own spots, ranges and tally, with nothing shared with the Play tab's sessions, leaks or charts.
+- A spot is a final table of 6 or 9 players, blinds 0.5/1 and, when on, a big blind ante of 1bb paid by the big blind. Your stack is 4bb to 15bb, where push/fold is the standard play; the others' stacks are 3bb to 40bb, weighted toward shorter stacks. In 60% of spots it is folded to you; otherwise a player in front of you is all-in. Hands whose two options are more than 3bb apart are often redealt, so most spots are close.
+- Payouts: chip EV values every chip the same. The final table pays everyone (6 left: 38/24/16/10/7/5%; 9 left: 30/20/14/10/8/6/5/4/3%). The bubble pays all but one (6 left: 40/25/17/11/7%; 9 left: 30/20/15/11/8/6/5.5/4.5%). Under ICM (Malmuth-Harville), a player finishes first with probability equal to their share of the chips, the next place is shared the same way among the rest, and so on; a player who busts takes the lowest place left.
+- The ranges are worked out in the browser for each table, by class (169 starting hands), from the all-in equity of each class against each other in `data/tournament/class-equity.json` (20,000 random deals per pair, card removal between the two hands). The callers answer the all-in range exactly, working back from the big blind so that each caller knows how the players after them answer. The opener's range moves toward its best answer to those calls by fictitious play over 150 passes, so hands on the edge end up mixed; frequencies under 5% or over 95% are rounded to never or always. Every player maximizes their own chips or prize money.
+- Simplifications: only the first caller plays (the players after a caller fold); when the player who would open folds, the hand is treated as folded around to the big blind; equity is between hand classes, ignoring how the exact cards block other players' hands; and stacks are rounded to half a big blind. On the published heads-up equilibrium at 10bb with no ante, the trainer's small blind shoves 58% of hands and the big blind calls 37%, matching published values.
+- Grading compares the two options in big blinds. Under ICM, a share of the prize pool is converted to big blinds at the average chip's value (the prize pool divided by the chips in play), so the margins are the same in every mode: correct within 0.15bb of the better option, playable within 0.5bb, a mistake beyond.
+- For a call, the equity needed is where calling and folding are worth the same: (fold − lose) / (win − lose) in chips or prize money. ICM raises it above the chip-EV number because chips lost cost more prize money than chips won add; that gap is the risk premium.
+
 ## Opponent stats
 
 - Stats are kept per style, not per seat, because a practice hand assigns each opponent a style at random; the seat tag says which style is in which seat. They are read from the replays of the current session's practice hands, so they reset with a new session. Imported hands (every opponent plays the regular style there) and level 1 hands (no styles, no flop) are skipped.
@@ -210,6 +220,7 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 
 - No solver: the model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
 - The defense floor spreads the extra defense across classes in proportion to how often each already continues. A real defender adds the hands that do best against the bettor's range, so the calling range can be a little weaker than it should be.
+- Tournament mode only covers push/fold: no smaller raises, limps or reshoves after a call, and only the first caller plays. Its payouts are fixed presets, not a real tournament's structure.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Only 40bb, 100bb and 200bb charts exist, and the 40bb and 200bb ones are rule-based adjustments of the 100bb charts. Stacks are always equal at the start of a hand.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.

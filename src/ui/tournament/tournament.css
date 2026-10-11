@@ -1,0 +1,15 @@
+/* Tournament mode. */
+.t-pick { display: grid; gap: 10px; }
+.t-pick p { margin: 0; max-width: 75ch; }
+.t-pick input[type='checkbox'] { width: auto; }
+.t-tally { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.t-tally button { margin-left: auto; padding: 4px 10px; }
+.t-spot { display: grid; gap: 10px; }
+.t-spot h2 { text-wrap: balance; }
+.t-spot p { margin: 0; }
+.t-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.t-cards { display: inline-flex; gap: 4px; }
+table.t-seats { max-width: 560px; }
+table.data tr.t-you th, table.data tr.t-you td { background: var(--felt-soft); }
+table.t-ev { max-width: 520px; }
+table.data tr.t-best th { color: var(--good); }
