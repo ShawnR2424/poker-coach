@@ -178,6 +178,14 @@ With two or more opponents still in:
 - Changed hands are measured against the plain 100bb chart with no rake and no low-stakes adjustments, per hand class, and listed when any action's frequency moved by at least 1 point. The notes are the ones the adjustment rules in `data/preflop/` attach when they change a chart.
 - Sizes are the chart sizes at that depth: an open in big blinds, a 3-bet as a multiple of the open, a 4-bet as a multiple of the 3-bet (all-in at 40bb), and an isolation raise in big blinds plus one per limper. On the Play tab they are rounded to the table's chips and capped by the stack.
 
+## Opponent stats
+
+- Stats are kept per style, not per seat, because a practice hand assigns each opponent a style at random; the seat tag says which style is in which seat. They are read from the replays of the current session's practice hands, so they reset with a new session. Imported hands (every opponent plays the regular style there) and level 1 hands (no styles, no flop) are skipped.
+- Only postflop play is counted. Before the flop every style plays the same pool charts and the table scripts the action to reach each level's spot (players not in the hand fold), so VPIP, PFR or 3-bet percentage would measure the hand generator, not the opponent.
+- Fold to bet is the share of an opponent's postflop decisions facing a bet or raise that were folds. Bet or raise is the share of all its postflop decisions that were bets or raises.
+- Each style is compared with the whole table (all styles together) rather than with fixed numbers, since how often anyone folds depends on the bets they face; a hero who bets big gets more folds from everyone. A rate shows after 12 bets faced or 20 decisions. A note needs the rate to differ from the table's by at least 12 points (fold to bet) or 9 points (bet or raise), and by at least two standard errors of the table's rate at that sample size, so a short run does not earn a note.
+- In seeded samples of 900 practice hands at levels 3 to 5 with random hero play, the table folded to about 35-38% of bets and bet or raised about 20-22% of the time. The nit folded about 47-53%, the calling station about 15-20%, and the aggressive style bet or raised about 30-36% of the time; the regular sat near the table. The calling station also bets less (about 10-12%), but at these sample sizes that gap does not always reach the threshold.
+
 ## Mistake review
 
 - Every decision graded a mistake, at the practice table or in an imported hand, becomes a card, newest first, up to 150 cards in the deck at once. The card keeps its own copy of the hand, so it lasts after the session drops the hand's replay.

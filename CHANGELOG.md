@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Opponent stats
+
+- Each opponent style now has a stats line built from the session's practice hands: how many hands it played after the flop, how often it folded when facing a bet, and how often it bet or raised, next to the whole table's rates. The Play tab shows the styles in the current hand, under the table; the Session tab shows all four.
+- A note says how to exploit a style once its rate sits clearly away from the table's: bluff more and expect little action against one that folds more, value-bet thinner against one that folds less, call down lighter against one that bets more, and give credit to one that bets less. A note needs 12 bets faced or 20 decisions, a gap of 12 points (fold to bet) or 9 points (bet or raise), and at least two standard errors.
+- Preflop numbers such as VPIP, PFR and 3-bet percentage are not shown. Every style plays the same preflop charts and the table scripts the preflop action to reach each level's spot, so those numbers would describe the hand generator rather than the opponents.
+- New `hud.test.ts` checks the counting on hand-built action lists, the notes and their thresholds, that imported and level 1 hands are skipped, and that over 900 seeded practice hands the nit folds more, the calling station folds less and the aggressive style bets more than the table. The smoke test checks the panel on the Play tab (and that level 1 has none) and all four styles on the Session tab.
+
 ## Chart explorer
 
 - New Charts tab to browse every preflop chart the trainer plays: opens, limps, facing an open, squeezes, facing a 3-bet, cold 4-bets, facing a 4-bet and facing an all-in, each named in plain words.

@@ -11,7 +11,7 @@ import { applyAction, legalActions, type Action, type HandState, type Rake } fro
 import { postflopFacts, preflopFacts, type CoachFacts } from '../../engine/coach/explain';
 import { breakEvenFoldPct, potOdds } from '../../engine/math';
 import { conceptFor, multiwayConcept, postflopFeedback, type PostflopFeedback } from '../../engine/postflop/coach';
-import { PROFILES } from '../../engine/postflop/model';
+import { PROFILES, type ProfileId } from '../../engine/postflop/model';
 import { postflopHeroLine, rangeActionOf, rangeActions, type RangeAction, type RangeActions } from '../../engine/postflop/heroRange';
 import { currentContext, narrowHand } from '../../engine/postflop/narrow';
 import { interactionNote, multiwaySituationFromState } from '../../engine/postflop/multiway';
@@ -27,6 +27,7 @@ import { makeRng, randomSeed } from '../../engine/rng';
 import { handLesson, levelProgress, openLeaks, totals } from '../../engine/session/session';
 import { adaptationFor, heroTendencies, type PostflopMove } from '../../engine/session/adapt';
 import { replayOf } from '../../engine/session/replay';
+import { OpponentStats } from '../session/OpponentStats';
 import { currentHands, recordHand, useSessions } from '../session/store';
 import { dollars } from '../table/format';
 import { runClassEquity, runEquity } from '../../workers/equityClient';
@@ -132,6 +133,7 @@ function SessionStrip({ level, onLevel }: { level: LevelId; onLevel: (l: LevelId
 
 export function GameScreen() {
   const rngRef = useRef(makeRng(randomSeed()));
+  const sessionHands = useSessions().current.hands;
   const [lowStakes, setLowStakes] = useState(true);
   const [level, setLevel] = useState<LevelId>(loadLevel);
   const [table, setTable] = useState<TableSetup>(loadTable);
@@ -544,6 +546,9 @@ export function GameScreen() {
         </PostflopFeedbackPanel>
       )}
       {phase === 'result' && <HandResult state={state} hero={hero} log={log} onNext={() => nextHand()} stopNote={stopNote} />}
+      {level > 1 && game.villains.length > 0 && (
+        <OpponentStats hands={sessionHands} styles={game.villains.map((v) => game.profiles[v]).filter((p): p is ProfileId => !!p)} compact />
+      )}
     </div>
   );
 }

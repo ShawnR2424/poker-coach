@@ -3,7 +3,8 @@
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
-// every chart in the chart explorer, mistake review cards made from the imported sample hands, and
+// every chart in the chart explorer, mistake review cards made from the imported sample hands, the
+// opponent stats on the Play and Session tabs, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
@@ -209,6 +210,11 @@ for (const vp of VIEWPORTS) {
     }
   }
   if (rakeSeen === 0) failures.push(`${tag}: no hand with the rake on showed any rake taken`);
+  // Opponent stats on the Play tab: one row per opponent style in the hand, none at level 1.
+  const oppRows = await page.$$eval('.opp-stats tr[data-style]', (r) => r.length);
+  if (oppRows < 1 || oppRows > 2) failures.push(`${tag}: the Play tab's opponent stats show ${oppRows} styles at level 5`);
+  await page.selectOption('#level', '1');
+  if (await page.$('.opp-stats')) failures.push(`${tag}: opponent stats show at level 1, where opponents have no style`);
   await page.selectOption('#rake', 'none');
   rakeOn = false;
 
@@ -233,6 +239,13 @@ for (const vp of VIEWPORTS) {
   await page.goto(`${url}#session`);
   const rows = await page.$$eval('table.hands tbody tr', (r) => r.length);
   if (rows !== played) failures.push(`${tag}: session shows ${rows} hands, ${played} were played`);
+  // Opponent stats on the Session tab: all four styles, counted from the postflop hands just played.
+  const styles = await page.$$eval('.opp-stats tr[data-style]', (r) => r.map((x) => x.dataset.style).sort().join(','));
+  if (styles !== 'aggro,nit,regular,station') failures.push(`${tag}: session opponent stats show styles "${styles}"`);
+  const tableHands = await page.$eval('.opp-stats .opp-table-row td', (e) => Number(e.textContent)).catch(() => 0);
+  if (!(tableHands > 0)) failures.push(`${tag}: session opponent stats counted no postflop hands`);
+  const oppNotes = await page.$$eval('.opp-notes li', (l) => l.length);
+  if (oppNotes !== 4) failures.push(`${tag}: session opponent stats show ${oppNotes} notes, expected one per style`);
   await noOverflow(page, `${tag}, session`);
 
   // Progress charts: the mistake-rate line and the per-session table are drawn from the hands

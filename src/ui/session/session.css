@@ -100,3 +100,7 @@ table.leak-grid .heat-1 { background: color-mix(in srgb, var(--felt) 15%, var(--
 table.leak-grid .heat-2 { background: color-mix(in srgb, var(--felt) 30%, var(--surface)); }
 table.leak-grid .heat-3 { background: color-mix(in srgb, var(--felt) 45%, var(--surface)); }
 table.leak-grid .heat-4 { background: color-mix(in srgb, var(--felt) 60%, var(--surface)); font-weight: 700; }
+
+/* Opponent stats */
+.opp-notes { margin: 0; padding-left: 1.1rem; display: grid; gap: 4px; max-width: 75ch; }
+table.data .opp-table-row th, table.data .opp-table-row td { color: var(--fg-muted); }

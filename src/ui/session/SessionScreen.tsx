@@ -7,6 +7,7 @@ import { ADAPT, ADJUSTMENT_SHORT, adaptationFor, heroTendencies, type Rate } fro
 import { leakStats, totals, type Session } from '../../engine/session/session';
 import { LEVELS, type LevelId } from '../../engine/game/levels';
 import { dollars } from '../table/format';
+import { OpponentStats } from './OpponentStats';
 import { ProgressPanel } from './ProgressPanel';
 import { ReplayView } from './ReplayView';
 import { newSession, useSessions } from './store';
@@ -154,6 +155,7 @@ function SessionView({ session }: { session: Session }) {
       </section>
 
       <TendencyPanel hands={session.hands} />
+      <OpponentStats hands={session.hands} />
 
       {replaying && <ReplayView key={`${session.id}-${replaying.n}`} hand={replaying} onClose={() => setReplayN(null)} />}
 
