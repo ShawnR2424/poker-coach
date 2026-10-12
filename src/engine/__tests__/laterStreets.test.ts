@@ -1,6 +1,7 @@
 // EV counts what a hand that is ahead wins on later streets, so a normal bet with a strong hand
 // is not outscored by a shove that gets the whole stack in at once, and opponents keep calling
-// a huge overbet with the hands that would call a big bet.
+// a huge overbet with the hands that would call a big bet, so a range that checked cannot be
+// bluffed off it with a shove.
 
 import { describe, expect, it } from 'vitest';
 import { comboEquities } from '../equity';
@@ -81,5 +82,34 @@ describe('overbets', () => {
     }
     expect(deep).toBeGreaterThan(100);
     expect(shoves / deep).toBeLessThan(0.13);
+  }, 60_000);
+
+  it('an overbet bluff with no draw against a range that checked is rarely the best play', () => {
+    // Before the defense floor took its extra calls from the range's best hands, a capped range
+    // folded 96-99% to a shove and a pure bluff of many times the pot graded best in about one in
+    // ten of these spots. A nit still overfolds by design, so bluffing it stays a fair exploit.
+    let weak = 0, overbetBluffs = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const rng = makeRng(seed * 17);
+      const g = newGameHand(3, rng, opts);
+      let s = advance(g, g.state, rng, opts);
+      for (let t = 0; t < 12 && heroDecides(g, s); t++) {
+        const live = liveVillains(g, s);
+        if (s.street !== 'preflop' && live.length === 1 && legalActions(s).call === null && g.profiles[live[0]] !== 'nit') {
+          const v = live[0];
+          const profile = PROFILES[g.profiles[v]];
+          const sit = situationFromState(s, g.hero, v, narrowHand(s, v, 'pool', opts, profile).range, { heroPreflopAggressor: false, villainProfile: profile });
+          const a = analyze(sit, comboEquities(sit.hero, sit.board, sit.villainRange));
+          if (a.facts.equity < 0.35 && a.facts.heroClass !== 'strongDraw' && a.facts.heroClass !== 'weakDraw') {
+            weak++;
+            if (a.best.option.kind === 'bet' && (a.best.potShare ?? 0) > 1.5) overbetBluffs++;
+          }
+        }
+        const act: Action = s.street === 'preflop' ? botAction(s, rng, opts) : botPostflopAction(s, rng, PROFILES.regular);
+        s = advance(g, applyAction(s, act), rng, opts);
+      }
+    }
+    expect(weak).toBeGreaterThan(60);
+    expect(overbetBluffs / weak).toBeLessThan(0.03);
   }, 60_000);
 });

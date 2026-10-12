@@ -7,7 +7,7 @@ import type { Card } from '../cards';
 import type { HandState } from '../hand';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, POSTFLOP_CLASS_LABEL, STRONG_CLASSES, type PostflopClass } from './classify';
-import { firstToActFreq, rangeDefense, responseFor, SMALL_BET_MAX, type Profile } from './model';
+import { firstToActFreq, rangeDefense, responseFor, SMALL_BET_MAX, type Defense, type Profile } from './model';
 import type { ActionContext, PostflopStep } from './narrow';
 import { BOARD_LEN, facedShare } from './narrow';
 
@@ -173,7 +173,7 @@ export interface RangeActions {
   heroFreq: Record<RangeAction, number>;
 }
 
-function freqsFor(cls: PostflopClass, ctx: ActionContext, canRaise: boolean, profile?: Profile, defense = 1): Partial<Record<RangeAction, number>> {
+function freqsFor(cls: PostflopClass, ctx: ActionContext, canRaise: boolean, profile?: Profile, defense: Defense | number = 1): Partial<Record<RangeAction, number>> {
   if (ctx.currentBet > ctx.committed) {
     const r = responseFor(cls, facedShare(ctx), canRaise, ctx.beingRaised, profile, defense);
     return { fold: r.fold, call: r.call, raise: r.raise };

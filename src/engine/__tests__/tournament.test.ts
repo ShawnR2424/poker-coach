@@ -6,9 +6,11 @@ import { ALL_CLASSES } from '../range';
 import { makeRng } from '../rng';
 import { CLASS_INDEX, EQUITY, NUM_CLASSES } from '../tournament/classEquity';
 import { icmEquities } from '../tournament/icm';
-import { openerValues, rangeShare, solve, stacksAfter, unitPerBB, type TableSetup } from '../tournament/pushfold';
 import {
-  addAnswer, answer, dealSpot, emptyTally, equityNeeded, gradeClass, gradeSpot, MARGINS, parseTally, rangeText, solveSpot, verdictFor,
+  openerValues, orderOdds, ORDERS, overValues, rangeShare, solve, stacksAfter, stacksAfterThree, unitPerBB, type TableSetup,
+} from '../tournament/pushfold';
+import {
+  addAnswer, answer, dealSpot, emptyTally, equityNeeded, overcallOdds, gradeClass, gradeSpot, MARGINS, parseTally, rangeText, solveSpot, verdictFor,
   type SolvedSpot,
 } from '../tournament/spots';
 import {
@@ -90,8 +92,38 @@ describe('outcomes', () => {
           expect(sum(after)).toBeCloseTo(total, 9);
           expect(Math.min(...after)).toBeGreaterThanOrEqual(-1e-9);
         }
+        for (let d = c + 1; d < n; d++) {
+          for (const order of ORDERS) {
+            const after = stacksAfterThree(setup, c, d, order);
+            expect(sum(after)).toBeCloseTo(total, 9);
+            expect(Math.min(...after)).toBeGreaterThanOrEqual(-1e-9);
+          }
+        }
       }
     }
+  });
+
+  it('give a three-way all-in a main pot and a side pot', () => {
+    // The button has 4bb against two 10bb blinds: the main pot (3 x 4bb) goes to the best hand,
+    // the side pot (2 x 6bb) to the better of the two blinds.
+    const t: TableSetup = { stacks: [10, 10, 10, 4, 10, 10], ante: false, mode: 'chips', opener: 3 };
+    expect(stacksAfterThree(t, 4, 5, [0, 2, 1])).toEqual([10, 10, 10, 12, 0, 12]);
+    expect(stacksAfterThree(t, 4, 5, [1, 0, 2])).toEqual([10, 10, 10, 0, 24, 0]);
+    expect(stacksAfterThree(t, 4, 5, [2, 1, 0])).toEqual([10, 10, 10, 0, 0, 24]);
+  });
+
+  it('spread a three-way all-in over the finishing orders by the head-to-head equities', () => {
+    const rng = makeRng(4);
+    for (let i = 0; i < 50; i++) {
+      const odds = orderOdds(rng(), rng(), rng());
+      expect(sum(odds)).toBeCloseTo(1, 12);
+      expect(Math.min(...odds)).toBeGreaterThanOrEqual(0);
+    }
+    for (const x of orderOdds(0.5, 0.5, 0.5)) expect(x).toBeCloseTo(1 / 6, 12);
+    // A hand that beats both others most of the time finishes first most of the time.
+    const odds = orderOdds(0.8, 0.8, 0.5);
+    expect(odds[0] + odds[1]).toBeGreaterThan(0.7);
+    expect(odds[0] + odds[1]).toBeGreaterThan(odds[2] + odds[3] + odds[4] + odds[5]);
   });
 
   it('let the opener steal the blinds and ante when everyone folds', () => {
@@ -141,6 +173,39 @@ describe('push/fold ranges', () => {
         const calls = v.filter((x) => x.freq === 1).map((x) => x.equity), folds = v.filter((x) => x.freq === 0).map((x) => x.equity);
         if (calls.length && folds.length) expect(Math.min(...calls)).toBeGreaterThanOrEqual(Math.max(...folds) - 1e-9);
       }
+    }
+  });
+
+  it('let a second player overcall, with a tighter range than a first call, that is its best answer within half a big blind', () => {
+    // The callers answer exactly; an overcall range is an average of answers, so a hand at its edge can be off by a little.
+    const tables: TableSetup[] = [
+      { stacks: [10, 10, 10, 10, 10, 10], ante: true, mode: 'chips', opener: 0 },
+      { stacks: [12, 7, 30, 18, 6, 22], ante: true, mode: 'final', opener: 1 },
+    ];
+    for (const t of tables) {
+      const s = solve(t);
+      const unit = unitPerBB(t);
+      let overcalls = 0;
+      for (let c = t.opener + 1; c < t.stacks.length; c++) {
+        if (!(rangeShare(s.call[c]) > 0)) continue;
+        for (let d = c + 1; d < t.stacks.length; d++) {
+          const o = s.over[c][d];
+          const share = rangeShare(o);
+          if (share > 0) overcalls++;
+          expect(share, `seat ${d} behind ${c}`).toBeLessThan(rangeShare(s.call[d]));
+          let wrong = 0;
+          for (let m = 0; m < NUM_CLASSES; m++) {
+            const v = overValues(s, c, d, m);
+            const gap = (v.play - v.fold) / unit;
+            if (o[m] === 1 && gap < -MARGINS.playable) wrong++;
+            if (o[m] === 0 && gap > MARGINS.playable) wrong++;
+          }
+          expect(wrong, `${t.mode}: seat ${d} behind ${c}`).toBe(0);
+        }
+      }
+      expect(overcalls).toBeGreaterThan(0);
+      expect(overcallOdds(s, t.opener + 1)).toBeGreaterThan(0);
+      expect(overcallOdds(s, t.stacks.length - 1)).toBe(0);
     }
   });
 

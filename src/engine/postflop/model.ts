@@ -52,16 +52,17 @@ const clip01 = (x: number) => Math.min(1, Math.max(0, x));
 /**
  * How likely a hand class continues (calls or raises) facing a bet of `f` times the pot.
  * `beingRaised` is true when the player had bet and now faces a raise. `defense` (from
- * rangeDefense) scales the result so the player's whole range defends enough.
+ * rangeDefense) lifts the result so the player's whole range defends enough.
  */
-export function continueProb(cls: PostflopClass, f: number, beingRaised = false, profile: Profile = DEFAULT, defense = 1): number {
+export function continueProb(cls: PostflopClass, f: number, beingRaised = false, profile: Profile = DEFAULT, defense: Defense | number = 1): number {
   const add = STYLE_FREE.has(cls) ? 0 : profile.continueAdd;
   const { base, slope, maxSize, overbetDecay } = ACTIONS.facingBet;
   let p = clip01(base[cls] + add - slope[cls] * Math.min(f, maxSize));
   // Past an overbet, the straight line would fold even overpairs to a shove; see actions.json.
   if (f > maxSize) p *= (maxSize / f) ** (overbetDecay * slope[cls]);
   if (beingRaised) p *= ACTIONS.facingRaise.continue[cls];
-  return Math.min(1, p * defense);
+  if (typeof defense === 'number') return Math.min(1, p * defense);
+  return Math.max(Math.min(1, p * defense.factor), defense.topUp?.[cls] ?? 0);
 }
 
 export interface Response {
@@ -76,7 +77,7 @@ export function responseFor(
   canRaise: boolean,
   beingRaised = false,
   profile: Profile = DEFAULT,
-  defense = 1,
+  defense: Defense | number = 1,
 ): Response {
   const cont = continueProb(cls, f, beingRaised, profile, defense);
   const raise = canRaise ? cont * Math.min(1, ACTIONS.facingBet.raise[cls] * profile.raiseMult * bluffScale(cls, profile)) : 0;
@@ -84,14 +85,35 @@ export function responseFor(
 }
 
 /**
+ * How a range lifts its continue chances to defend enough: every class's chance is multiplied by
+ * `factor` (capped at always), and a class in `topUp` continues at least that often.
+ */
+export interface Defense {
+  factor: number;
+  topUp?: Partial<Record<PostflopClass, number>>;
+}
+
+export const NO_DEFENSE: Defense = { factor: 1 };
+
+/** Classes that can be made to call for the floor, strongest first. Air and gutshots never are. */
+const TOP_UP_ORDER: PostflopClass[] = ['setPlus', 'twoPair', 'overpair', 'topPairGood', 'topPairWeak', 'middlePair', 'weakPair', 'strongDraw'];
+
+/**
  * A player who folds too much to bets hands every bluff a profit, so a range facing a bet keeps at
  * least `defend` of the minimum defense frequency 1 / (1 + f), moved by the player's style
  * (continueAdd): a nit still folds too much and a calling station defends more. The class table
  * alone folds a wide range (one that checked, or one full of small-bet bluffs that is now raised)
- * far more than that. Returns the factor that multiplies every class's continue chance (capped at
- * 1) to reach the floor: 1 when the range already defends enough. Classes gain in proportion to how
- * often they already continue, up to `maxBoost` times, so pairs and draws take up the extra defense
- * while air keeps folding.
+ * far more than that.
+ *
+ * First every class's continue chance is multiplied by the same factor, up to `maxBoost` times its
+ * own, so pairs and draws take up the extra defense while air keeps folding. When that still falls
+ * short, as it does against an overbet, where weak pairs and draws give up almost entirely, the
+ * rest comes from the range's best hands, strongest first, as a real defender would pick its
+ * calls: a range that checked and is capped still calls a shove with its best pairs often enough
+ * that a pure bluff does not profit. Air and gutshots are never made to call, so a polarized
+ * range of strong hands and air can still stay short of the floor. A range that bet and is now
+ * raised gets no top-up: its pairs already face a raise's own continue table, and making them
+ * call more would turn thin value raises into the best play.
  * See `defend` under facingBet and facingRaise in actions.json.
  */
 export function rangeDefense(
@@ -100,7 +122,7 @@ export function rangeDefense(
   f: number,
   beingRaised = false,
   profile: Profile = DEFAULT,
-): number {
+): Defense {
   const byClass = new Map<PostflopClass, number>();
   let total = 0;
   for (let k = 0; k < classes.length; k++) {
@@ -108,27 +130,43 @@ export function rangeDefense(
     byClass.set(classes[k], (byClass.get(classes[k]) ?? 0) + weights[k]);
     total += weights[k];
   }
-  if (total <= 0) return 1;
-  const parts = [...byClass].map(([cls, w]) => ({ w, c: continueProb(cls, f, beingRaised, profile) })).filter((x) => x.c > 0);
+  if (total <= 0) return NO_DEFENSE;
+  const parts = [...byClass].map(([cls, w]) => ({ cls, w, c: continueProb(cls, f, beingRaised, profile) }));
   const defended = (m: number) => parts.reduce((t, x) => t + x.w * Math.min(1, x.c * m), 0) / total;
   const defend = beingRaised ? ACTIONS.facingRaise.defend : ACTIONS.facingBet.defend;
-  const target = defend / (1 + Math.max(0, f)) + profile.continueAdd;
-  if (defended(1) >= target) return 1;
-  // No class continues more than maxBoost times as often as it would alone, so a polarized range
-  // (strong hands and air) still folds its air and may stay short of the floor.
-  let hi = Math.max(1, Math.min(ACTIONS.facingBet.maxBoost, Math.max(...parts.map((x) => 1 / x.c))));
-  if (defended(hi) <= target) return hi;
+  const target = Math.min(1, defend / (1 + Math.max(0, f)) + profile.continueAdd);
+  if (defended(1) >= target) return NO_DEFENSE;
+  const live = parts.filter((x) => x.c > 0);
+  let hi = live.length ? Math.max(1, Math.min(ACTIONS.facingBet.maxBoost, Math.max(...live.map((x) => 1 / x.c)))) : 1;
+  if (defended(hi) < target) return beingRaised ? { factor: hi } : { factor: hi, topUp: topUp(parts, hi, (target - defended(hi)) * total) };
   let lo = 1;
   for (let i = 0; i < 40; i++) {
     const mid = (lo + hi) / 2;
     if (defended(mid) < target) lo = mid;
     else hi = mid;
   }
-  return hi;
+  return { factor: hi };
+}
+
+/** Raises the strongest classes to always continuing, in order, until `short` weight more continues. */
+function topUp(parts: { cls: PostflopClass; w: number; c: number }[], factor: number, short: number): Defense['topUp'] {
+  const out: Defense['topUp'] = {};
+  for (const cls of TOP_UP_ORDER) {
+    if (short <= 1e-12) break;
+    const part = parts.find((x) => x.cls === cls);
+    if (!part) continue;
+    const now = Math.min(1, part.c * factor);
+    const room = part.w * (1 - now);
+    if (room <= 0) continue;
+    const add = Math.min(room, short);
+    out[cls] = now + add / part.w;
+    short -= add;
+  }
+  return out;
 }
 
 /** rangeDefense for a range of combos on this board. */
-export function rangeDefenseOn(range: Range, board: readonly Card[], f: number, beingRaised = false, profile: Profile = DEFAULT): number {
+export function rangeDefenseOn(range: Range, board: readonly Card[], f: number, beingRaised = false, profile: Profile = DEFAULT): Defense {
   const classes: PostflopClass[] = [];
   const weights: number[] = [];
   const boardSet = new Set(board);

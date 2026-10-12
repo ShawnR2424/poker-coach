@@ -25,7 +25,7 @@ function defended(classes: PostflopClass[], f: number, beingRaised: boolean, pro
 
 describe('range defense floor', () => {
   it('leaves a range that already defends enough alone', () => {
-    expect(rangeDefense(['setPlus', 'overpair', 'topPairGood'], [1, 1, 1], 0.5)).toBe(1);
+    expect(rangeDefense(['setPlus', 'overpair', 'topPairGood'], [1, 1, 1], 0.5)).toEqual({ factor: 1 });
   });
 
   it('lifts a wide range to the minimum defense frequency', () => {
@@ -41,8 +41,8 @@ describe('range defense floor', () => {
   it('takes the extra defense from pairs and draws, not air', () => {
     const wide: PostflopClass[] = ['middlePair', 'weakPair', 'weakDraw', 'air', 'air'];
     const d = rangeDefense(wide, wide.map(() => 1), 0.33);
-    expect(d).toBeGreaterThan(1);
-    expect(d).toBeLessThanOrEqual(ACTIONS.facingBet.maxBoost);
+    expect(d.factor).toBeGreaterThan(1);
+    expect(d.factor).toBeLessThanOrEqual(ACTIONS.facingBet.maxBoost);
     const gain = (c: PostflopClass) => continueProb(c, 0.33, false, reg, d) - continueProb(c, 0.33);
     expect(gain('weakPair')).toBeGreaterThan(gain('air'));
     expect(continueProb('air', 0.33, false, reg, d)).toBeLessThan(0.5);
@@ -54,6 +54,30 @@ describe('range defense floor', () => {
     const table = bets.reduce((t, c) => t + continueProb(c, f, true), 0) / bets.length;
     expect(defended(bets, f, true)).toBeGreaterThan(table);
     expect(defended(bets, f, true)).toBeCloseTo(ACTIONS.facingRaise.defend / (1 + f), 6);
+  });
+
+  it('defends a capped range against an overbet with its best hands first', () => {
+    // A range that checked: weak pairs, a few middle pairs and top pairs, and air. Against a shove of
+    // ten times the pot the weak pairs give up almost entirely, so the boost alone falls short.
+    const capped: PostflopClass[] = ['topPairWeak', 'middlePair', 'middlePair', 'weakPair', 'weakPair', 'weakPair', 'air', 'air', 'air', 'air'];
+    const f = 10;
+    const target = ACTIONS.facingBet.defend / (1 + f);
+    const d = rangeDefense(capped, capped.map(() => 1), f);
+    expect(d.factor).toBe(ACTIONS.facingBet.maxBoost);
+    expect(defended(capped, f, false)).toBeCloseTo(target, 6);
+    // The extra calls come from top pair first, which covers the shortfall here, so middle pairs
+    // and air are left as the boost has them.
+    expect(d.topUp?.topPairWeak).toBeGreaterThan(continueProb('topPairWeak', f) * d.factor);
+    expect(d.topUp?.middlePair).toBeUndefined();
+    expect(d.topUp?.air).toBeUndefined();
+    expect(continueProb('air', f, false, reg, d)).toBeLessThan(0.01);
+    // So a pure bluff of that size no longer profits: the fold share is what break-even needs.
+    expect(1 - defended(capped, f, false)).toBeCloseTo(f / (1 + f), 6);
+  });
+
+  it('gives a raised range no top-up, so thin value raises do not gain from it', () => {
+    const bets: PostflopClass[] = ['middlePair', 'weakPair', 'weakPair', 'air', 'air', 'air'];
+    expect(rangeDefense(bets, bets.map(() => 1), 3, true).topUp).toBeUndefined();
   });
 
   it('follows the opponent style: a nit still overfolds, a station defends more', () => {

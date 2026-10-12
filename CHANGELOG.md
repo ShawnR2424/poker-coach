@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## Fix grading gaps
+
+- An overbet bluff against a capped range no longer grades best as often. When a range that checked faces a bet so big that boosting every class's calls still leaves it short of the minimum defense frequency, it now calls down with its best hands first: sets, two pair, overpairs and top pairs, then weaker pairs and strong draws, while weak draws and air keep folding. In a seeded sample of 400 level 3 spots against non-nit opponents with the hero holding under 35% equity and no draw, an overbet shove graded best in 1 of 88, down from 9 of 88. The same defense shapes the opponents' range reads and the bots' play. A nit can still overfold, by design.
+- Tournament push/fold spots now let a second player overcall behind a call. Three-way all-ins pay a main pot to the best hand and a side pot between the two bigger stacks, with the finishing order estimated from the head-to-head equities. Each overcall range is solved alongside the opener's, so first calls and opens account for the players still to act. Call feedback says how often someone behind overcalls. The solver was reworked to keep a 9-player spot to about half a second in a desktop browser.
+- `defense.test.ts` checks that a capped range defends against an overbet with its best hands first and that a raised range gets no top-up; `laterStreets.test.ts` adds the seeded overbet-bluff check. `tournament.test.ts` checks that three-way pots keep every chip and split main and side pots correctly, that the finishing-order odds add up to one, and that overcall ranges are tighter than first calls and close to their best answers.
+
 ## Import your own charts
 
 - The Charts tab has a new Use your own charts panel. Paste the raise and call ranges for the chart on screen, as a solver or range tool exports them, with an optional raise size. The panel reads PioSOLVER, GTO+ and GTO Wizard style weights (shares or percentages), Flopzilla and HRC style bracket groups, exact combos and one hand per line, and says as you type what share of hands the chart raises, calls and folds, or what is wrong with it.
