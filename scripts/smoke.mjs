@@ -55,6 +55,18 @@ const failures = [];
 /** Things worth knowing that are not failures, printed at the end. */
 const notes = new Set();
 /**
+ * A browser context for one run. Service workers are blocked so API mocking sees every request
+ * (the app check at the end allows them). Google Fonts is served empty: a slow or dropped
+ * connection to it on a CI runner is not the app's failure, and the system fonts it falls back to
+ * are what a first offline visit shows.
+ */
+async function newContext(vp) {
+  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+  await ctx.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  return ctx;
+}
+
+/**
  * A page error is a failure, except WebKit's refusal of the equity worker's script while requests
  * are being intercepted for the Claude API mock: the app then works out equity on the main thread,
  * which the rest of the run exercises, so it is noted instead.
@@ -167,8 +179,7 @@ async function quizCheck(page, tag) {
 
 for (const vp of VIEWPORTS) {
   const tag = `${RUN}, ${vp.width}px ${vp.colorScheme}`;
-  // Service workers are blocked here so API mocking sees every request; the app check below allows them.
-  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+  const ctx = await newContext(vp);
   const page = await ctx.newPage();
   page.on('console', (m) => {
     if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`);
@@ -489,7 +500,7 @@ for (const vp of VIEWPORTS) {
   // refused, a saved one replaces the chart (badge, shares) and is played at the table, the charts
   // save as a pack that opens again, and removing the imports puts the built-in charts back.
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => pageError(`${tag}, imported charts`, e));
     p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
@@ -607,7 +618,7 @@ for (const vp of VIEWPORTS) {
   // Tournament review: in a new browser, a tournament mistake becomes the only review card, which
   // deals the same table and hand, grades a new answer with full feedback, and is then scheduled.
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => pageError(`${tag}, tournament review`, e));
     await p2.goto(`${url}#tournament`);
@@ -750,7 +761,7 @@ for (const vp of VIEWPORTS) {
   if (!(await page.textContent('.backup .errors')).includes('not a Poker Coach backup')) failures.push(`${tag}: a file that is not a backup was not refused`);
   await noOverflow(page, `${tag}, backup`);
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => pageError(`${tag}, restore`, e));
     await p2.goto(`${url}#settings`);
