@@ -52,6 +52,8 @@ const server = await preview({ preview: { port: 0, strictPort: false }, logLevel
 const url = server.resolvedUrls.local[0];
 const browser = await BROWSERS[BROWSER].launch();
 const failures = [];
+/** Things worth knowing that are not failures, printed at the end. */
+const notes = new Set();
 
 async function noOverflow(page, where) {
   const { scroll, width } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: window.innerWidth }));
@@ -119,8 +121,9 @@ async function quizCheck(page, tag) {
   const from = await cell('AA'), to = await cell('A2s');
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 36 });
   await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('.paint-grid button[data-cls="A2s"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 2000 }).catch(() => {});
   const painted = await page.$$eval('.paint-grid button[aria-pressed="true"]', (b) => b.map((x) => x.dataset.cls));
   if (painted.length !== 13 || !painted.includes('AKs') || !painted.includes('A2s')) failures.push(`${tag}: dragging across the top row painted ${painted.join(' ') || 'nothing'}`);
   await page.focus('.paint-grid button[data-cls="KK"]');
@@ -157,7 +160,10 @@ for (const vp of VIEWPORTS) {
   // Service workers are blocked here so API mocking sees every request; the app check below allows them.
   const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
   const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`);
+    if (m.type() === 'warning' && m.text().includes('equity worker')) notes.add(`${tag}: the equity worker did not start, so equity ran on the main thread`);
+  });
   page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
 
   // The coach voice is off by default: nothing may reach the Claude API until it is switched on.
@@ -337,6 +343,7 @@ for (const vp of VIEWPORTS) {
 
   await quizCheck(page, tag);
   await page.goto(`${url}#session`);
+  await page.waitForSelector('table.hands button[aria-label^="Replay hand"]', { timeout: TURN_TIMEOUT }).catch(() => {});
 
   // Every saved hand replays from its record; a few are stepped through action by action, and
   // each graded decision opens with its verdict and the opponents' ranges at that point.
@@ -806,6 +813,7 @@ for (const vp of VIEWPORTS) {
 
 await browser.close();
 if (BROWSER !== 'webkit') await server.close();
+for (const n of notes) console.log(`Note: ${n}`);
 if (failures.length) {
   console.error(`\n${failures.length} problem(s):\n${failures.map((f) => `- ${f}`).join('\n')}`);
   process.exit(1);
