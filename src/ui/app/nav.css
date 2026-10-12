@@ -1,0 +1,49 @@
+/* Navigation: four sections in the top bar on wider screens and in a bottom bar on phones, the
+   section's screens as a row of tabs below the top bar, and settings behind a gear button. */
+.topbar-end { display: flex; align-items: center; gap: 8px; }
+.settings-btn { display: inline-grid; place-items: center; padding: 6px; border-color: transparent; background: transparent; }
+.settings-btn.on { background: var(--felt-soft); }
+
+.nav-groups, .bottombar { display: flex; gap: 4px; }
+.nav-groups button, .bottombar button {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-color: transparent; background: transparent; padding: 6px 10px; position: relative;
+}
+.nav-groups button.on, .bottombar button.on { background: var(--felt-soft); color: var(--fg); font-weight: 700; }
+.nav-icon { flex: none; }
+
+.subtabs {
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  padding-inline: 16px; padding-block: 8px;
+  border-bottom: 1px solid var(--line); background: var(--bg);
+}
+.subtabs::-webkit-scrollbar { display: none; }
+.subtabs button { flex: none; border-color: var(--line); background: var(--surface); padding: 5px 12px; border-radius: 999px; font-size: 0.9rem; }
+.subtabs button.on { background: var(--felt); border-color: var(--felt); color: var(--felt-ink); font-weight: 700; }
+.subtabs button.on .tab-count { background: var(--felt-ink); color: var(--felt); }
+
+.bottombar { display: none; }
+
+.welcome { padding-inline: 16px; padding-block: 16px 0; }
+.welcome-inner {
+  max-width: 868px; margin: 0 auto; display: grid; gap: 10px;
+  background: var(--felt-soft); border: 1px solid var(--felt); border-radius: var(--radius); padding: 16px;
+}
+.welcome h2 { margin: 0; font-size: 1.2rem; text-wrap: balance; }
+.welcome p { margin: 0; max-width: 70ch; }
+.welcome-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 70ch; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 640px) {
+  .nav-groups { display: none; }
+  .brand .approx { display: none; }
+  .bottombar {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding-inline: 4px; padding-block: 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--line);
+  }
+  .bottombar button { flex-direction: column; gap: 2px; padding: 6px 2px; font-size: 0.75rem; border-radius: 8px; min-width: 0; }
+  .bottombar .tab-count { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; }
+  main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}

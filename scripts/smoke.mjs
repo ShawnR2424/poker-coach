@@ -4,7 +4,7 @@
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
 // every chart in the chart explorer, the equity calculator, mistake review cards made from the imported sample hands, the
-// opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
+// the grouped navigation and first-run guide, opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
 // review cards, backup and
 // restore into a new browser, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
@@ -162,7 +162,50 @@ for (const vp of VIEWPORTS) {
     });
   });
 
+  // Navigation: a first visit shows the welcome guide, and closing it keeps it closed. The four
+  // section buttons sit in a bottom bar on a phone and in the top bar on a desktop; each opens its
+  // screens, whose own tabs switch between them, and a section reopens the screen last used in it.
   await page.goto(`${url}#table`);
+  if (!(await page.$('.welcome'))) failures.push(`${tag}: a first visit shows no welcome guide`);
+  await page.click('.welcome button:has-text("Close")');
+  await page.reload();
+  await page.waitForSelector('.topbar');
+  if (await page.$('.welcome')) failures.push(`${tag}: the welcome guide came back after it was closed`);
+  const phone = vp.width <= 640;
+  const sections = phone ? '.bottombar' : '.nav-groups';
+  for (const [bar, shown] of [['.bottombar', phone], ['.nav-groups', !phone]]) {
+    if ((await page.isVisible(bar)) !== shown) failures.push(`${tag}: ${bar} is ${shown ? 'hidden' : 'shown'}`);
+  }
+  const navTo = async (label, hash, where, ready = 'main .screen') => {
+    await page.click(`${sections} button:has-text("${label}")`);
+    await page.waitForFunction((h) => location.hash === h, hash, { timeout: 5000 }).catch(() => {});
+    const now = await page.evaluate(() => location.hash);
+    if (now !== hash) failures.push(`${tag}: ${where} went to ${now || 'no address'}, expected ${hash}`);
+    await page.waitForSelector(ready, { timeout: TURN_TIMEOUT });
+    await noOverflow(page, `${tag}, ${hash}`);
+  };
+  await navTo('Train', '#spots', 'the Train section');
+  await page.click('.subtabs button[data-tab="quiz"]');
+  if ((await page.evaluate(() => location.hash)) !== '#quiz') failures.push(`${tag}: the Quizzes tab did not open #quiz`);
+  await navTo('Tools', '#equity', 'the Tools section', 'main h1');
+  await navTo('Progress', '#session', 'the Progress section');
+  await navTo('Train', '#quiz', 'the Train section, reopened');
+  await page.click('.settings-btn');
+  await page.waitForSelector('#api-key, .switch input');
+  if ((await page.evaluate(() => location.hash)) !== '#settings') failures.push(`${tag}: the gear button did not open settings`);
+  await navTo('Play', '#table', 'the Play section');
+  if (phone) {
+    // The bottom bar never covers the last of the page.
+    const covered = await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const bar = document.querySelector('.bottombar').getBoundingClientRect();
+      const last = document.querySelector('main').lastElementChild.getBoundingClientRect();
+      return last.bottom > bar.top + 1;
+    });
+    if (covered) failures.push(`${tag}: the bottom bar covers the end of the page`);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+
   let played = 0;
   for (const level of LEVELS) {
     await page.selectOption('#level', String(level));
@@ -530,7 +573,7 @@ for (const vp of VIEWPORTS) {
   await page.waitForSelector('.review h1');
   const dueNow = async () => Number(await page.$eval('.review .tiles .stat:first-child .stat-value', (e) => e.textContent));
   const due0 = await dueNow();
-  const badge = await page.$eval('.tabs .tab-count', (e) => Number(e.textContent)).catch(() => 0);
+  const badge = await page.$eval('.subtabs .tab-count', (e) => Number(e.textContent)).catch(() => 0);
   if (due0 < 5) failures.push(`${tag}: review has ${due0} cards due, expected at least the 5 mistakes in the sample hands`);
   if (badge !== due0) failures.push(`${tag}: the Review tab badge says ${badge} but ${due0} cards are due`);
   const answered = Math.min(4, due0);

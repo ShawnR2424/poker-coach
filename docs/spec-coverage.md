@@ -105,3 +105,4 @@ How each part of the original brief maps to the code and to the checks that guar
 ## Deliberate limits
 
 These are documented in [model.md](model.md): no solver, no antes, rake only as an optional 5% capped at 3bb with unchanged preflop charts, and stack depths of 40bb, 100bb and 200bb only, with the 40bb and 200bb charts adjusted from the 100bb ones.
+| Phone-first navigation: four sections in a bottom bar on phones and the top bar on wider screens, and a first-run guide (beyond the brief) | `ui/app/nav.ts`, `ui/app/nav.css`, `ui/app/Welcome.tsx`, `ui/App.tsx` | `nav.test.ts` (sections, addresses, last-used screens), smoke (guide shown and kept closed, bars by width, every section and tab, gear button, bottom bar never covers content, no overflow) |
