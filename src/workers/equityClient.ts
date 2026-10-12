@@ -22,7 +22,7 @@ const pending = new Map<number, Pending>();
 function getWorker(): Worker | null {
   if (worker || workerFailed) return worker;
   try {
-    worker = new Worker(new URL('./equity.worker.ts', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./equity.worker.ts', import.meta.url));
     worker.onmessage = (e: MessageEvent<EquityReply>) => {
       const p = pending.get(e.data.id);
       if (!p) return;
