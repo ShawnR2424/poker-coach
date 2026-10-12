@@ -199,8 +199,9 @@ for (const vp of VIEWPORTS) {
     const covered = await page.evaluate(() => {
       window.scrollTo(0, document.documentElement.scrollHeight);
       const bar = document.querySelector('.bottombar').getBoundingClientRect();
-      const last = document.querySelector('main').lastElementChild.getBoundingClientRect();
-      return last.bottom > bar.top + 1;
+      const main = document.querySelector('main');
+      const contentEnd = main.getBoundingClientRect().bottom - parseFloat(getComputedStyle(main).paddingBottom);
+      return contentEnd > bar.top;
     });
     if (covered) failures.push(`${tag}: the bottom bar covers the end of the page`);
     await page.evaluate(() => window.scrollTo(0, 0));

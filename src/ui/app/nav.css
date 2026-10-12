@@ -37,13 +37,15 @@
 @media (max-width: 640px) {
   .nav-groups { display: none; }
   .brand .approx { display: none; }
+  /* The bar's height is fixed so the page can reserve exactly that much room below its content. */
+  :root { --bottombar-h: 64px; }
   .bottombar {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    display: grid; box-sizing: border-box; height: calc(var(--bottombar-h) + env(safe-area-inset-bottom, 0px)); grid-template-columns: repeat(4, 1fr); gap: 0;
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     padding-inline: 4px; padding-block: 4px calc(4px + env(safe-area-inset-bottom, 0px));
     background: var(--surface); border-top: 1px solid var(--line);
   }
-  .bottombar button { flex-direction: column; gap: 2px; padding: 6px 2px; font-size: 0.75rem; border-radius: 8px; min-width: 0; }
+  .bottombar button { flex-direction: column; justify-content: center; gap: 2px; padding: 2px; height: 100%; font-size: 0.75rem; border-radius: 8px; min-width: 0; }
   .bottombar .tab-count { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; }
-  main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  main { padding-bottom: calc(var(--bottombar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
 }
