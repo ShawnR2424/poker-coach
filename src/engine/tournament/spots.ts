@@ -164,7 +164,17 @@ export function answer(s: SolvedSpot, played: boolean): TournamentAnswer {
   return { verdict: verdictFor(loss), loss, played, g, chipG };
 }
 
-/** The equity a call needs to beat folding: from the payouts of winning, losing and folding. */
+/** How often a player behind a call joins with an overcall, from the solved overcall ranges. */
+export function overcallOdds(sol: Solution, caller: number): number {
+  let none = 1;
+  for (let d = caller + 1; d < sol.setup.stacks.length; d++) {
+    const o = sol.over[caller]?.[d];
+    if (o) none *= 1 - rangeShare(o);
+  }
+  return 1 - none;
+}
+
+/** The equity a call needs to beat folding, heads-up: from the payouts of winning, losing and folding. */
 export function equityNeeded(sol: Solution, caller: number): number {
   const { out } = sol;
   const win = out.callerWins[caller][caller], lose = out.openerWins[caller][caller];

@@ -148,9 +148,11 @@ describe('EV and verdicts', () => {
     const a = analyze(sit, eqs);
     const row = a.rows.find((r) => r.option.to === 1000)!;
     // KQs on this board is air: hero wins every showdown. A range of nothing but air is far short
-    // of the defense floor, so it continues as often as the boost cap allows.
+    // of the defense floor, so it continues as often as the boost cap allows; air is never made to
+    // call beyond that.
     const defense = rangeDefense(['air'], [1], 1000 / 1000);
-    expect(defense).toBe(ACTIONS.facingBet.maxBoost);
+    expect(defense.factor).toBe(ACTIONS.facingBet.maxBoost);
+    expect(defense.topUp?.air).toBeUndefined();
     const resp = responseFor('air', 1000 / 1000, true, false, undefined, defense);
     // Villain raising is a shove; hero (with the nuts) calls it: final pot 1000 + 4000 + 4000.
     const expected = resp.fold * 1000 + resp.call * (1 * 3000 - 1000) + resp.raise * (9000 - 4000);

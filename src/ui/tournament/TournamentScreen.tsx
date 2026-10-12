@@ -10,7 +10,7 @@ import { ALL_CLASSES } from '../../engine/range';
 import type { ClassRange, PayoutMode } from '../../engine/tournament/pushfold';
 import { callingHands, OPEN_TO } from '../../engine/tournament/reshove';
 import {
-  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, handClass, handText, MARGINS, MODE_LABELS, SPOT_LABELS,
+  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, overcallOdds, handClass, handText, MARGINS, MODE_LABELS, SPOT_LABELS,
   parseTally, payoutText, positionNames, postedLabel, rangeText, shareText, type SolvedSpot, type TableSize, type TournamentAnswer,
   type SpotChoice, type TournamentOptions, type TournamentTally,
 } from '../../engine/tournament/spots';
@@ -274,6 +274,10 @@ export function Feedback({ s, a, onNext, nextLabel = 'Next spot', children }: { 
     bullets.push(chipNeeded !== null
       ? `Calling needs ${pct(needed)} equity with these payouts, against ${pct(chipNeeded)} in chips. The difference is ICM's risk premium: chips you lose cost more prize money than chips you win add.`
       : `Calling needs ${pct(needed)} equity to win more chips than folding.`);
+    const over = overcallOdds(s.sol, spot.hero);
+    if (over >= 0.005) {
+      bullets.push(`A player behind you overcalls ${pct(over)} of the time, with a range tighter than a first call; the values below include those three-way pots, so the needed equity is the heads-up figure.`);
+    }
   }
   if (chipFlip) {
     bullets.push(`In chips alone this is ${a.chipG!.best === 'play' ? `a ${playName}` : 'a fold'} (${signed(a.chipG!.play - a.chipG!.fold)}bb). With these payouts ${g.best === 'play' ? `the ${playName}` : 'folding'} is better: ${icm && g.best === 'fold' ? 'busting costs more than doubling up gains.' : 'the stacks around you change what each chip is worth.'}`);
