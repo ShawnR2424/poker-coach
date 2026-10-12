@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## Tournament review
+
+- A tournament spot answered with a mistake now becomes a card on the Review tab, alongside the Play tab's mistakes. The card deals the same table, stacks, payouts and hand, works out the ranges again the same way, and grades the new answer with Tournament mode's full feedback: the value of each option, the range grid with your hand ringed, and the opponents' ranges. It also notes what you chose the first time and when the card comes back.
+- Tournament cards follow the same spaced-repetition schedule as the other cards and are kept in backups with the rest of the deck. The tournament code still loads only when a tournament card is dealt.
+- `tournament.test.ts` adds review checks: a mistake becomes a due card that saves and loads, a malformed one is dropped, a spot dealt again from its card gives the same values so the first answer is still a mistake and the best answer is correct (push/fold, calls and reshoves, in chips and on the bubble), and the card is scheduled like any other. The smoke test makes a tournament mistake in a new browser, answers its card on the Review tab, and checks it is scheduled after a reload.
+
 ## Backup and restore
 
 - The Settings tab has a new Back up your progress panel. It says what this browser holds (hands, sessions, review cards, quiz results and tournament spots) and saves it all to one file, `poker-coach-backup-YYYY-MM-DD.json`, along with the table, level, chart explorer, equity calculator and theme settings.

@@ -121,16 +121,7 @@ export function gradeSpot(s: SolvedSpot, cls: HandClass, chips = false): Graded 
  */
 export function dealSpot(rng: Rng, o: TournamentOptions): SolvedSpot {
   const { kind, ...table } = dealTable(rng, o);
-  const placeholder: TournamentSpot = { ...table, hand: [0, 1] };
-  const solved: SolvedSpot = kind === 'reshove'
-    ? (() => {
-      const sol = solveReshove(table);
-      return { kind, spot: placeholder, sol, chips: table.mode === 'chips' ? sol : solveReshove({ ...table, mode: 'chips' }) };
-    })()
-    : (() => {
-      const sol = solve(table);
-      return { kind, spot: placeholder, sol, chips: table.mode === 'chips' ? sol : solve({ ...table, mode: 'chips' }) };
-    })();
+  const solved = solveSpot(kind, { ...table, hand: [0, 1] });
   let hand: [Card, Card] = [0, 0];
   for (let tries = 0; tries < 4; tries++) {
     const [a, b] = COMBO_CARDS[randInt(rng, NUM_COMBOS)];
@@ -139,6 +130,20 @@ export function dealSpot(rng: Rng, o: TournamentOptions): SolvedSpot {
     if (Math.abs(g.play - g.fold) <= 3 || rng() >= 0.6) break;
   }
   return { ...solved, spot: { ...table, hand } };
+}
+
+/**
+ * Works out the ranges for a spot, under its payouts and in chips. The solution depends only on
+ * the table, so a saved spot (a review card) is solved to the same ranges as when it was dealt.
+ */
+export function solveSpot(kind: SpotKind, spot: TournamentSpot): SolvedSpot {
+  const { hand: _hand, ...table } = spot;
+  if (kind === 'reshove') {
+    const sol = solveReshove(table);
+    return { kind, spot, sol, chips: table.mode === 'chips' ? sol : solveReshove({ ...table, mode: 'chips' }) };
+  }
+  const sol = solve(table);
+  return { kind, spot, sol, chips: table.mode === 'chips' ? sol : solve({ ...table, mode: 'chips' }) };
 }
 
 export interface TournamentAnswer {

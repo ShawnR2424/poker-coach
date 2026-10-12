@@ -4,7 +4,8 @@
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
 // every chart in the chart explorer, the equity calculator, mistake review cards made from the imported sample hands, the
-// opponent stats on the Play and Session tabs, tournament push/fold and reshove spots, backup and
+// opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
+// review cards, backup and
 // restore into a new browser, and
 // that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
@@ -460,6 +461,45 @@ for (const vp of VIEWPORTS) {
   const tTally = await page.$eval('.t-tally', (e) => e.textContent);
   if (!tTally.includes(`${tSpots} answered`)) failures.push(`${tag}: the tournament tally after a reload says "${tTally}"`);
   if ((await page.$eval('#t-players', (e) => e.value)) !== '6' || (await page.$eval('#t-mode', (e) => e.value)) !== 'chips' || (await page.$eval('#t-spots', (e) => e.value)) !== 'both') failures.push(`${tag}: tournament settings were not kept after a reload`);
+
+  // Tournament review: in a new browser, a tournament mistake becomes the only review card, which
+  // deals the same table and hand, grades a new answer with full feedback, and is then scheduled.
+  {
+    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const p2 = await fresh.newPage();
+    p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
+    await p2.goto(`${url}#tournament`);
+    let missed = null;
+    for (let i = 0; i < 16 && !missed; i++) {
+      await p2.waitForSelector('.t-spot', { timeout: TURN_TIMEOUT });
+      const seen = { head: await p2.textContent('#t-spot-h'), hand: await p2.textContent('.t-hero strong') };
+      await p2.click(i % 2 ? '.action-bar .act.fold' : '.action-bar .act.allin');
+      await p2.waitForSelector('#t-fb-h');
+      if (await p2.$('.feedback.verdict-mistake')) missed = seen;
+      else await p2.click('.feedback .primary:has-text("Next spot")');
+    }
+    if (!missed) failures.push(`${tag}: no tournament mistake in 16 spots to review`);
+    else {
+      await p2.goto(`${url}#review`);
+      await p2.waitForSelector('.review-card #rc-h', { timeout: TURN_TIMEOUT });
+      const eyebrow = await p2.textContent('.review-card .eyebrow');
+      const head = await p2.textContent('#rc-h');
+      if (!eyebrow.startsWith('Tournament')) failures.push(`${tag}: the review card is headed "${eyebrow}", not a tournament card`);
+      if (!head.startsWith(missed.head)) failures.push(`${tag}: the tournament card asks "${head}", the spot was "${missed.head}"`);
+      await p2.waitForSelector('.t-review .action-bar .act', { timeout: TURN_TIMEOUT });
+      if ((await p2.textContent('.t-review .t-hero strong')) !== missed.hand) failures.push(`${tag}: the tournament card deals a different hand`);
+      await noOverflow(p2, `${tag}, tournament review card`);
+      await p2.click('.t-review .action-bar .act.fold');
+      await p2.waitForSelector('.t-review #t-fb-h');
+      if (!(await p2.$('.t-review .first-time'))) failures.push(`${tag}: the tournament card has no note of the first answer`);
+      if ((await p2.$$eval('.t-review .feedback .range-grid .cell', (c) => c.length)) !== 169) failures.push(`${tag}: the tournament card's feedback has no full grid`);
+      await p2.reload();
+      await p2.waitForSelector('.review h1');
+      const left = Number(await p2.$eval('.review .tiles .stat:first-child .stat-value', (e) => e.textContent));
+      if (left > 1) failures.push(`${tag}: ${left} cards due after answering the only tournament card`);
+    }
+    await fresh.close();
+  }
 
   // Import: the sample hand histories grade, save as a new session, and replay with their verdicts.
   await page.goto(`${url}#import`);
