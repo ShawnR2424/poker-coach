@@ -3,7 +3,7 @@
 // desktop widths with random actions, then a few at a 9-handed $0.50/$1 table, at 40bb and
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
-// every chart in the chart explorer, the equity calculator, mistake review cards made from the imported sample hands, the
+// every chart in the chart explorer, importing charts by pasting ranges and by chart pack, the equity calculator, mistake review cards made from the imported sample hands, the
 // the grouped navigation and first-run guide, opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
 // review cards, backup and
 // restore into a new browser, and
@@ -94,6 +94,8 @@ async function playHand(page, where) {
 async function quizCheck(page, tag) {
   await page.goto(`${url}#quiz`);
   await page.waitForSelector('.paint-grid button[data-cls="AA"]');
+  // Bring the grid into view first: on a phone its top row can start under the bottom bar.
+  await page.$eval('.paint-grid', (g) => g.scrollIntoView({ block: 'center' }));
   const cell = async (cls) => (await page.$(`.paint-grid button[data-cls="${cls}"]`)).boundingBox();
   const from = await cell('AA'), to = await cell('A2s');
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -446,6 +448,63 @@ for (const vp of VIEWPORTS) {
   await page.waitForSelector('#chart-key');
   if ((await page.$eval('#chart-key', (e) => e.value)) !== 'BB_vs_BTN' || !(await page.isChecked('#chart-rake'))) failures.push(`${tag}: the chosen chart was not kept after a reload`);
   await page.uncheck('#chart-rake');
+
+  // Imported charts, in a new browser: a pasted range is checked as it is typed, a bad one is
+  // refused, a saved one replaces the chart (badge, shares) and is played at the table, the charts
+  // save as a pack that opens again, and removing the imports puts the built-in charts back.
+  {
+    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const p2 = await fresh.newPage();
+    p2.on('pageerror', (e) => failures.push(`${tag}, imported charts: ${e.message}`));
+    p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
+    await p2.goto(`${url}#charts`);
+    await p2.waitForSelector('#custom-raise');
+    await p2.selectOption('#chart-kind', 'vsOpen');
+    await p2.selectOption('#chart-key', 'BB_vs_BTN');
+    await p2.fill('#custom-raise', 'AA, KK, [50]AKs, AKo[/50]');
+    await p2.fill('#custom-call', 'AKs:60%');
+    if (!(await p2.$('#custom-error')) || !(await p2.isDisabled('#custom-use'))) failures.push(`${tag}: a chart raising and calling AKs 110% of the time was not refused`);
+    await p2.selectOption('#chart-kind', 'rfi');
+    await p2.selectOption('#chart-key', 'BTN');
+    if (await p2.$('#custom-call')) failures.push(`${tag}: an opening chart offers a call range`);
+    await p2.fill('#custom-raise', 'AA, KK, [50]AKs, AKo[/50]');
+    await p2.fill('#custom-size', '2.2');
+    await p2.waitForSelector('#custom-check');
+    await noOverflow(p2, `${tag}, chart import`);
+    await Promise.all([p2.waitForEvent('load'), p2.click('#custom-use')]);
+    await p2.waitForSelector('#chart-h');
+    const raiseShare = await p2.$eval('.chart-shares .stat:first-child .stat-value', (e) => e.textContent);
+    if (!(await p2.$('#chart-h .imported')) || raiseShare !== '1.5%') failures.push(`${tag}: the imported BTN chart shows ${raiseShare} raising (expected 1.5%) or no Imported badge`);
+    if (!(await p2.textContent('#custom-status')).includes('1 imported chart')) failures.push(`${tag}: the status does not count 1 imported chart`);
+    await p2.goto(`${url}#table`);
+    await p2.waitForSelector('#level');
+    await p2.selectOption('#level', '1');
+    for (let h = 0; h < 4; h++) if (!(await playHand(p2, `${tag}, imported charts, hand ${h + 1}`))) break;
+    await p2.goto(`${url}#charts`);
+    await p2.waitForSelector('#custom-save');
+    const [dl] = await Promise.all([p2.waitForEvent('download'), p2.click('#custom-save')]);
+    const packFile = join(mkdtempSync(join(tmpdir(), 'charts-')), dl.suggestedFilename());
+    await dl.saveAs(packFile);
+    const pack = JSON.parse(readFileSync(packFile, 'utf8'));
+    if (pack.app !== 'poker-coach-charts' || pack.charts.rfi.BTN.size !== 2.2 || !pack.charts.vsOpen.BB_vs_BTN) failures.push(`${tag}: the saved chart pack does not hold every chart with the imported one`);
+    // A pack with one chart replaces the earlier import.
+    writeFileSync(packFile, JSON.stringify({ app: 'poker-coach-charts', v: 1, name: 'Smoke pack', charts: { rfi: { CO: { raise: 'QQ+' } } } }));
+    await p2.setInputFiles('#custom-file', packFile);
+    await p2.waitForSelector('#custom-pack-use');
+    await Promise.all([p2.waitForEvent('load'), p2.click('#custom-pack-use')]);
+    await p2.waitForSelector('#custom-status');
+    const status = await p2.textContent('#custom-status');
+    if (!status.includes('1 imported chart') || !status.includes('Smoke pack') || (await p2.$('#chart-h .imported'))) failures.push(`${tag}: after opening a pack the status says "${status}"`);
+    writeFileSync(packFile, '{"app":"poker-coach-charts","v":1,"charts":{"rfi":{"BTN":{"raise":"ZZ"}}}}');
+    await p2.setInputFiles('#custom-file', packFile);
+    await p2.waitForSelector('.custom-pack .errors');
+    await p2.click('#custom-clear');
+    await Promise.all([p2.waitForEvent('load'), p2.click('#custom-clear-yes')]);
+    await p2.waitForSelector('#custom-status');
+    if (!(await p2.textContent('#custom-status')).includes('Every chart is the built-in one')) failures.push(`${tag}: removing the imports did not put the built-in charts back`);
+    console.log(`${tag}: a pasted chart imported and played, a chart pack saved and opened, the built-in charts put back`);
+    await fresh.close();
+  }
 
   // Equity calculator: an exact matchup, a range from a chart in a three-way pot on a flop, a card
   // clash reported as an error, and the fields kept after a reload.

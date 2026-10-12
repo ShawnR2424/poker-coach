@@ -2,6 +2,7 @@
 // read back. Values are kept exactly as stored, so a restore puts back the same data each tab
 // reads today. The Claude API key is never written to a backup.
 
+import { parsePack } from '../preflop/chartPack';
 import { parseDeck } from '../review/review';
 import { parseHistory } from '../quiz/quiz';
 import { parseSaved } from '../session/session';
@@ -20,6 +21,7 @@ export const BACKUP_KEYS = [
   'focusLeaks',
   'adaptiveOpponents',
   'charts:v1',
+  'custom-charts:v1',
   'equity:v1',
   'theme',
 ] as const;
@@ -89,6 +91,13 @@ function checkValue(key: BackupKey, v: string) {
     case 'adaptiveOpponents':
       if (v !== '0' && v !== '1') throw new Error(`The saved ${key} setting is not on or off`);
       return;
+    case 'custom-charts:v1':
+      try {
+        parsePack(v);
+      } catch (e) {
+        throw new Error(`The saved imported charts do not check out: ${(e as Error).message}`);
+      }
+      return;
     case 'theme':
       if (!['light', 'dark', 'system'].includes(v)) throw new Error('The saved theme is not one the trainer offers');
       return;
@@ -138,7 +147,7 @@ export function summarize(b: Backup): BackupSummary {
     reviewCards: parseDeck(b.data['review-deck:v1'] ?? null).cards.length,
     quizzes: parseHistory(b.data['quiz-history'] ?? null).length,
     tournamentSpots: tournamentSpots(b.data['tournament:v1']),
-    settings: (['table:v1', 'level', 'focusLeaks', 'adaptiveOpponents', 'charts:v1', 'equity:v1', 'theme'] as const).filter((k) => b.data[k] !== undefined).length,
+    settings: (['table:v1', 'level', 'focusLeaks', 'adaptiveOpponents', 'charts:v1', 'custom-charts:v1', 'equity:v1', 'theme'] as const).filter((k) => b.data[k] !== undefined).length,
   };
 }
 

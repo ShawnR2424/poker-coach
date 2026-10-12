@@ -178,6 +178,15 @@ With two or more opponents still in:
 - Changed hands are measured against the plain 100bb chart with no rake and no low-stakes adjustments, per hand class, and listed when any action's frequency moved by at least 1 point. The notes are the ones the adjustment rules in `data/preflop/` attach when they change a chart.
 - Sizes are the chart sizes at that depth: an open in big blinds, a 3-bet as a multiple of the open, a 4-bet as a multiple of the 3-bet (all-in at 40bb), and an isolation raise in big blinds plus one per limper. On the Play tab they are rounded to the table's chips and capped by the stack.
 
+## Imported charts
+
+- An imported chart replaces the built-in chart with the same kind and key, for every reader: the hero's recommendations and grades, the opponents' choices, the range reads, quizzes, the chart explorer and the equity calculator's chart ranges. Only charts the trainer already has can be replaced, so every spot it deals still finds a chart and the hand generator is unchanged.
+- An imported chart is taken as the 100bb chart. The stack depth, rake and low-stakes layers apply on top of it exactly as they do to the built-in chart, and the raise size defaults to the built-in size when none is given. At 40bb and 200bb this means the imported chart is adjusted by rules written for the built-in charts, not replaced by a solution at that depth.
+- Opening charts stay raise or fold: an open limp leads to spots with no charts. Facing a 4-bet the raise is always all-in.
+- Weights are per combo, so a pasted range can weight single combos (`AhKh:0.5`) as solvers export them. Grades, the chart explorer and the quizzes average a class's combos where they work per hand class.
+- The charts are put in place when the app starts, and saving or removing an import reloads the app, so nothing built from the previous charts is kept. A saved import that no longer passes the checks is ignored and the built-in charts are used.
+- Review cards dealt again after the charts change are graded with the charts in place now, not the ones the hand was played with.
+
 ## Equity calculator
 
 - Each player holds a weighted range; an exact hand is a range of one combo. Combos that use a board or dead card are removed first, and the combos column counts what is left (by weight).
@@ -223,7 +232,7 @@ With two or more opponents still in:
 
 ## Backup and restore
 
-- A backup is one JSON file, `{ app: "poker-coach", v: 1, savedAt, data }`, where `data` holds each saved item exactly as the browser stores it: the sessions and hands, the review deck, quiz history, the tournament settings and tally, the table and level settings, the chart explorer and equity calculator fields, and the theme.
+- A backup is one JSON file, `{ app: "poker-coach", v: 1, savedAt, data }`, where `data` holds each saved item exactly as the browser stores it: the sessions and hands, the review deck, quiz history, the tournament settings and tally, the table and level settings, the chart explorer and equity calculator fields, any imported charts, and the theme.
 - The coach voice settings, which hold the Claude API key, are never written to a backup and are never read from one.
 - A restore checks the version and every item first and changes nothing if any check fails. It then replaces the saved data: items in the file are written, and items the file does not have are cleared, so data from two browsers is never mixed. The page reloads so every tab reads the restored data.
 
@@ -233,7 +242,7 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 
 ## Known gaps
 
-- No solver: the model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
+- No solver: the built-in preflop charts are estimates unless you import your own (see [Imported charts](#imported-charts)), and the postflop model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
 - The defense floor spreads the extra defense across classes in proportion to how often each already continues. A real defender adds the hands that do best against the bettor's range, so the calling range can be a little weaker than it should be.
 - Tournament mode covers push/fold and reshoves over a 2bb open: no smaller raises, limps or calls of an open, only the first caller plays, and the opener's range is a cash-game 40bb chart rather than a tournament one. Its payouts are fixed presets, not a real tournament's structure.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.

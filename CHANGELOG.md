@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Import your own charts
+
+- The Charts tab has a new Use your own charts panel. Paste the raise and call ranges for the chart on screen, as a solver or range tool exports them, with an optional raise size. The panel reads PioSOLVER, GTO+ and GTO Wizard style weights (shares or percentages), Flopzilla and HRC style bracket groups, exact combos and one hand per line, and says as you type what share of hands the chart raises, calls and folds, or what is wrong with it.
+- A chart pack file holds any number of charts. Save all charts as a pack to get a template with every chart's key, edit it with your solver's ranges, and open it to replace those charts at once.
+- Imported charts replace the built-in ones everywhere: your recommendations and grades, the opponents' play, range reads, quizzes and the chart explorer, which marks them Imported. Any chart can be put back, or every import removed. Imported charts are kept in the browser and in backups.
+- Every chart is checked first: unknown hands, bad weights, a hand raised and called more than 100% of the time, opening charts with a limping range, impossible sizes and charts the trainer has no spot for are refused, naming the chart and hand.
+- New `chartPack.test.ts` checks the export formats, the chart checks, that every built-in chart passes them and reads back identically from a pack, that an imported chart changes the recommendations, the opponents and the raise size while other charts stay built in, that the depth layer still applies, that clearing restores every built-in chart, and that backups carry the imports. The smoke test pastes a bad and a good chart, plays hands with the import, saves and opens a chart pack, and puts the built-in charts back. It also scrolls the range quiz grid into view before dragging, since on a phone the bottom bar can cover its top row.
+
 ## Phone-first layout
 
 - The eleven tabs are now four sections: Play (cash table, tournament), Train (postflop spots, quizzes, review), Tools (equity, charts, import, engine lab) and Progress (session). On a phone the sections are a fixed bottom bar with icons, clear of the home indicator; from 641px wide they move into the top bar. Each section's screens are a row of tabs under the top bar, and a section reopens the screen last used in it. Settings moved behind a gear button. Every screen keeps its address (`#review`, `#equity` and so on).
