@@ -46,6 +46,10 @@ const VIEWPORTS = DEVICE
   })()
   : [view(380, 900, 'light'), view(1280, 900, 'dark')];
 const RUN = `${BROWSER}${DEVICE ? `, ${DEVICE}` : ''}`;
+// Service workers are blocked so API mocking sees every request (the app check at the end allows
+// them). WebKit's blocking also refuses the equity worker's script, so WebKit allows them: the
+// service worker passes requests to other hosts, such as the Claude API, straight through.
+const SW = BROWSER === 'webkit' ? 'allow' : 'block';
 const TURN_TIMEOUT = 30_000;
 
 const server = await preview({ preview: { port: 0, strictPort: false }, logLevel: 'silent' });
@@ -157,8 +161,7 @@ async function quizCheck(page, tag) {
 
 for (const vp of VIEWPORTS) {
   const tag = `${RUN}, ${vp.width}px ${vp.colorScheme}`;
-  // Service workers are blocked here so API mocking sees every request; the app check below allows them.
-  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: SW });
   const page = await ctx.newPage();
   page.on('console', (m) => {
     if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`);
@@ -479,7 +482,7 @@ for (const vp of VIEWPORTS) {
   // refused, a saved one replaces the chart (badge, shares) and is played at the table, the charts
   // save as a pack that opens again, and removing the imports puts the built-in charts back.
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: SW });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, imported charts: ${e.message}`));
     p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
@@ -597,7 +600,7 @@ for (const vp of VIEWPORTS) {
   // Tournament review: in a new browser, a tournament mistake becomes the only review card, which
   // deals the same table and hand, grades a new answer with full feedback, and is then scheduled.
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: SW });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
     await p2.goto(`${url}#tournament`);
@@ -740,7 +743,7 @@ for (const vp of VIEWPORTS) {
   if (!(await page.textContent('.backup .errors')).includes('not a Poker Coach backup')) failures.push(`${tag}: a file that is not a backup was not refused`);
   await noOverflow(page, `${tag}, backup`);
   {
-    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: SW });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, restore: ${e.message}`));
     await p2.goto(`${url}#settings`);
@@ -798,7 +801,9 @@ for (const vp of VIEWPORTS) {
   if (BROWSER === 'webkit') await server.close();
   else await ctx.setOffline(true);
   await page.goto(`${url}#table`);
-  await page.reload();
+  // Offline, the Google Fonts stylesheet can hold back the load event (Firefox waited it out), so
+  // wait only for the document; the check below waits for the table itself.
+  await page.reload({ waitUntil: 'domcontentloaded' });
   try {
     await page.waitForSelector('.action-bar .act, .hand-result, .feedback', { timeout: TURN_TIMEOUT });
     if (!(await playHand(page, `${tag}, offline`))) failures.push(`${tag}: no hand could be played offline`);
