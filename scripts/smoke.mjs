@@ -14,11 +14,17 @@
 //
 //   npm run smoke                 # 8 hands per level
 //   HANDS=20 npm run smoke        # more hands per level
+//   SMOKE_BROWSER=webkit npm run smoke                            # in WebKit (Safari's engine) or firefox
+//   SMOKE_BROWSER=webkit SMOKE_DEVICE="iPhone 14" npm run smoke   # an emulated phone (any Playwright device name)
+//
+// Without a device it runs at a 380px phone width and a 1280px desktop width. With a device it
+// runs once at that device's screen size, pixel ratio, user agent and touch input. CI runs it in
+// Chromium, WebKit and Firefox, and on an emulated iPhone and Android phone.
 
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, devices, firefox, webkit } from 'playwright';
 import { preview } from 'vite';
 
 const HANDS = Number(process.env.HANDS ?? 8);
@@ -26,15 +32,25 @@ const HANDS = Number(process.env.HANDS ?? 8);
 let rakeOn = false;
 let rakeSeen = 0;
 const LEVELS = [1, 2, 3, 4, 5, 6];
-const VIEWPORTS = [
-  { width: 380, height: 900, colorScheme: 'light' },
-  { width: 1280, height: 900, colorScheme: 'dark' },
-];
+const BROWSERS = { chromium, firefox, webkit };
+const BROWSER = process.env.SMOKE_BROWSER ?? 'chromium';
+const DEVICE = process.env.SMOKE_DEVICE;
+if (!BROWSERS[BROWSER]) throw new Error(`SMOKE_BROWSER must be one of ${Object.keys(BROWSERS).join(', ')}`);
+if (DEVICE && !devices[DEVICE]) throw new Error(`"${DEVICE}" is not a Playwright device name`);
+/** Each run's browser context settings (`ctx`), with its width and color scheme for the checks. */
+const view = (width, height, colorScheme) => ({ width, colorScheme, ctx: { viewport: { width, height }, colorScheme } });
+const VIEWPORTS = DEVICE
+  ? (() => {
+    const { defaultBrowserType: _type, ...d } = devices[DEVICE];
+    return [{ width: d.viewport.width, colorScheme: 'light', ctx: { ...d, colorScheme: 'light' } }];
+  })()
+  : [view(380, 900, 'light'), view(1280, 900, 'dark')];
+const RUN = `${BROWSER}${DEVICE ? `, ${DEVICE}` : ''}`;
 const TURN_TIMEOUT = 30_000;
 
 const server = await preview({ preview: { port: 0, strictPort: false }, logLevel: 'silent' });
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch();
+const browser = await BROWSERS[BROWSER].launch();
 const failures = [];
 
 async function noOverflow(page, where) {
@@ -94,7 +110,10 @@ async function playHand(page, where) {
 async function quizCheck(page, tag) {
   await page.goto(`${url}#quiz`);
   await page.waitForSelector('.paint-grid button[data-cls="AA"]');
-  // Bring the grid into view first: on a phone its top row can start under the bottom bar.
+  // Let the web fonts finish loading first: a late font swap rewraps the text above the grid and
+  // moves it mid-drag. Then bring the grid into view: on a phone its top row can start under the
+  // bottom bar.
+  await page.evaluate(() => document.fonts.ready);
   await page.$eval('.paint-grid', (g) => g.scrollIntoView({ block: 'center' }));
   const cell = async (cls) => (await page.$(`.paint-grid button[data-cls="${cls}"]`)).boundingBox();
   const from = await cell('AA'), to = await cell('A2s');
@@ -134,9 +153,9 @@ async function quizCheck(page, tag) {
 }
 
 for (const vp of VIEWPORTS) {
-  const tag = `${vp.width}px ${vp.colorScheme}`;
+  const tag = `${RUN}, ${vp.width}px ${vp.colorScheme}`;
   // Service workers are blocked here so API mocking sees every request; the app check below allows them.
-  const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`); });
   page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
@@ -453,7 +472,7 @@ for (const vp of VIEWPORTS) {
   // refused, a saved one replaces the chart (badge, shares) and is played at the table, the charts
   // save as a pack that opens again, and removing the imports puts the built-in charts back.
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, imported charts: ${e.message}`));
     p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
@@ -568,7 +587,7 @@ for (const vp of VIEWPORTS) {
   // Tournament review: in a new browser, a tournament mistake becomes the only review card, which
   // deals the same table and hand, grades a new answer with full feedback, and is then scheduled.
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
     await p2.goto(`${url}#tournament`);
@@ -711,7 +730,7 @@ for (const vp of VIEWPORTS) {
   if (!(await page.textContent('.backup .errors')).includes('not a Poker Coach backup')) failures.push(`${tag}: a file that is not a backup was not refused`);
   await noOverflow(page, `${tag}, backup`);
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, restore: ${e.message}`));
     await p2.goto(`${url}#settings`);
@@ -735,8 +754,8 @@ for (const vp of VIEWPORTS) {
 // Installable app: the manifest and icons load, the service worker takes control, and the app
 // opens and deals a hand with the network off.
 {
-  const tag = 'app';
-  const ctx = await browser.newContext({ viewport: { width: 380, height: 900 } });
+  const tag = `${RUN}, app`;
+  const ctx = await browser.newContext(VIEWPORTS[0].ctx);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
   await page.goto(`${url}#settings`);
@@ -761,7 +780,7 @@ for (const vp of VIEWPORTS) {
     failures.push(`${tag}: the service worker never took control`);
   }
   // Chromium's own installability check: manifest, icons, service worker and secure origin.
-  const { installabilityErrors } = await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors');
+  const installabilityErrors = BROWSER === 'chromium' ? (await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors')).installabilityErrors : [];
   for (const e of installabilityErrors) failures.push(`${tag}: not installable: ${e.errorId}`);
   await ctx.setOffline(true);
   await page.goto(`${url}#table`);
@@ -773,7 +792,8 @@ for (const vp of VIEWPORTS) {
     failures.push(`${tag}: the app does not open offline`);
   }
   await ctx.setOffline(false);
-  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installabilityErrors.length} installability errors, service worker in control, a hand played offline`);
+  const installable = BROWSER === 'chromium' ? `${installabilityErrors.length} installability errors, ` : '';
+  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installable}service worker in control, a hand played offline`);
   await ctx.close();
 }
 
@@ -783,4 +803,4 @@ if (failures.length) {
   console.error(`\n${failures.length} problem(s):\n${failures.map((f) => `- ${f}`).join('\n')}`);
   process.exit(1);
 }
-console.log('Smoke test passed.');
+console.log(`Smoke test passed (${RUN}).`);
