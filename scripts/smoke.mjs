@@ -54,6 +54,16 @@ const browser = await BROWSERS[BROWSER].launch();
 const failures = [];
 /** Things worth knowing that are not failures, printed at the end. */
 const notes = new Set();
+/**
+ * A page error is a failure, except WebKit's refusal of the equity worker's script while requests
+ * are being intercepted for the Claude API mock: the app then works out equity on the main thread,
+ * which the rest of the run exercises, so it is noted instead.
+ */
+function pageError(where, e) {
+  if (BROWSER === 'webkit' && /equity\.worker-[\w-]+\.js due to access control checks/.test(e.message)) {
+    notes.add(`${where}: WebKit refused the equity worker, so equity ran on the main thread`);
+  } else failures.push(`${where}: page error: ${e.message}`);
+}
 
 async function noOverflow(page, where) {
   const { scroll, width } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: window.innerWidth }));
@@ -164,7 +174,7 @@ for (const vp of VIEWPORTS) {
     if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`);
     if (m.type() === 'warning' && m.text().includes('equity worker')) notes.add(`${tag}: the equity worker did not start, so equity ran on the main thread`);
   });
-  page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
+  page.on('pageerror', (e) => pageError(tag, e));
 
   // The coach voice is off by default: nothing may reach the Claude API until it is switched on.
   let voiceOn = false;
@@ -481,7 +491,7 @@ for (const vp of VIEWPORTS) {
   {
     const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, imported charts: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, imported charts`, e));
     p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
     await p2.goto(`${url}#charts`);
     await p2.waitForSelector('#custom-raise');
@@ -599,7 +609,7 @@ for (const vp of VIEWPORTS) {
   {
     const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, tournament review`, e));
     await p2.goto(`${url}#tournament`);
     // Answers are random, and a run of right answers is likely enough at 16 spots to fail now and
     // then, so keep dealing until a mistake turns up.
@@ -742,7 +752,7 @@ for (const vp of VIEWPORTS) {
   {
     const fresh = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, restore: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, restore`, e));
     await p2.goto(`${url}#settings`);
     await p2.waitForSelector('#backup-here');
     if (!(await p2.textContent('#backup-here')).includes('0 hands')) failures.push(`${tag}: a new browser already holds hands`);
@@ -767,7 +777,10 @@ for (const vp of VIEWPORTS) {
   const tag = `${RUN}, app`;
   const ctx = await browser.newContext(VIEWPORTS[0].ctx);
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
+  page.on('pageerror', (e) => pageError(tag, e));
+  page.on('console', (m) => {
+    if (m.type() === 'warning' && m.text().includes('equity worker')) notes.add(`${tag}: the equity worker did not start, so equity ran on the main thread`);
+  });
   await page.goto(`${url}#settings`);
   const manifest = await page.evaluate(async () => {
     const href = document.querySelector('link[rel=manifest]')?.getAttribute('href');
