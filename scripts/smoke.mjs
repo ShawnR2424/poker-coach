@@ -578,6 +578,9 @@ for (const vp of VIEWPORTS) {
       await page.click('.feedback button:has-text("Next spot")');
     }
   }
+  // Let the next spot finish solving first: the solve holds the page's thread, and WebKit can
+  // stall a reload that starts during it.
+  await page.waitForSelector('.t-spot', { timeout: TURN_TIMEOUT });
   await page.reload();
   await page.waitForSelector('.t-tally');
   const tTally = await page.$eval('.t-tally', (e) => e.textContent);
@@ -782,7 +785,11 @@ for (const vp of VIEWPORTS) {
   // Chromium's own installability check: manifest, icons, service worker and secure origin.
   const installabilityErrors = BROWSER === 'chromium' ? (await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors')).installabilityErrors : [];
   for (const e of installabilityErrors) failures.push(`${tag}: not installable: ${e.errorId}`);
-  await ctx.setOffline(true);
+  // Network off: Chromium and Firefox emulate it. WebKit's emulation fails the navigation before
+  // the service worker can answer it, so there the server is shut down instead, as when a phone
+  // loses its connection. The app section runs last, so nothing else needs the server.
+  if (BROWSER === 'webkit') await server.close();
+  else await ctx.setOffline(true);
   await page.goto(`${url}#table`);
   await page.reload();
   try {
@@ -791,14 +798,14 @@ for (const vp of VIEWPORTS) {
   } catch {
     failures.push(`${tag}: the app does not open offline`);
   }
-  await ctx.setOffline(false);
+  if (BROWSER !== 'webkit') await ctx.setOffline(false);
   const installable = BROWSER === 'chromium' ? `${installabilityErrors.length} installability errors, ` : '';
   console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installable}service worker in control, a hand played offline`);
   await ctx.close();
 }
 
 await browser.close();
-await server.close();
+if (BROWSER !== 'webkit') await server.close();
 if (failures.length) {
   console.error(`\n${failures.length} problem(s):\n${failures.map((f) => `- ${f}`).join('\n')}`);
   process.exit(1);
