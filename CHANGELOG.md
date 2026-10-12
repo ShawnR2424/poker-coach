@@ -7,6 +7,8 @@ Each milestone was merged as its own pull request.
 - CI now runs the full browser smoke test in WebKit (the engine behind Safari) and Firefox as well as Chromium, and on an emulated iPhone 14 and Pixel 7 with each phone's screen size, pixel ratio, user agent and touch input. Each run plays hands at every level and checks the quizzes, charts, imports, tournament spots, review cards, backup and restore, and that the app opens and plays offline.
 - `npm run smoke` takes `SMOKE_BROWSER` (chromium, webkit or firefox) and `SMOKE_DEVICE` (any Playwright device name) to run the same checks locally.
 - The range quiz drag check waits for the web fonts to load, since a late font swap rewrapped the text above the grid and moved it mid-drag on the emulated Pixel.
+- The equity worker is now built as a classic script rather than a module, and if a browser still cannot start it, equity is worked out on the main thread instead of failing. Before, a worker that failed to start made every pending equity job fail, so range reads and replays that needed equity broke. Playwright's WebKit refused the worker while the test intercepted requests for its Claude API mock, which is how this was found; the WebKit runs note that and use the fallback. `equityClient.test.ts` checks the fallback.
+- The smoke test serves Google Fonts empty, so a dropped connection to it on a CI runner cannot fail a run, and waits for each page to settle before reloading or counting.
 
 ## Fix grading gaps
 
