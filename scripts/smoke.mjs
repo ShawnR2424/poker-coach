@@ -513,16 +513,18 @@ for (const vp of VIEWPORTS) {
     const p2 = await fresh.newPage();
     p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
     await p2.goto(`${url}#tournament`);
+    // Answers are random, and a run of right answers is likely enough at 16 spots to fail now and
+    // then, so keep dealing until a mistake turns up.
     let missed = null;
-    for (let i = 0; i < 16 && !missed; i++) {
+    for (let i = 0; i < 60 && !missed; i++) {
       await p2.waitForSelector('.t-spot', { timeout: TURN_TIMEOUT });
       const seen = { head: await p2.textContent('#t-spot-h'), hand: await p2.textContent('.t-hero strong') };
-      await p2.click(i % 2 ? '.action-bar .act.fold' : '.action-bar .act.allin');
+      await p2.click(Math.random() < 0.5 ? '.action-bar .act.fold' : '.action-bar .act.allin');
       await p2.waitForSelector('#t-fb-h');
       if (await p2.$('.feedback.verdict-mistake')) missed = seen;
       else await p2.click('.feedback .primary:has-text("Next spot")');
     }
-    if (!missed) failures.push(`${tag}: no tournament mistake in 16 spots to review`);
+    if (!missed) failures.push(`${tag}: no tournament mistake in 60 spots to review`);
     else {
       await p2.goto(`${url}#review`);
       await p2.waitForSelector('.review-card #rc-h', { timeout: TURN_TIMEOUT });
