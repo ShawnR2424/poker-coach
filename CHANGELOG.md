@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## Real-browser testing
+
+- CI now runs the full browser smoke test in WebKit (the engine behind Safari) and Firefox as well as Chromium, and on an emulated iPhone 14 and Pixel 7 with each phone's screen size, pixel ratio, user agent and touch input. Each run plays hands at every level and checks the quizzes, charts, imports, tournament spots, review cards, backup and restore, and that the app opens and plays offline.
+- `npm run smoke` takes `SMOKE_BROWSER` (chromium, webkit or firefox) and `SMOKE_DEVICE` (any Playwright device name) to run the same checks locally.
+- The range quiz drag check waits for the web fonts to load, since a late font swap rewrapped the text above the grid and moved it mid-drag on the emulated Pixel.
+
 ## Fix grading gaps
 
 - An overbet bluff against a capped range no longer grades best as often. When a range that checked faces a bet so big that boosting every class's calls still leaves it short of the minimum defense frequency, it now calls down with its best hands first: sets, two pair, overpairs and top pairs, then weaker pairs and strong draws, while weak draws and air keep folding. In a seeded sample of 400 level 3 spots against non-nit opponents with the hero holding under 35% equity and no draw, an overbet shove graded best in 1 of 88, down from 9 of 88. The same defense shapes the opponents' range reads and the bots' play. A nit can still overfold, by design.

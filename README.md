@@ -62,11 +62,11 @@ npm run dev        # start the app at http://localhost:5173
 | `npm run typecheck` | TypeScript check |
 | `npm run check` | Typecheck, then unit tests |
 | `npm run build` | Typecheck and production build into `dist/` |
-| `npm run smoke` | Build, then play hands on every level in a headless browser at phone and desktop widths. Needs a Playwright Chromium (`npx playwright install chromium`) |
+| `npm run smoke` | Build, then play hands on every level in a headless browser at phone and desktop widths. Needs a Playwright Chromium (`npx playwright install chromium`). `SMOKE_BROWSER=webkit` or `firefox` runs it in another engine, and `SMOKE_DEVICE="iPhone 14"` (any Playwright device name) on an emulated phone |
 | `npm run gen:hand-rank` | Regenerate `data/hand-rank.json` |
 | `node scripts/icons.mjs` | Render `public/icon.svg` to the PNG app icons |
 
-Continuous integration runs the typecheck, unit tests and smoke test on every pull request.
+Continuous integration runs the typecheck, unit tests and smoke test on every pull request. The smoke test runs in Chromium, WebKit (Safari's engine) and Firefox, and on an emulated iPhone 14 and Pixel 7 with their screen sizes, pixel ratios, user agents and touch input.
 
 ## Install as an app
 
