@@ -2,12 +2,12 @@
 // answer with the same feedback as the Play tab. Cards come back on a growing schedule until
 // they are learned.
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { describeScore, evaluate } from '../../engine/evaluator';
 import type { Action, HandState } from '../../engine/hand';
 import { PROFILES, type ProfileId } from '../../engine/postflop/model';
 import {
-  canGrade, cardState, dueCards, gradeCard, INTERVAL_DAYS, LEARNED_AFTER, summarizeDeck, type CardResult, type ReviewCard,
+  canGrade, cardState, dueCards, gradeCard, INTERVAL_DAYS, isTournamentCard, LEARNED_AFTER, summarizeDeck, type CardResult, type HandCard, type ReviewCard,
 } from '../../engine/review/review';
 import { IMPORTED_LEVEL } from '../../engine/session/import';
 import { FeedbackPanel } from '../play/FeedbackPanel';
@@ -18,12 +18,16 @@ import { HeroStrip } from '../table/HeroStrip';
 import { TableView } from '../table/TableView';
 import { Timeline } from '../table/Timeline';
 import { heroTiles, seatViews, timeline } from '../table/view';
+import { scheduleText } from './schedule';
 import { answer, remove, useDeck } from './store';
 import '../session/session.css';
 import '../spots/spots.css';
 import './review.css';
 
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+// Tournament cards work out their ranges with Tournament mode's equity table, so they load only when dealt.
+const TournamentCardView = lazy(() => import('../tournament/TournamentReviewCard').then((m) => ({ default: m.TournamentReviewCard })));
+
+export const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 /** "in 10 minutes", "tomorrow", "in 3 days". */
 export function untilText(iso: string, now: Date): string {
@@ -69,20 +73,31 @@ export function ReviewScreen() {
       </div>
 
       {card ? (
-        <CardView
-          key={card.id}
-          card={card}
-          left={due.filter((c) => c.id !== card.id).length}
-          after={deck.cards.find((c) => c.id === card.id)}
-          onNext={() => { setShown(null); setNow(new Date()); }}
-        />
+        isTournamentCard(card) ? (
+          <Suspense key={card.id} fallback={<section className="panel"><p className="muted">Loading the tournament spot…</p></section>}>
+            <TournamentCardView
+              card={card}
+              left={due.filter((c) => c.id !== card.id).length}
+              after={deck.cards.find((c) => c.id === card.id)}
+              onNext={() => { setShown(null); setNow(new Date()); }}
+            />
+          </Suspense>
+        ) : (
+          <CardView
+            key={card.id}
+            card={card}
+            left={due.filter((c) => c.id !== card.id).length}
+            after={deck.cards.find((c) => c.id === card.id)}
+            onNext={() => { setShown(null); setNow(new Date()); }}
+          />
+        )
       ) : (
         <section className="panel empty">
           <h2>{summary.total ? 'Nothing due right now' : 'No mistakes to review yet'}</h2>
           <p>
             {summary.total
               ? `Every card in the deck is scheduled for later; the next one comes up ${summary.nextDue ? untilText(summary.nextDue, now) : 'later'}.`
-              : 'Each decision graded a mistake on the Play tab or in imported hands becomes a card here.'}
+              : 'Each decision graded a mistake on the Play tab, in imported hands or in Tournament mode becomes a card here.'}
             {' '}A card deals the same spot again with the opponents' cards hidden. Each right answer spaces it out further ({INTERVAL_DAYS.slice(1, -1).join(', ')}, then {INTERVAL_DAYS[INTERVAL_DAYS.length - 1]} days), and after {LEARNED_AFTER} right answers in a row it is learned. Get it wrong and it comes back in a few minutes.
           </p>
           {!summary.total && (
@@ -113,8 +128,8 @@ export function ReviewScreen() {
   );
 }
 
-interface CardProps {
-  card: ReviewCard;
+export interface CardProps<C extends ReviewCard = HandCard> {
+  card: C;
   left: number;
   /** The card as scheduled now (missing once it is learned or removed). */
   after: ReviewCard | undefined;
@@ -171,11 +186,7 @@ function CardView({ card, left, after, onNext }: CardProps) {
   const firstTime = (
     <p className="first-time small">
       The first time you chose <strong>{card.you}</strong>: {card.heading}.{' '}
-      {after
-        ? result?.res.verdict === 'correct' ? `This card moves to box ${after.box + 1} and comes back after ${INTERVAL_DAYS[after.box]} day${INTERVAL_DAYS[after.box] === 1 ? '' : 's'}.`
-          : result?.res.verdict === 'playable' ? 'Close, but not the play this card teaches: it comes back tomorrow.'
-            : 'It comes back in a few minutes.'
-        : 'Learned: this card leaves the deck.'}
+      {scheduleText(after, result?.res.verdict)}
     </p>
   );
   const extra = after ? <button type="button" onClick={drop}>Remove from deck</button> : null;

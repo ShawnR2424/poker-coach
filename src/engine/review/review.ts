@@ -28,8 +28,7 @@ export const RETRY_MINUTES = 10;
 /** Cards kept in the deck at once; the newest mistakes are added first. */
 export const DECK_MAX = 150;
 
-export interface ReviewCard {
-  /** `${sessionId}:${hand number}:${step}`, unique per decision. */
+interface CardBase {
   id: string;
   /** The hand's spot, e.g. "BB vs BTN open", and where the decision was, e.g. "Flop Ts7d3c". */
   spot: string;
@@ -38,13 +37,8 @@ export interface ReviewCard {
   /** What was played the first time, and its heading. */
   you: string;
   heading: string;
-  tags: string[];
-  /** When the hand was played, and its practice level (0 for imported hands). */
+  /** When the spot was played. */
   at: string;
-  level: number;
-  /** The saved hand, kept with the card so it outlives the session's replay limit. */
-  replay: HandReplay;
-  step: number;
   box: number;
   due: string;
   reviews: number;
@@ -52,6 +46,44 @@ export interface ReviewCard {
   lapses: number;
   last?: Verdict;
 }
+
+/** A decision from a saved hand on the Play tab or an imported hand. */
+export interface HandCard extends CardBase {
+  kind?: undefined;
+  /** Ids are `${sessionId}:${hand number}:${step}`, unique per decision. */
+  tags: string[];
+  /** The practice level (0 for imported hands). */
+  level: number;
+  /** The saved hand, kept with the card so it outlives the session's replay limit. */
+  replay: HandReplay;
+  step: number;
+}
+
+/**
+ * A push/fold, call or reshove spot from Tournament mode. The table is saved rather than its
+ * ranges: the ranges are worked out again when the card is dealt, the same way as the first time.
+ */
+export interface TournamentCardSpot {
+  kind: 'push' | 'call' | 'reshove';
+  stacks: number[];
+  ante: boolean;
+  mode: 'chips' | 'final' | 'bubble';
+  opener: number;
+  hero: number;
+  hand: [number, number];
+  /** Whether the hero went all-in or called the first time (rather than folding). */
+  played: boolean;
+}
+
+export interface TournamentCard extends CardBase {
+  kind: 'tournament';
+  /** `t:${time played}`. */
+  t: TournamentCardSpot;
+}
+
+export type ReviewCard = HandCard | TournamentCard;
+
+export const isTournamentCard = (c: ReviewCard): c is TournamentCard => c.kind === 'tournament';
 
 export interface ReviewDeck {
   v: 1;
@@ -73,7 +105,7 @@ const addMinutes = (now: Date, m: number) => new Date(now.getTime() + m * 60_000
  */
 export function syncDeck(deck: ReviewDeck, saved: SavedSessions, now = new Date()): ReviewDeck {
   const have = new Set([...deck.cards.map((c) => c.id), ...deck.done]);
-  const fresh: ReviewCard[] = [];
+  const fresh: HandCard[] = [];
   for (const sess of allSessions(saved)) {
     for (const h of [...sess.hands].reverse()) {
       if (!h.replay) continue;
@@ -92,6 +124,28 @@ export function syncDeck(deck: ReviewDeck, saved: SavedSessions, now = new Date(
   const room = Math.max(0, DECK_MAX - deck.cards.length);
   if (!fresh.length || !room) return deck;
   return { ...deck, cards: [...deck.cards, ...fresh.slice(0, room)] };
+}
+
+export interface TournamentMistake {
+  spot: TournamentCardSpot;
+  /** e.g. "Bubble, 9 players". */
+  where: string;
+  /** e.g. "UTG raises to 2bb; folded to you in the CO". */
+  label: string;
+  hand: string;
+  you: string;
+  heading: string;
+}
+
+/** Adds a tournament mistake as a new card, due at once, while the deck has room. */
+export function addTournamentCard(deck: ReviewDeck, m: TournamentMistake, now = new Date()): ReviewDeck {
+  const id = `t:${now.toISOString()}`;
+  if (deck.cards.length >= DECK_MAX || deck.cards.some((c) => c.id === id) || deck.done.includes(id)) return deck;
+  const card: TournamentCard = {
+    kind: 'tournament', id, spot: m.where, label: m.label, hand: m.hand, you: m.you, heading: m.heading, at: now.toISOString(),
+    t: m.spot, box: 0, due: now.toISOString(), reviews: 0, lapses: 0,
+  };
+  return { ...deck, cards: [...deck.cards, card] };
 }
 
 /** Schedules a card after an answer. Returns the deck with the card moved, or retired once learned. */
@@ -146,6 +200,15 @@ export function summarizeDeck(deck: ReviewDeck, now = new Date()): DeckSummary {
   return { due, total: deck.cards.length, learned: deck.learned, boxes, nextDue: nextDue === null ? null : new Date(nextDue).toISOString() };
 }
 
+function validSpot(t: TournamentCardSpot | undefined): boolean {
+  if (!t || !['push', 'call', 'reshove'].includes(t.kind) || !['chips', 'final', 'bubble'].includes(t.mode)) return false;
+  const n = Array.isArray(t.stacks) ? t.stacks.length : 0;
+  const seat = (x: unknown) => Number.isInteger(x) && (x as number) >= 0 && (x as number) < n;
+  return (n === 6 || n === 9) && t.stacks.every((x) => typeof x === 'number' && x > 0) && seat(t.opener) && seat(t.hero)
+    && Array.isArray(t.hand) && t.hand.length === 2 && t.hand.every((c) => Number.isInteger(c) && c >= 0 && c < 52) && t.hand[0] !== t.hand[1]
+    && typeof t.played === 'boolean';
+}
+
 /** Reads a saved deck, dropping anything malformed. */
 export function parseDeck(raw: string | null): ReviewDeck {
   if (!raw) return emptyDeck();
@@ -153,8 +216,8 @@ export function parseDeck(raw: string | null): ReviewDeck {
     const d = JSON.parse(raw) as ReviewDeck;
     if (!d || d.v !== 1 || !Array.isArray(d.cards) || !Array.isArray(d.done)) return emptyDeck();
     const cards = d.cards.filter((c) =>
-      c && typeof c.id === 'string' && typeof c.step === 'number' && typeof c.box === 'number' && typeof c.due === 'string'
-      && !Number.isNaN(Date.parse(c.due)) && c.replay && c.replay.v === 1 && Array.isArray(c.replay.actions));
+      c && typeof c.id === 'string' && typeof c.box === 'number' && typeof c.due === 'string' && !Number.isNaN(Date.parse(c.due))
+      && (isTournamentCard(c) ? validSpot(c.t) : typeof c.step === 'number' && c.replay && c.replay.v === 1 && Array.isArray(c.replay.actions)));
     return { v: 1, cards, done: d.done.filter((x) => typeof x === 'string'), learned: Number.isFinite(d.learned) ? d.learned : 0 };
   } catch {
     return emptyDeck();
@@ -164,7 +227,7 @@ export function parseDeck(raw: string | null): ReviewDeck {
 // ---- Dealing and grading a card ----
 
 /** The table as the hero saw it at the card's decision. Throws when the saved hand no longer replays. */
-export function cardState(card: ReviewCard): HandState {
+export function cardState(card: HandCard): HandState {
   const states = replayStates(card.replay);
   const s = states[card.step];
   if (!s || s.toAct !== card.replay.hero) throw new Error('The saved hand does not reach this decision');
@@ -176,13 +239,13 @@ export type CardResult =
   | { kind: 'postflop'; verdict: Verdict; sit: DecisionBasics; analysis: Analysis; feedback: PostflopFeedback; concept: string; multiway: boolean };
 
 /** Whether the trainer can grade this card's spot today (the charts or model may have changed). */
-export function canGrade(card: ReviewCard, s: HandState): boolean {
+export function canGrade(card: HandCard, s: HandState): boolean {
   if (s.street === 'preflop') return hasChart(spotFor(s, card.replay.hero));
   return postflopSpotAt(card.replay, s, card.step) !== null;
 }
 
 /** Grades an answer to a card with the same charts, ranges and model as the practice table. */
-export function gradeCard(card: ReviewCard, s: HandState, action: Action): CardResult {
+export function gradeCard(card: HandCard, s: HandState, action: Action): CardResult {
   const r = card.replay;
   const hero = r.hero;
   if (s.street === 'preflop') {
@@ -208,7 +271,7 @@ export function gradeCard(card: ReviewCard, s: HandState, action: Action): CardR
 }
 
 /** The action the hero took at the card's decision the first time. */
-export function originalAction(card: ReviewCard): Action {
+export function originalAction(card: HandCard): Action {
   const [, type, to] = card.replay.actions[card.step];
   return (type === 'bet' || type === 'raise' ? { type, to: to! } : { type }) as Action;
 }

@@ -3,18 +3,20 @@
 // (reshove all-in or fold); the answer is compared with the solved ranges for that table, stacks
 // and payouts.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { TournamentMistake } from '../../engine/review/review';
 import { makeRng, randomSeed } from '../../engine/rng';
 import { ALL_CLASSES } from '../../engine/range';
 import type { ClassRange, PayoutMode } from '../../engine/tournament/pushfold';
 import { callingHands, OPEN_TO } from '../../engine/tournament/reshove';
 import {
-  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, handClass, MARGINS, MODE_LABELS, SPOT_LABELS,
+  addAnswer, answer, dealSpot, DEFAULT_OPTIONS, emptyTally, equityNeeded, handClass, handText, MARGINS, MODE_LABELS, SPOT_LABELS,
   parseTally, payoutText, positionNames, postedLabel, rangeText, shareText, type SolvedSpot, type TableSize, type TournamentAnswer,
   type SpotChoice, type TournamentOptions, type TournamentTally,
 } from '../../engine/tournament/spots';
 import { PlayingCard } from '../PlayingCard';
 import { StrategyGrid } from '../play/StrategyGrid';
+import { addTournament } from '../review/store';
 import '../charts/charts.css';
 import '../play/play.css';
 import '../session/session.css';
@@ -76,6 +78,7 @@ export function TournamentScreen() {
     const a = answer(solved, played);
     setResult(a);
     update({ ...saved, tally: addAnswer(tally, a) });
+    if (a.verdict === 'mistake') addTournament(mistakeOf(solved, a));
   };
 
   return (
@@ -150,7 +153,7 @@ export function TournamentScreen() {
 const ordinal = (n: number) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
 
 /** What the hero puts at risk: the whole stack all-in, or the call (capped by the all-in). */
-function playAmount(s: SolvedSpot): number {
+export function playAmount(s: SolvedSpot): number {
   const { spot } = s;
   const n = spot.stacks.length;
   const live = (i: number) => spot.stacks[i] - (spot.ante && i === n - 1 ? 1 : 0);
@@ -172,19 +175,50 @@ function Tally({ tally, onReset }: { tally: TournamentTally; onReset: () => void
   );
 }
 
-function SpotView({ s }: { s: SolvedSpot }) {
+/** The situation in one line, e.g. "UTG raises to 2bb; folded to you in the CO". */
+export function spotHeading(s: SolvedSpot): string {
+  const { spot } = s;
+  const pos = positionNames(spot.stacks.length);
+  return s.kind === 'push'
+    ? `Folded to you in the ${pos[spot.hero]}`
+    : s.kind === 'reshove'
+      ? `${pos[spot.opener]} raises to ${OPEN_TO}bb; folded to you in the ${pos[spot.hero]}`
+      : `${pos[spot.opener]} goes all-in for ${bb(spot.stacks[spot.opener])}; folded to you in the ${pos[spot.hero]}`;
+}
+
+/** The feedback's heading for an answer: what was right, or what the hand should have done. */
+export function answerHeading(s: SolvedSpot, a: TournamentAnswer): string {
+  const playName = s.kind === 'call' ? 'call' : 'all-in';
+  const g = a.g;
+  const bestName = g.best === 'play' ? playName : 'fold';
+  return a.verdict === 'correct'
+    ? `${cap(a.played ? playName : 'fold')} is right${g.freq > 0.05 && g.freq < 0.95 ? ' (a close hand that the ranges mix)' : ''}`
+    : a.verdict === 'playable' ? `Close, but ${bestName} is a little better` : `This is a ${bestName}`;
+}
+
+const MODE_SHORT: Record<PayoutMode, string> = { chips: 'Chip EV', final: 'Final table', bubble: 'Bubble' };
+
+/** The spot as a review card: the table, the first answer and its verdict. */
+export function mistakeOf(s: SolvedSpot, a: TournamentAnswer): TournamentMistake {
+  const { spot } = s;
+  return {
+    spot: { kind: s.kind, stacks: spot.stacks, ante: spot.ante, mode: spot.mode, opener: spot.opener, hero: spot.hero, hand: spot.hand, played: a.played },
+    where: `${MODE_SHORT[spot.mode]}, ${spot.stacks.length} players`,
+    label: spotHeading(s),
+    hand: handText(spot),
+    you: a.played ? (s.kind === 'call' ? 'Call' : 'All-in') : 'Fold',
+    heading: answerHeading(s, a),
+  };
+}
+
+/** The table, the hero's hand and every seat's stack and action. `heading` replaces the default title. */
+export function SpotView({ s, heading }: { s: SolvedSpot; heading?: ReactNode }) {
   const { spot } = s;
   const pos = positionNames(spot.stacks.length);
   const push = s.kind === 'push';
   return (
     <section className="panel t-spot" aria-labelledby="t-spot-h">
-      <h2 id="t-spot-h">
-        {push
-          ? `Folded to you in the ${pos[spot.hero]}`
-          : s.kind === 'reshove'
-            ? `${pos[spot.opener]} raises to ${OPEN_TO}bb; folded to you in the ${pos[spot.hero]}`
-            : `${pos[spot.opener]} goes all-in for ${bb(spot.stacks[spot.opener])}; folded to you in the ${pos[spot.hero]}`}
-      </h2>
+      {heading ?? <h2 id="t-spot-h">{spotHeading(s)}</h2>}
       <p className="small muted">
         Blinds 0.5/1{spot.ante ? ', big blind ante 1' : ''}.{' '}
         {push ? 'Go all-in or fold.' : s.kind === 'reshove' ? `Go all-in over the raise or fold; the ${pos[spot.opener]} then calls or folds.` : 'Call or fold; players after you who have not acted yet still can.'}
@@ -214,17 +248,14 @@ function SpotView({ s }: { s: SolvedSpot }) {
   );
 }
 
-function Feedback({ s, a, onNext }: { s: SolvedSpot; a: TournamentAnswer; onNext: () => void }) {
+export function Feedback({ s, a, onNext, nextLabel = 'Next spot', children }: { s: SolvedSpot; a: TournamentAnswer; onNext: () => void; nextLabel?: string; children?: ReactNode }) {
   const { spot } = s;
   const shoving = s.kind !== 'call';
   const pos = positionNames(spot.stacks.length);
   const icm = spot.mode !== 'chips';
   const playName = shoving ? 'all-in' : 'call';
   const g = a.g;
-  const bestName = g.best === 'play' ? playName : 'fold';
-  const heading = a.verdict === 'correct'
-    ? `${cap(a.played ? playName : 'fold')} is right${g.freq > 0.05 && g.freq < 0.95 ? ' (a close hand that the ranges mix)' : ''}`
-    : a.verdict === 'playable' ? `Close, but ${bestName} is a little better` : `This is a ${bestName}`;
+  const heading = answerHeading(s, a);
   const chipFlip = a.chipG && a.chipG.best !== g.best;
   const range: ClassRange = s.kind === 'push' ? s.sol.push : s.kind === 'reshove' ? s.sol.shove : s.sol.call[spot.hero];
   const freqs = useMemo(() => new Map(ALL_CLASSES.map((c, i) => [c, shoving
@@ -301,7 +332,8 @@ function Feedback({ s, a, onNext }: { s: SolvedSpot; a: TournamentAnswer; onNext
             : <p><span className="eyebrow">{pos[spot.opener]} goes all-in with {shareText(s.sol.push)}</span> <code>{rangeText(s.sol.push) || 'nothing'}</code></p>}
       </div>
       <div className="fb-actions">
-        <button type="button" className="primary" onClick={onNext}>Next spot</button>
+        <button type="button" className="primary" onClick={onNext}>{nextLabel}</button>
+        {children}
       </div>
     </section>
   );

@@ -8,8 +8,12 @@ import { CLASS_INDEX, EQUITY, NUM_CLASSES } from '../tournament/classEquity';
 import { icmEquities } from '../tournament/icm';
 import { openerValues, rangeShare, solve, stacksAfter, unitPerBB, type TableSetup } from '../tournament/pushfold';
 import {
-  addAnswer, answer, dealSpot, emptyTally, equityNeeded, gradeClass, gradeSpot, MARGINS, parseTally, rangeText, verdictFor,
+  addAnswer, answer, dealSpot, emptyTally, equityNeeded, gradeClass, gradeSpot, MARGINS, parseTally, rangeText, solveSpot, verdictFor,
+  type SolvedSpot,
 } from '../tournament/spots';
+import {
+  addTournamentCard, answerCard, dueCards, emptyDeck, isTournamentCard, parseDeck, type TournamentCard, type TournamentCardSpot,
+} from '../review/review';
 import { callingHands, openRange, reshoveStacks, shoveValues, solveReshove, type ReshoveSetup } from '../tournament/reshove';
 import { getStrategy } from '../preflop/charts';
 
@@ -251,4 +255,71 @@ describe('grading', () => {
     expect(parseTally('{"v":2}')).toEqual(emptyTally());
     expect(parseTally('not json')).toEqual(emptyTally());
   }, 60_000);
+});
+
+describe('tournament review cards', () => {
+  const now = new Date('2026-10-12T03:00:00Z');
+  const cardSpot = (s: SolvedSpot, played: boolean): TournamentCardSpot => ({
+    kind: s.kind, stacks: s.spot.stacks, ante: s.spot.ante, mode: s.spot.mode, opener: s.spot.opener, hero: s.spot.hero, hand: s.spot.hand, played,
+  });
+  const mistake = (s: SolvedSpot, played: boolean) => ({ spot: cardSpot(s, played), where: 'Bubble, 9 players', label: 'Spot', hand: 'AhKd', you: 'Fold', heading: 'This is an all-in' });
+
+  // Deal spots of every kind until each has a mistake to save.
+  const mistakes: { s: SolvedSpot; played: boolean }[] = [];
+  const rng = makeRng(21);
+  for (const spots of ['pushfold', 'reshove'] as const) {
+    for (const mode of ['chips', 'bubble'] as const) {
+      let found = 0;
+      for (let i = 0; i < 40 && found < 2; i++) {
+        const s = dealSpot(rng, { players: 9, ante: true, mode, spots });
+        for (const played of [true, false]) {
+          if (answer(s, played).verdict === 'mistake') { mistakes.push({ s, played }); found++; }
+        }
+      }
+    }
+  }
+
+  it('saves a mistake as a card that is due at once and survives saving and loading', () => {
+    expect(mistakes.length).toBeGreaterThanOrEqual(6);
+    const { s, played } = mistakes[0];
+    const deck = addTournamentCard(emptyDeck(), mistake(s, played), now);
+    expect(deck.cards).toHaveLength(1);
+    const card = deck.cards[0];
+    expect(isTournamentCard(card)).toBe(true);
+    expect(dueCards(deck, now).map((c) => c.id)).toEqual([card.id]);
+    expect(parseDeck(JSON.stringify(deck))).toEqual(deck);
+    // A malformed tournament card is dropped when read back.
+    const bad = { ...deck, cards: [{ ...card, t: { ...(card as TournamentCard).t, hero: 12 } }] };
+    expect(parseDeck(JSON.stringify(bad)).cards).toHaveLength(0);
+    // The same moment is not added twice, and a full deck takes no more.
+    expect(addTournamentCard(deck, mistake(s, played), now)).toBe(deck);
+  });
+
+  it('deals the same spot again: the first answer is still a mistake and the best answer is correct', () => {
+    const kinds = new Set<string>();
+    for (const { s, played } of mistakes) {
+      const t = cardSpot(s, played);
+      const { played: _p, kind, ...spot } = t;
+      const again = solveSpot(kind, spot);
+      kinds.add(kind);
+      const first = answer(again, played), was = answer(s, played);
+      expect(first.verdict).toBe('mistake');
+      expect(first.g.play).toBeCloseTo(was.g.play, 9);
+      expect(first.g.fold).toBeCloseTo(was.g.fold, 9);
+      expect(answer(again, first.g.best === 'play').verdict).toBe('correct');
+    }
+    expect(kinds.has('reshove')).toBe(true);
+    expect(kinds.has('push') || kinds.has('call')).toBe(true);
+  });
+
+  it('schedules a tournament card like any other', () => {
+    const { s, played } = mistakes[0];
+    let deck = addTournamentCard(emptyDeck(), mistake(s, played), now);
+    const id = deck.cards[0].id;
+    deck = answerCard(deck, id, 'correct', now);
+    expect(deck.cards[0].box).toBe(1);
+    deck = answerCard(deck, id, 'mistake', now);
+    expect(deck.cards[0].box).toBe(0);
+    expect(deck.cards[0].lapses).toBe(1);
+  });
 });

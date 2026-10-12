@@ -206,9 +206,10 @@ With two or more opponents still in:
 
 ## Mistake review
 
-- Every decision graded a mistake, at the practice table or in an imported hand, becomes a card, newest first, up to 150 cards in the deck at once. The card keeps its own copy of the hand, so it lasts after the session drops the hand's replay.
+- Every decision graded a mistake, at the practice table, in an imported hand or in Tournament mode, becomes a card, newest first, up to 150 cards in the deck at once. The card keeps its own copy of the hand, so it lasts after the session drops the hand's replay.
 - A card rebuilds the hand up to that decision and grades the new answer with the same charts, ranges and opponent styles (including any adaptive adjustments) the hand was played with, and the same feedback as the practice table. Imported hands use the regular style for every opponent, as when they were imported. If the charts or model have changed so that a spot can no longer be graded, the card says so and can be removed.
 - Scheduling is a Leitner box system with five boxes. New cards are due at once. A correct answer moves a card up a box and brings it back after 1, 3, 7 and then 21 days; a correct answer in the last box marks it learned and takes it out of the deck. A mistake sends it back to the first box, due again 10 minutes later. A playable answer keeps its box and brings it back the next day, since it is close but not the play the card teaches.
+- A tournament mistake becomes a card that saves the table (stacks, ante, payouts, opener, hero and hand) rather than its ranges. When the card is dealt, the ranges are worked out again; the solver is deterministic, so with an unchanged model they are the same ranges, and the first answer is graded the same way.
 - Grading a card again uses today's model, so a spot whose grade has changed since it was played is graded by the current model. The deck is stored in this browser only and does not change leaks, adaptive opponents or level progress.
 
 ## Imported hands

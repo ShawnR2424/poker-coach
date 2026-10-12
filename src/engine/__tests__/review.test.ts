@@ -9,7 +9,7 @@ import type { HeroOption } from '../postflop/recommend';
 import { choiceToAction } from '../preflop/policy';
 import {
   answerCard, canGrade, cardState, DECK_MAX, dueCards, emptyDeck, gradeCard, INTERVAL_DAYS, LEARNED_AFTER, originalAction,
-  parseDeck, removeCard, RETRY_MINUTES, summarizeDeck, syncDeck, type ReviewDeck,
+  isTournamentCard, parseDeck, removeCard, RETRY_MINUTES, summarizeDeck, syncDeck, type HandCard, type ReviewDeck,
 } from '../review/review';
 import { replayOptions } from '../session/gradeAt';
 import { gradeReplay } from '../session/import';
@@ -59,8 +59,9 @@ const mistakesIn = (saved: SavedSessions) =>
   [saved.current, ...saved.past].flatMap((x) => x.hands.flatMap((h) => h.decisions.filter((d) => d.verdict === 'mistake' && d.step !== undefined)));
 
 /** The trainer's best play at a card's spot, as an action. */
-function bestAction(deck: ReviewDeck, i: number): { action: Action; s: HandState } {
-  const card = deck.cards[i];
+const handCards = (deck: ReviewDeck) => deck.cards.filter((c): c is HandCard => !isTournamentCard(c));
+
+function bestAction(card: HandCard): { action: Action; s: HandState } {
   const s = cardState(card);
   const res = gradeCard(card, s, originalAction(card));
   if (res.kind === 'preflop') return { action: choiceToAction(s, res.decision.spot, res.decision.best, 'hero', replayOptions(card.replay)), s };
@@ -112,9 +113,10 @@ describe('building the deck', () => {
 
 describe('dealing and grading a card', () => {
   const deck = syncDeck(emptyDeck(), savedWith([...playedHands(30, 11, 3), ...playedHands(30, 12, 4)]), NOW);
+  const cards = handCards(deck);
 
   it('deals exactly the spot that was played, with the hero to act', () => {
-    for (const card of deck.cards) {
+    for (const card of cards) {
       const s = cardState(card);
       expect(s.toAct).toBe(card.replay.hero);
       expect(s.actions.filter((a) => a.type !== 'post')).toHaveLength(card.step);
@@ -124,12 +126,12 @@ describe('dealing and grading a card', () => {
 
   it('grades the original play a mistake again and the best play correct', () => {
     let pre = 0, post = 0;
-    deck.cards.forEach((card, i) => {
+    cards.forEach((card) => {
       const s = cardState(card);
       const again = gradeCard(card, s, originalAction(card));
       expect(again.verdict, card.id).toBe('mistake');
       if (again.kind === 'preflop') pre++; else post++;
-      const best = bestAction(deck, i);
+      const best = bestAction(card);
       expect(gradeCard(card, best.s, best.action).verdict, card.id).toBe('correct');
     });
     expect(pre).toBeGreaterThan(5);
@@ -138,7 +140,7 @@ describe('dealing and grading a card', () => {
   }, 60_000);
 
   it('gives full feedback, so the review panel matches the practice table', () => {
-    for (const card of deck.cards.slice(0, 20)) {
+    for (const card of cards.slice(0, 20)) {
       const res = gradeCard(card, cardState(card), originalAction(card));
       expect(res.feedback.bullets.length).toBeGreaterThan(0);
       expect(res.feedback.grade.heading).toBe(card.heading);

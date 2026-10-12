@@ -2,7 +2,7 @@
 // made on the Play tab or in an imported hand becomes a card the next time the deck is read.
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { answerCard, parseDeck, removeCard, syncDeck, type ReviewDeck } from '../../engine/review/review';
+import { addTournamentCard, answerCard, parseDeck, removeCard, syncDeck, type ReviewDeck, type TournamentMistake } from '../../engine/review/review';
 import type { Verdict } from '../../engine/session/session';
 import { useSessions } from '../session/store';
 
@@ -39,3 +39,4 @@ export function useDeck(): ReviewDeck {
 
 export const answer = (id: string, verdict: Verdict) => set(answerCard(deck, id, verdict));
 export const remove = (id: string) => set(removeCard(deck, id));
+export const addTournament = (m: TournamentMistake) => set(addTournamentCard(deck, m));
