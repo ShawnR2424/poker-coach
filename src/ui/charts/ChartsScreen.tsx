@@ -3,12 +3,14 @@
 // those layers moved from the plain 100bb chart.
 
 import { useMemo, useState } from 'react';
-import { DEPTHS, type Depth, type SpotKind } from '../../engine/preflop/charts';
+import { DEPTHS, isCustomChart, type Depth, type SpotKind } from '../../engine/preflop/charts';
 import { strategyGrid } from '../../engine/preflop/coach';
 import {
   baseStrategy, CHART_KINDS, chartKeys, changesFrom, choiceNames, exploreStrategy, rangeTexts, shares, sizeText, type ExploreOptions,
 } from '../../engine/preflop/explorer';
 import { StrategyGrid } from '../play/StrategyGrid';
+import { CustomCharts } from './CustomCharts';
+import { savedPack } from './customCharts';
 import '../session/session.css';
 import './charts.css';
 
@@ -61,6 +63,7 @@ export function ChartsScreen() {
   const text = rangeTexts(s);
   const label = chartKeys(kind).find((k) => k.key === key)!.label;
   const layered = pick.depth !== 100 || pick.raked || pick.lowStakes;
+  const custom = isCustomChart(kind, key);
 
   return (
     <div className="screen charts">
@@ -107,7 +110,7 @@ export function ChartsScreen() {
 
       <section className="panel chart-view" aria-labelledby="chart-h">
         <div>
-          <h2 id="chart-h">{label}</h2>
+          <h2 id="chart-h">{label}{custom && <span className="badge imported">Imported</span>}</h2>
           <p className="small muted">{pick.audience === 'hero' ? 'Your chart' : 'The opponents\' chart'} at {pick.depth}bb{pick.raked ? ', raked' : ''}{pick.lowStakes ? ', with the low-stakes adjustments' : ''}. Size: {sizeText(kind, key, pick)}.</p>
         </div>
         <div className="tiles chart-shares">
@@ -130,7 +133,7 @@ export function ChartsScreen() {
 
       {layered && (
         <section className="panel" aria-labelledby="changes-h">
-          <h2 id="changes-h">What changed from the plain 100bb chart</h2>
+          <h2 id="changes-h">What changed from the plain 100bb chart{custom ? ' you imported' : ''}</h2>
           {changes.length === 0 ? (
             <p className="small">Nothing: the settings above leave this chart as it is at 100bb with no rake.</p>
           ) : (
@@ -165,7 +168,14 @@ export function ChartsScreen() {
         </section>
       )}
 
-      <p className="small muted chart-source">These are the trainer's approximate charts from <code>data/preflop/</code>, the same ones the Play tab grades you with and the opponents play from. They are not solver output.</p>
+      <CustomCharts key={`${kind}|${key}`} kind={kind} chartKey={key} />
+
+      <p className="small muted chart-source">
+        {custom
+          ? <>This chart is the one you imported in "{savedPack()?.name}". </>
+          : <>This chart is the trainer's approximate chart from <code>data/preflop/</code>, not solver output. </>}
+        The Play tab grades you with the same charts the opponents play from.
+      </p>
     </div>
   );
 }

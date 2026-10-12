@@ -68,6 +68,37 @@ export const CHARTS: Record<SpotKind, Record<string, ChartEntry>> = {
   ) as Record<string, ChartEntry>,
 };
 
+/** The charts as shipped, kept so an imported chart can be put back. */
+const BUILT_IN: Record<SpotKind, Record<string, ChartEntry>> = Object.fromEntries(
+  Object.entries(CHARTS).map(([kind, entries]) => [kind, { ...entries }]),
+) as Record<SpotKind, Record<string, ChartEntry>>;
+
+export type ChartSet = Partial<Record<SpotKind, Record<string, ChartEntry>>>;
+
+let custom: ChartSet = {};
+
+export const builtInEntry = (kind: SpotKind, key: string): ChartEntry | undefined => BUILT_IN[kind][key];
+export const isCustomChart = (kind: SpotKind, key: string): boolean => !!custom[kind]?.[key];
+export const customCharts = (): ChartSet => custom;
+
+/**
+ * Replaces built-in charts with imported ones, for everyone who reads them: the recommendations,
+ * the opponents and the range reads. Only charts the trainer already has can be replaced, so every
+ * spot it deals still finds a chart. The app sets this once at startup and reloads after a change,
+ * so nothing built from the old charts is kept.
+ */
+export function setCustomCharts(set: ChartSet) {
+  custom = {};
+  for (const kind of Object.keys(CHARTS) as SpotKind[]) {
+    for (const key of Object.keys(BUILT_IN[kind])) {
+      const entry = set[kind]?.[key];
+      CHARTS[kind][key] = entry ?? BUILT_IN[kind][key];
+      if (entry) (custom[kind] ??= {})[key] = entry;
+    }
+  }
+  cache.clear();
+}
+
 export const LIMP_SIZING = { size: otherJson.vsLimp.size, perLimper: otherJson.vsLimp.perLimper };
 export const LOWSTAKES = {
   pool: lowstakesJson.pool as Rule[],

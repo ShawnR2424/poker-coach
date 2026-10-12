@@ -16,3 +16,13 @@ table.chart-changes { max-width: 520px; }
 @media (max-width: 560px) {
   table.chart-changes th, table.chart-changes td { padding: 6px 4px; font-size: 0.8rem; }
 }
+.badge.imported { margin-left: 8px; vertical-align: middle; font-size: 0.75rem; }
+.custom-charts { display: grid; gap: 12px; }
+.custom-charts h2, .custom-charts h3 { margin: 0; text-wrap: balance; }
+.custom-charts h3 { font-size: 1rem; }
+.custom-charts p { margin: 0; max-width: 75ch; }
+.custom-paste, .custom-pack, .custom-list { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
+.custom-paste textarea { width: 100%; }
+.custom-size, .custom-name { display: grid; gap: 4px; max-width: 320px; }
+.custom-list ul { margin: 0; padding-left: 20px; columns: 2 220px; }
+#custom-error { overflow-wrap: anywhere; }
