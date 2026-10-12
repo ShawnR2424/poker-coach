@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Phone-first layout
+
+- The eleven tabs are now four sections: Play (cash table, tournament), Train (postflop spots, quizzes, review), Tools (equity, charts, import, engine lab) and Progress (session). On a phone the sections are a fixed bottom bar with icons, clear of the home indicator; from 641px wide they move into the top bar. Each section's screens are a row of tabs under the top bar, and a section reopens the screen last used in it. Settings moved behind a gear button. Every screen keeps its address (`#review`, `#equity` and so on).
+- The Train section and the Review tab show how many review cards are due.
+- A first visit shows a short guide to the four sections and a note that the strategy is approximate. It goes away once closed, or once any hands have been played or imported.
+- New `nav.test.ts` checks that every screen but Settings is in exactly one section, addresses, and the saved last-used screens. The smoke test checks the guide and that it stays closed after a reload, that the bottom bar shows only on a phone and the top bar sections only on a desktop, that each section and tab opens the right address and reopens the last used screen, the gear button, that the bottom bar never covers the end of a page, and no sideways scrolling.
+
 ## Tournament review
 
 - A tournament spot answered with a mistake now becomes a card on the Review tab, alongside the Play tab's mistakes. The card deals the same table, stacks, payouts and hand, works out the ranges again the same way, and grades the new answer with Tournament mode's full feedback: the value of each option, the range grid with your hand ringed, and the opponents' ranges. It also notes what you chose the first time and when the card comes back.
