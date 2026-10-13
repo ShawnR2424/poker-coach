@@ -1,6 +1,6 @@
 # Spec coverage
 
-How each part of the original brief maps to the code and to the checks that guard it. Paths are relative to `src/`. "Smoke" means the browser smoke test (`scripts/smoke.mjs`), which CI runs on every pull request alongside the typecheck and unit tests.
+How each part of the original brief maps to the code and to the checks that guard it. Paths are relative to `src/`. "Smoke" means the browser smoke test (`scripts/smoke.mjs`), which CI runs on every pull request alongside the typecheck and unit tests, in Chromium, WebKit and Firefox and on an emulated iPhone 14 and Pixel 7.
 
 ## 1-2. Core loop
 

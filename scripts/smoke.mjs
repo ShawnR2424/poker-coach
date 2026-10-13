@@ -14,11 +14,17 @@
 //
 //   npm run smoke                 # 8 hands per level
 //   HANDS=20 npm run smoke        # more hands per level
+//   SMOKE_BROWSER=webkit npm run smoke                            # in WebKit (Safari's engine) or firefox
+//   SMOKE_BROWSER=webkit SMOKE_DEVICE="iPhone 14" npm run smoke   # an emulated phone (any Playwright device name)
+//
+// Without a device it runs at a 380px phone width and a 1280px desktop width. With a device it
+// runs once at that device's screen size, pixel ratio, user agent and touch input. CI runs it in
+// Chromium, WebKit and Firefox, and on an emulated iPhone and Android phone.
 
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, devices, firefox, webkit } from 'playwright';
 import { preview } from 'vite';
 
 const HANDS = Number(process.env.HANDS ?? 8);
@@ -26,16 +32,50 @@ const HANDS = Number(process.env.HANDS ?? 8);
 let rakeOn = false;
 let rakeSeen = 0;
 const LEVELS = [1, 2, 3, 4, 5, 6];
-const VIEWPORTS = [
-  { width: 380, height: 900, colorScheme: 'light' },
-  { width: 1280, height: 900, colorScheme: 'dark' },
-];
+const BROWSERS = { chromium, firefox, webkit };
+const BROWSER = process.env.SMOKE_BROWSER ?? 'chromium';
+const DEVICE = process.env.SMOKE_DEVICE;
+if (!BROWSERS[BROWSER]) throw new Error(`SMOKE_BROWSER must be one of ${Object.keys(BROWSERS).join(', ')}`);
+if (DEVICE && !devices[DEVICE]) throw new Error(`"${DEVICE}" is not a Playwright device name`);
+/** Each run's browser context settings (`ctx`), with its width and color scheme for the checks. */
+const view = (width, height, colorScheme) => ({ width, colorScheme, ctx: { viewport: { width, height }, colorScheme } });
+const VIEWPORTS = DEVICE
+  ? (() => {
+    const { defaultBrowserType: _type, ...d } = devices[DEVICE];
+    return [{ width: d.viewport.width, colorScheme: 'light', ctx: { ...d, colorScheme: 'light' } }];
+  })()
+  : [view(380, 900, 'light'), view(1280, 900, 'dark')];
+const RUN = `${BROWSER}${DEVICE ? `, ${DEVICE}` : ''}`;
 const TURN_TIMEOUT = 30_000;
 
 const server = await preview({ preview: { port: 0, strictPort: false }, logLevel: 'silent' });
 const url = server.resolvedUrls.local[0];
-const browser = await chromium.launch();
+const browser = await BROWSERS[BROWSER].launch();
 const failures = [];
+/** Things worth knowing that are not failures, printed at the end. */
+const notes = new Set();
+/**
+ * A browser context for one run. Service workers are blocked so API mocking sees every request
+ * (the app check at the end allows them). Google Fonts is served empty: a slow or dropped
+ * connection to it on a CI runner is not the app's failure, and the system fonts it falls back to
+ * are what a first offline visit shows.
+ */
+async function newContext(vp) {
+  const ctx = await browser.newContext({ ...vp.ctx, serviceWorkers: 'block' });
+  await ctx.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  return ctx;
+}
+
+/**
+ * A page error is a failure, except WebKit's refusal of the equity worker's script while requests
+ * are being intercepted for the Claude API mock: the app then works out equity on the main thread,
+ * which the rest of the run exercises, so it is noted instead.
+ */
+function pageError(where, e) {
+  if (BROWSER === 'webkit' && /equity\.worker-[\w-]+\.js due to access control checks/.test(e.message)) {
+    notes.add(`${where}: WebKit refused the equity worker, so equity ran on the main thread`);
+  } else failures.push(`${where}: page error: ${e.message}`);
+}
 
 async function noOverflow(page, where) {
   const { scroll, width } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: window.innerWidth }));
@@ -94,14 +134,18 @@ async function playHand(page, where) {
 async function quizCheck(page, tag) {
   await page.goto(`${url}#quiz`);
   await page.waitForSelector('.paint-grid button[data-cls="AA"]');
-  // Bring the grid into view first: on a phone its top row can start under the bottom bar.
+  // Let the web fonts finish loading first: a late font swap rewraps the text above the grid and
+  // moves it mid-drag. Then bring the grid into view: on a phone its top row can start under the
+  // bottom bar.
+  await page.evaluate(() => document.fonts.ready);
   await page.$eval('.paint-grid', (g) => g.scrollIntoView({ block: 'center' }));
   const cell = async (cls) => (await page.$(`.paint-grid button[data-cls="${cls}"]`)).boundingBox();
   const from = await cell('AA'), to = await cell('A2s');
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 36 });
   await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('.paint-grid button[data-cls="A2s"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 2000 }).catch(() => {});
   const painted = await page.$$eval('.paint-grid button[aria-pressed="true"]', (b) => b.map((x) => x.dataset.cls));
   if (painted.length !== 13 || !painted.includes('AKs') || !painted.includes('A2s')) failures.push(`${tag}: dragging across the top row painted ${painted.join(' ') || 'nothing'}`);
   await page.focus('.paint-grid button[data-cls="KK"]');
@@ -134,12 +178,14 @@ async function quizCheck(page, tag) {
 }
 
 for (const vp of VIEWPORTS) {
-  const tag = `${vp.width}px ${vp.colorScheme}`;
-  // Service workers are blocked here so API mocking sees every request; the app check below allows them.
-  const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+  const tag = `${RUN}, ${vp.width}px ${vp.colorScheme}`;
+  const ctx = await newContext(vp);
   const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`); });
-  page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') failures.push(`${tag}: console error: ${m.text()}`);
+    if (m.type() === 'warning' && m.text().includes('equity worker')) notes.add(`${tag}: the equity worker did not start, so equity ran on the main thread`);
+  });
+  page.on('pageerror', (e) => pageError(tag, e));
 
   // The coach voice is off by default: nothing may reach the Claude API until it is switched on.
   let voiceOn = false;
@@ -318,6 +364,7 @@ for (const vp of VIEWPORTS) {
 
   await quizCheck(page, tag);
   await page.goto(`${url}#session`);
+  await page.waitForSelector('table.hands button[aria-label^="Replay hand"]', { timeout: TURN_TIMEOUT }).catch(() => {});
 
   // Every saved hand replays from its record; a few are stepped through action by action, and
   // each graded decision opens with its verdict and the opponents' ranges at that point.
@@ -453,9 +500,9 @@ for (const vp of VIEWPORTS) {
   // refused, a saved one replaces the chart (badge, shares) and is played at the table, the charts
   // save as a pack that opens again, and removing the imports puts the built-in charts back.
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, imported charts: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, imported charts`, e));
     p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, imported charts: console error: ${m.text()}`); });
     await p2.goto(`${url}#charts`);
     await p2.waitForSelector('#custom-raise');
@@ -559,6 +606,9 @@ for (const vp of VIEWPORTS) {
       await page.click('.feedback button:has-text("Next spot")');
     }
   }
+  // Let the next spot finish solving first: the solve holds the page's thread, and WebKit can
+  // stall a reload that starts during it.
+  await page.waitForSelector('.t-spot', { timeout: TURN_TIMEOUT });
   await page.reload();
   await page.waitForSelector('.t-tally');
   const tTally = await page.$eval('.t-tally', (e) => e.textContent);
@@ -568,9 +618,9 @@ for (const vp of VIEWPORTS) {
   // Tournament review: in a new browser, a tournament mistake becomes the only review card, which
   // deals the same table and hand, grades a new answer with full feedback, and is then scheduled.
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, tournament review: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, tournament review`, e));
     await p2.goto(`${url}#tournament`);
     // Answers are random, and a run of right answers is likely enough at 16 spots to fail now and
     // then, so keep dealing until a mistake turns up.
@@ -711,9 +761,9 @@ for (const vp of VIEWPORTS) {
   if (!(await page.textContent('.backup .errors')).includes('not a Poker Coach backup')) failures.push(`${tag}: a file that is not a backup was not refused`);
   await noOverflow(page, `${tag}, backup`);
   {
-    const fresh = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: vp.colorScheme, serviceWorkers: 'block' });
+    const fresh = await newContext(vp);
     const p2 = await fresh.newPage();
-    p2.on('pageerror', (e) => failures.push(`${tag}, restore: ${e.message}`));
+    p2.on('pageerror', (e) => pageError(`${tag}, restore`, e));
     await p2.goto(`${url}#settings`);
     await p2.waitForSelector('#backup-here');
     if (!(await p2.textContent('#backup-here')).includes('0 hands')) failures.push(`${tag}: a new browser already holds hands`);
@@ -735,10 +785,13 @@ for (const vp of VIEWPORTS) {
 // Installable app: the manifest and icons load, the service worker takes control, and the app
 // opens and deals a hand with the network off.
 {
-  const tag = 'app';
-  const ctx = await browser.newContext({ viewport: { width: 380, height: 900 } });
+  const tag = `${RUN}, app`;
+  const ctx = await browser.newContext(VIEWPORTS[0].ctx);
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => failures.push(`${tag}: page error: ${e.message}`));
+  page.on('pageerror', (e) => pageError(tag, e));
+  page.on('console', (m) => {
+    if (m.type() === 'warning' && m.text().includes('equity worker')) notes.add(`${tag}: the equity worker did not start, so equity ran on the main thread`);
+  });
   await page.goto(`${url}#settings`);
   const manifest = await page.evaluate(async () => {
     const href = document.querySelector('link[rel=manifest]')?.getAttribute('href');
@@ -761,26 +814,34 @@ for (const vp of VIEWPORTS) {
     failures.push(`${tag}: the service worker never took control`);
   }
   // Chromium's own installability check: manifest, icons, service worker and secure origin.
-  const { installabilityErrors } = await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors');
+  const installabilityErrors = BROWSER === 'chromium' ? (await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors')).installabilityErrors : [];
   for (const e of installabilityErrors) failures.push(`${tag}: not installable: ${e.errorId}`);
-  await ctx.setOffline(true);
+  // Network off: Chromium and Firefox emulate it. WebKit's emulation fails the navigation before
+  // the service worker can answer it, so there the server is shut down instead, as when a phone
+  // loses its connection. The app section runs last, so nothing else needs the server.
+  if (BROWSER === 'webkit') await server.close();
+  else await ctx.setOffline(true);
   await page.goto(`${url}#table`);
-  await page.reload();
+  // Offline, the Google Fonts stylesheet can hold back the load event (Firefox waited it out), so
+  // wait only for the document; the check below waits for the table itself.
+  await page.reload({ waitUntil: 'domcontentloaded' });
   try {
     await page.waitForSelector('.action-bar .act, .hand-result, .feedback', { timeout: TURN_TIMEOUT });
     if (!(await playHand(page, `${tag}, offline`))) failures.push(`${tag}: no hand could be played offline`);
   } catch {
     failures.push(`${tag}: the app does not open offline`);
   }
-  await ctx.setOffline(false);
-  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installabilityErrors.length} installability errors, service worker in control, a hand played offline`);
+  if (BROWSER !== 'webkit') await ctx.setOffline(false);
+  const installable = BROWSER === 'chromium' ? `${installabilityErrors.length} installability errors, ` : '';
+  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installable}service worker in control, a hand played offline`);
   await ctx.close();
 }
 
 await browser.close();
-await server.close();
+if (BROWSER !== 'webkit') await server.close();
+for (const n of notes) console.log(`Note: ${n}`);
 if (failures.length) {
   console.error(`\n${failures.length} problem(s):\n${failures.map((f) => `- ${f}`).join('\n')}`);
   process.exit(1);
 }
-console.log('Smoke test passed.');
+console.log(`Smoke test passed (${RUN}).`);

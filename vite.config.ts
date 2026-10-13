@@ -6,7 +6,8 @@ import { serviceWorker } from './scripts/sw-plugin';
 export default defineConfig({
   plugins: [react(), serviceWorker()],
   base: './',
-  worker: { format: 'es' },
+  // A classic (non-module) worker script: WebKit refused to start the module build.
+  worker: { format: 'iife' },
   test: {
     include: ['src/**/*.test.ts'],
   },

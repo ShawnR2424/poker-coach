@@ -12,7 +12,7 @@ export interface EquityOutcome {
   ms: number;
 }
 
-type Pending = { resolve: (r: EquityReply & { ok: true }) => void; reject: (e: Error) => void };
+type Pending = { job: JobInput; resolve: (r: EquityReply & { ok: true }) => void; reject: (e: Error) => void };
 
 let worker: Worker | null = null;
 let workerFailed = false;
@@ -22,7 +22,7 @@ const pending = new Map<number, Pending>();
 function getWorker(): Worker | null {
   if (worker || workerFailed) return worker;
   try {
-    worker = new Worker(new URL('./equity.worker.ts', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./equity.worker.ts', import.meta.url));
     worker.onmessage = (e: MessageEvent<EquityReply>) => {
       const p = pending.get(e.data.id);
       if (!p) return;
@@ -30,11 +30,16 @@ function getWorker(): Worker | null {
       if (e.data.ok) p.resolve(e.data);
       else p.reject(new Error(e.data.error));
     };
-    worker.onerror = () => {
-      for (const p of pending.values()) p.reject(new Error('Equity worker failed'));
+    // A worker that cannot start (some browsers refuse module workers, or the script cannot be
+    // fetched) hands its jobs to the main thread, and every later job runs there too.
+    worker.onerror = (e) => {
+      e.preventDefault();
+      console.warn('The equity worker failed to start; working out equity on the main thread instead.');
+      const jobs = [...pending.values()];
       pending.clear();
       worker = null;
       workerFailed = true;
+      for (const p of jobs) runHere(p.job).then(p.resolve, p.reject);
     };
     return worker;
   } catch {
@@ -45,36 +50,38 @@ function getWorker(): Worker | null {
 
 type JobInput = EquityJob extends infer J ? (J extends { id: number } ? Omit<J, 'id'> : never) : never;
 
+/** Runs a job on the main thread: the fallback when there is no worker. */
+function runHere(job: JobInput): Promise<EquityReply & { ok: true }> {
+  const t0 = performance.now();
+  try {
+    if (job.kind === 'equity') {
+      const result = computeEquity({ hero: job.hero, board: job.board, villains: job.villains, iterations: job.iterations });
+      return Promise.resolve({ id: 0, ok: true, kind: 'equity', result, ms: performance.now() - t0 });
+    }
+    if (job.kind === 'comboEquity') {
+      const result = comboEquities(job.hero, job.board, job.range);
+      return Promise.resolve({ id: 0, ok: true, kind: 'comboEquity', result, ms: performance.now() - t0 });
+    }
+    if (job.kind === 'multiway') {
+      return Promise.resolve({ id: 0, ok: true, kind: 'multiway', result: analyzeMultiway(job.sit), ms: performance.now() - t0 });
+    }
+    if (job.kind === 'calc') {
+      const result = calcEquity({ players: job.players, board: job.board, dead: job.dead, samples: job.samples });
+      return Promise.resolve({ id: 0, ok: true, kind: 'calc', result, ms: performance.now() - t0 });
+    }
+    const m = classEquities(job.hero, job.board, job.range, job.iterations);
+    return Promise.resolve({ id: 0, ok: true, kind: 'classEquity', result: [...m], ms: performance.now() - t0 });
+  } catch (e) {
+    return Promise.reject(e);
+  }
+}
+
 function send(job: JobInput): Promise<EquityReply & { ok: true }> {
   const w = getWorker();
-  if (!w) {
-    // Main-thread fallback.
-    const t0 = performance.now();
-    try {
-      if (job.kind === 'equity') {
-        const result = computeEquity({ hero: job.hero, board: job.board, villains: job.villains, iterations: job.iterations });
-        return Promise.resolve({ id: 0, ok: true, kind: 'equity', result, ms: performance.now() - t0 });
-      }
-      if (job.kind === 'comboEquity') {
-        const result = comboEquities(job.hero, job.board, job.range);
-        return Promise.resolve({ id: 0, ok: true, kind: 'comboEquity', result, ms: performance.now() - t0 });
-      }
-      if (job.kind === 'multiway') {
-        return Promise.resolve({ id: 0, ok: true, kind: 'multiway', result: analyzeMultiway(job.sit), ms: performance.now() - t0 });
-      }
-      if (job.kind === 'calc') {
-        const result = calcEquity({ players: job.players, board: job.board, dead: job.dead, samples: job.samples });
-        return Promise.resolve({ id: 0, ok: true, kind: 'calc', result, ms: performance.now() - t0 });
-      }
-      const m = classEquities(job.hero, job.board, job.range, job.iterations);
-      return Promise.resolve({ id: 0, ok: true, kind: 'classEquity', result: [...m], ms: performance.now() - t0 });
-    } catch (e) {
-      return Promise.reject(e);
-    }
-  }
+  if (!w) return runHere(job);
   const id = nextId++;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, { job, resolve, reject });
     w.postMessage({ ...job, id });
   });
 }
