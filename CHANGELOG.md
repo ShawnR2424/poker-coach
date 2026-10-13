@@ -2,6 +2,12 @@
 
 Each milestone was merged as its own pull request.
 
+## Real-play report
+
+- The Import tab has a new Your real play report covering every imported hand in the saved sessions: win rate in bb/100 after rake, VPIP, PFR, 3-bet and fold to 3-bet, a table by seat (hands, result, VPIP, PFR, mistake share), a table by street (grades and postflop EV lost), the leaks that cost the most EV, and the five costliest decisions.
+- Imported hands now save their preflop stats with the hand, so the report keeps them after the replay is trimmed. Hands imported earlier are read from their replay.
+- New `realPlay.test.ts` checks the preflop stats on real histories (an open, a 3-bet, a fold to a 3-bet, a fold facing an open), that saved and rebuilt stats agree, the totals by seat and street, the ranking of leaks and decisions by EV lost, and that only imported hands from every session count. The smoke test checks the report after saving the sample hands.
+
 ## Import solver postflop play
 
 - The Charts tab has a new Postflop play from a solver panel. Paste or open the strategy report a solver exports for one decision (one row per combo or hand, one column per action), enter the board, the situation and the size faced, and the panel shows what each hand class does before you add the spot. It reads comma, tab or semicolon separated reports with shares or percentages, weight, frequency or combos columns, bet sizes as percentages of the pot or in chips, and skips EV and equity columns.

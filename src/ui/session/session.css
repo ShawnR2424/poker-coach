@@ -104,3 +104,7 @@ table.leak-grid .heat-4 { background: color-mix(in srgb, var(--felt) 60%, var(--
 /* Opponent stats */
 .opp-notes { margin: 0; padding-left: 1.1rem; display: grid; gap: 4px; max-width: 75ch; }
 table.data .opp-table-row th, table.data .opp-table-row td { color: var(--fg-muted); }
+.real-play { display: grid; gap: 10px; }
+.real-play h2, .real-play h3, .real-play p { margin: 0; }
+.real-play h3 { font-size: 1rem; margin-top: 6px; }
+.real-leaks, .real-costly { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 75ch; }
