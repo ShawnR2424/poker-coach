@@ -6,6 +6,7 @@ import profileTable from '../../../data/postflop/profiles.json';
 import type { Card } from '../cards';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
+import { boardTexture, type Texture } from './texture';
 
 type ByClass = Record<PostflopClass, number>;
 
@@ -16,6 +17,7 @@ export const ACTIONS = table as unknown as {
   facingRaise: { continue: ByClass; defend: number };
   realization: { inPosition: number; outOfPosition: number; byClass: ByClass };
   laterStreets: { betSize: number };
+  textures: Record<Texture, { about: string; betSmall: ByClass; betBig: ByClass; continue: ByClass }>;
 };
 
 /** The tables as shipped, before any imported solver frequencies replace their entries. */
@@ -30,6 +32,11 @@ export interface PostflopOverrides {
   leadIntoAggressor?: { betSmall?: Partial<ByClass>; betBig?: Partial<ByClass> };
   facingBet?: { base?: Partial<ByClass>; slope?: Partial<ByClass>; raise?: Partial<ByClass> };
   facingRaise?: { continue?: Partial<ByClass> };
+  /**
+   * Entries from the spots imported on boards of one texture. For that texture they replace both
+   * the table above and the texture's multiplier.
+   */
+  byTexture?: Partial<Record<Texture, PostflopOverrides>>;
 }
 
 /** Every table entry an override can replace, as [table, entry] pairs. */
@@ -42,10 +49,12 @@ export const OVERRIDE_FIELDS = [
 
 type Tables = Record<string, Record<string, ByClass>>;
 let overrides: PostflopOverrides = {};
+let byTexture: Partial<Record<Texture, PostflopOverrides>> = {};
 
 /** Puts the built-in tables back, then replaces the entries in `o`. Every reader of ACTIONS sees the result. */
 export function setPostflopOverrides(o: PostflopOverrides) {
   overrides = o;
+  byTexture = o.byTexture ?? {};
   const live = ACTIONS as unknown as Tables;
   const shipped = BUILT_IN as unknown as Tables;
   const given = o as unknown as Record<string, Record<string, Partial<ByClass>> | undefined>;
@@ -89,18 +98,40 @@ export const SMALL_BET_MAX = 0.5;
 
 const clip01 = (x: number) => Math.min(1, Math.max(0, x));
 
+/** A solver figure imported for this texture, if any. */
+function imported(tex: Texture | undefined, t: 'firstToAct' | 'leadIntoAggressor' | 'facingBet' | 'facingRaise', field: string, cls: PostflopClass): number | undefined {
+  if (!tex) return undefined;
+  const entry = (byTexture[tex] as Record<string, Record<string, Partial<ByClass>> | undefined> | undefined)?.[t]?.[field];
+  return entry?.[cls];
+}
+
+/** The board's texture, for the functions below; undefined (no texture adjustment) before the flop. */
+export const textureOf = (board: readonly Card[]): Texture | undefined => (board.length >= 3 ? boardTexture(board) : undefined);
+
 /**
  * How likely a hand class continues (calls or raises) facing a bet of `f` times the pot.
  * `beingRaised` is true when the player had bet and now faces a raise. `defense` (from
- * rangeDefense) lifts the result so the player's whole range defends enough.
+ * rangeDefense) lifts the result so the player's whole range defends enough. `tex` is the board's
+ * texture (textureOf), which scales the table or swaps in solver figures imported for it.
  */
-export function continueProb(cls: PostflopClass, f: number, beingRaised = false, profile: Profile = DEFAULT, defense: Defense | number = 1): number {
+export function continueProb(
+  cls: PostflopClass,
+  f: number,
+  beingRaised = false,
+  profile: Profile = DEFAULT,
+  defense: Defense | number = 1,
+  tex?: Texture,
+): number {
   const add = STYLE_FREE.has(cls) ? 0 : profile.continueAdd;
-  const { base, slope, maxSize, overbetDecay } = ACTIONS.facingBet;
-  let p = clip01(base[cls] + add - slope[cls] * Math.min(f, maxSize));
+  const { maxSize, overbetDecay } = ACTIONS.facingBet;
+  const texBase = imported(tex, 'facingBet', 'base', cls);
+  const base = texBase ?? ACTIONS.facingBet.base[cls];
+  const slope = (texBase !== undefined ? imported(tex, 'facingBet', 'slope', cls) : undefined) ?? ACTIONS.facingBet.slope[cls];
+  let p = clip01(base + add - slope * Math.min(f, maxSize));
   // Past an overbet, the straight line would fold even overpairs to a shove; see actions.json.
-  if (f > maxSize) p *= (maxSize / f) ** (overbetDecay * slope[cls]);
-  if (beingRaised) p *= ACTIONS.facingRaise.continue[cls];
+  if (f > maxSize) p *= (maxSize / f) ** (overbetDecay * slope);
+  if (tex && texBase === undefined) p = clip01(p * ACTIONS.textures[tex].continue[cls]);
+  if (beingRaised) p *= imported(tex, 'facingRaise', 'continue', cls) ?? ACTIONS.facingRaise.continue[cls];
   if (typeof defense === 'number') return Math.min(1, p * defense);
   return Math.max(Math.min(1, p * defense.factor), defense.topUp?.[cls] ?? 0);
 }
@@ -118,9 +149,11 @@ export function responseFor(
   beingRaised = false,
   profile: Profile = DEFAULT,
   defense: Defense | number = 1,
+  tex?: Texture,
 ): Response {
-  const cont = continueProb(cls, f, beingRaised, profile, defense);
-  const raise = canRaise ? cont * Math.min(1, ACTIONS.facingBet.raise[cls] * profile.raiseMult * bluffScale(cls, profile)) : 0;
+  const cont = continueProb(cls, f, beingRaised, profile, defense, tex);
+  const share = imported(tex, 'facingBet', 'raise', cls) ?? ACTIONS.facingBet.raise[cls];
+  const raise = canRaise ? cont * Math.min(1, share * profile.raiseMult * bluffScale(cls, profile)) : 0;
   return { fold: 1 - cont, call: cont - raise, raise };
 }
 
@@ -162,6 +195,7 @@ export function rangeDefense(
   f: number,
   beingRaised = false,
   profile: Profile = DEFAULT,
+  tex?: Texture,
 ): Defense {
   const byClass = new Map<PostflopClass, number>();
   let total = 0;
@@ -171,7 +205,7 @@ export function rangeDefense(
     total += weights[k];
   }
   if (total <= 0) return NO_DEFENSE;
-  const parts = [...byClass].map(([cls, w]) => ({ cls, w, c: continueProb(cls, f, beingRaised, profile) }));
+  const parts = [...byClass].map(([cls, w]) => ({ cls, w, c: continueProb(cls, f, beingRaised, profile, 1, tex) }));
   const defended = (m: number) => parts.reduce((t, x) => t + x.w * Math.min(1, x.c * m), 0) / total;
   const defend = beingRaised ? ACTIONS.facingRaise.defend : ACTIONS.facingBet.defend;
   const target = Math.min(1, defend / (1 + Math.max(0, f)) + profile.continueAdd);
@@ -217,7 +251,7 @@ export function rangeDefenseOn(range: Range, board: readonly Card[], f: number, 
     classes.push(classifyHand([a, b], board));
     weights.push(range[i]);
   }
-  return rangeDefense(classes, weights, f, beingRaised, profile);
+  return rangeDefense(classes, weights, f, beingRaised, profile, textureOf(board));
 }
 
 /** `intoAggressor`: the opponent made the last bet or raise on the previous street. */
@@ -225,11 +259,15 @@ export function firstToActFreq(
   cls: PostflopClass,
   intoAggressor = false,
   profile: Profile = DEFAULT,
+  tex?: Texture,
 ): { check: number; small: number; big: number } {
-  const t = intoAggressor ? ACTIONS.leadIntoAggressor : ACTIONS.firstToAct;
+  const name = intoAggressor ? 'leadIntoAggressor' : 'firstToAct';
+  const t = ACTIONS[name];
+  const share = (field: 'betSmall' | 'betBig') =>
+    imported(tex, name, field, cls) ?? t[field][cls] * (tex ? ACTIONS.textures[tex][field][cls] : 1);
   const m = profile.betMult * bluffScale(cls, profile);
-  let small = t.betSmall[cls] * m;
-  let big = t.betBig[cls] * m;
+  let small = share('betSmall') * m;
+  let big = share('betBig') * m;
   if (small + big > 1) {
     const k = 1 / (small + big);
     small *= k;
@@ -245,7 +283,7 @@ export function firstToActFreq(
  * in proportion to the hero's edge and to how often that hand calls a bet of that size.
  * See laterStreets in actions.json.
  */
-export function laterStreetValue(street: string, cls: PostflopClass, eq: number, pot: number, behind: number, profile: Profile = DEFAULT): number {
+export function laterStreetValue(street: string, cls: PostflopClass, eq: number, pot: number, behind: number, profile: Profile = DEFAULT, tex?: Texture): number {
   const streets = street === 'flop' ? 2 : street === 'turn' ? 1 : 0;
   const edge = 2 * eq - 1;
   if (streets === 0 || behind <= 0 || edge <= 0) return 0;
@@ -257,7 +295,7 @@ export function laterStreetValue(street: string, cls: PostflopClass, eq: number,
     p += 2 * bet;
     left -= bet;
   }
-  return edge * continueProb(cls, betSize, false, profile) * total;
+  return edge * continueProb(cls, betSize, false, profile, 1, tex) * total;
 }
 
 export const realization = (street: string, inPosition: boolean, cls: PostflopClass): number =>
@@ -287,6 +325,7 @@ export function narrowPostflop(range: Range, board: readonly Card[], move: Postf
   const boardSet = new Set(board);
   const facing = move.kind === 'call' || move.kind === 'raise';
   const defense = facing ? rangeDefenseOn(range, board, move.f, move.beingRaised, profile) : 1;
+  const tex = textureOf(board);
   for (let i = 0; i < NUM_COMBOS; i++) {
     if (!(range[i] > 0)) continue;
     const [a, b] = COMBO_CARDS[i];
@@ -295,22 +334,22 @@ export function narrowPostflop(range: Range, board: readonly Card[], move: Postf
     let p: number;
     switch (move.kind) {
       case 'check':
-        p = firstToActFreq(cls, move.intoAggressor, profile).check;
+        p = firstToActFreq(cls, move.intoAggressor, profile, tex).check;
         break;
       case 'checkBehind':
-        p = firstToActFreq(cls, false, profile).check;
+        p = firstToActFreq(cls, false, profile, tex).check;
         break;
       case 'bet': {
-        const fr = firstToActFreq(cls, move.intoAggressor, profile);
+        const fr = firstToActFreq(cls, move.intoAggressor, profile, tex);
         // An all-in bet can come from either size once the stack is short, so it keeps both shares.
         p = move.allIn ? fr.small + fr.big : move.f <= SMALL_BET_MAX ? fr.small : fr.big;
         break;
       }
       case 'call':
-        p = responseFor(cls, move.f, move.canRaise !== false, move.beingRaised, profile, defense).call;
+        p = responseFor(cls, move.f, move.canRaise !== false, move.beingRaised, profile, defense, tex).call;
         break;
       case 'raise':
-        p = responseFor(cls, move.f, true, move.beingRaised, profile, defense).raise;
+        p = responseFor(cls, move.f, true, move.beingRaised, profile, defense, tex).raise;
         break;
     }
     out[i] = range[i] * p;

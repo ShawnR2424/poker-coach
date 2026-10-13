@@ -6,7 +6,8 @@ import type { Card } from '../cards';
 import { COMBO_CARDS, NUM_COMBOS } from '../range';
 import { classifyHand, POSTFLOP_CLASS_LABEL, type PostflopClass } from './classify';
 import type { PostflopBreakdown } from './categories';
-import type { PostflopMove } from './model';
+import { ACTIONS, postflopOverrides, textureOf, type PostflopMove } from './model';
+import { TEXTURE_LABEL } from './texture';
 import { bbs, describeOption, mixText, type Analysis, type OptionRow, type PostflopGrade, type DecisionBasics } from './recommend';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -53,6 +54,11 @@ export function postflopFeedback(
   const bb = sit.bb;
   const bullets: string[] = [];
   bullets.push(`Your hand is in the "${POSTFLOP_CLASS_LABEL[f.heroClass].toLowerCase()}" group, with ${pct(f.equity)} equity against ${mw ? 'all of their ranges together' : 'their range'}.`);
+  const tex = textureOf(sit.board ?? []);
+  if (tex) {
+    const solver = postflopOverrides().byTexture?.[tex] ? ' Opponents here play the solver frequencies you imported for this kind of board.' : '';
+    bullets.push(`Board: ${TEXTURE_LABEL[tex].toLowerCase()}. ${ACTIONS.textures[tex].about}${solver}`);
+  }
   if (f.potOdds !== null) {
     const callRow = a.rows.find((r) => r.option.kind === 'call');
     bullets.push(

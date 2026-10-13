@@ -18,7 +18,7 @@ import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { presetSizes } from '../sizing';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
-import { laterStreetValue, rangeDefense, realization, responseFor, type Profile } from './model';
+import { laterStreetValue, rangeDefense, realization, responseFor, textureOf, type Profile } from './model';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
 
@@ -177,11 +177,12 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
   const H = sit.heroBehind, V = sit.villainBehind;
   const heroClass = classifyHand(sit.hero, sit.board);
   const R = realization(sit.street, sit.heroInPosition, heroClass);
+  const tex = textureOf(sit.board);
   const rows: OptionRow[] = [];
   /** Later-street value against the whole range, for a hand that goes on with `pot` and `behind`. */
   const later = (pot: number, behind: number) => {
     let t = 0;
-    for (let k = 0; k < idx.length; k++) t += w[k] * laterStreetValue(sit.street, cls[k], eq(k), pot, behind, sit.villainProfile);
+    for (let k = 0; k < idx.length; k++) t += w[k] * laterStreetValue(sit.street, cls[k], eq(k), pot, behind, sit.villainProfile, tex);
     return (t / W) * rakeKeep(pot, sit);
   };
   const net = (amount: number) => afterRake(amount, sit);
@@ -221,18 +222,18 @@ export function analyze(sit: PostflopSituation, eqs: Float32Array): Analysis {
     const shoveFinal = P + (T - hc) + (T - vc);
     const keepCall = rakeKeep(callFinal, sit);
 
-    const defense = rangeDefense(cls, w, f, beingRaised, sit.villainProfile);
+    const defense = rangeDefense(cls, w, f, beingRaised, sit.villainProfile, tex);
 
     let foldW = 0, callW = 0, raiseW = 0, callEqW = 0;
     let evFold = 0, evCall = 0, raiseCallEv = 0;
     for (let k = 0; k < idx.length; k++) {
-      const resp = responseFor(cls[k], f, canRaise, beingRaised, sit.villainProfile, defense);
+      const resp = responseFor(cls[k], f, canRaise, beingRaised, sit.villainProfile, defense, tex);
       foldW += w[k] * resp.fold;
       callW += w[k] * resp.call;
       raiseW += w[k] * resp.raise;
       callEqW += w[k] * resp.call * eq(k);
       evFold += w[k] * resp.fold * net(P);
-      evCall += w[k] * resp.call * (rCall * eq(k) * net(callFinal) - bEff + (heroAllIn || cv >= V ? 0 : keepCall * laterStreetValue(sit.street, cls[k], eq(k), callFinal, Math.min(H - bEff, V - cv), sit.villainProfile)));
+      evCall += w[k] * resp.call * (rCall * eq(k) * net(callFinal) - bEff + (heroAllIn || cv >= V ? 0 : keepCall * laterStreetValue(sit.street, cls[k], eq(k), callFinal, Math.min(H - bEff, V - cv), sit.villainProfile, tex)));
       raiseCallEv += w[k] * resp.raise * (eq(k) * net(shoveFinal) - (T - hc));
     }
     const raiseFoldEv = -raiseW * b;

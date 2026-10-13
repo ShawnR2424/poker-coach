@@ -5,7 +5,7 @@ import { callEv } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, comboIndex, parseRange, type Range } from '../range';
 import { classifyHand, straightOuts } from '../postflop/classify';
 import { comboCategory, categorizePostflop, POSTFLOP_ORDER } from '../postflop/categories';
-import { ACTIONS, narrowPostflop, rangeDefense, responseFor } from '../postflop/model';
+import { ACTIONS, narrowPostflop, rangeDefense, responseFor, textureOf } from '../postflop/model';
 import { analyze, gradePostflop, margins, situationFromState, type OptionRow, type PostflopSituation } from '../postflop/recommend';
 import { buildSpot, POSTFLOP_SPOTS, type AnswerKind, type PostflopSpotDef } from '../postflop/spots';
 import type { Action } from '../hand';
@@ -150,10 +150,12 @@ describe('EV and verdicts', () => {
     // KQs on this board is air: hero wins every showdown. A range of nothing but air is far short
     // of the defense floor, so it continues as often as the boost cap allows; air is never made to
     // call beyond that.
-    const defense = rangeDefense(['air'], [1], 1000 / 1000);
+    // The board's texture scales the tables, so the formula uses it too.
+    const tex = textureOf(sit.board);
+    const defense = rangeDefense(['air'], [1], 1000 / 1000, false, undefined, tex);
     expect(defense.factor).toBe(ACTIONS.facingBet.maxBoost);
     expect(defense.topUp?.air).toBeUndefined();
-    const resp = responseFor('air', 1000 / 1000, true, false, undefined, defense);
+    const resp = responseFor('air', 1000 / 1000, true, false, undefined, defense, tex);
     // Villain raising is a shove; hero (with the nuts) calls it: final pot 1000 + 4000 + 4000.
     const expected = resp.fold * 1000 + resp.call * (1 * 3000 - 1000) + resp.raise * (9000 - 4000);
     expect(row.ev).toBeCloseTo(expected, 6);

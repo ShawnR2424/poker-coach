@@ -466,6 +466,8 @@ for (const vp of VIEWPORTS) {
       you: document.querySelectorAll('.range-actions .you-tag').length,
     }));
     if (split.rows < 2 || split.you !== 1) failures.push(`${tag}, spot ${i + 1}: range-by-action table has ${split.rows} rows and ${split.you} marked as yours`);
+    // The feedback names the board's texture, which changes how the opponent plays.
+    if (!/Board: (dry|connected or two-tone|paired|three of a suit)/.test(await page.textContent('.feedback'))) failures.push(`${tag}, spot ${i + 1}: the feedback does not name the board texture`);
     // A close spot tags each part of its mix in the EV table, with shares that add up to 100%.
     const mix = await page.$$eval('.ev-table .mix-tag', (t) => t.map((x) => Number(x.textContent.match(/(\d+)%/)[1])));
     if (mix.length) {
@@ -583,6 +585,11 @@ for (const vp of VIEWPORTS) {
     if (!(await p2.textContent('#solver-status')).includes('1 imported spot')) failures.push(`${tag}: the status does not count 1 imported spot`);
     const bold = await p2.$$eval('.solver-play tbody td strong', (c) => c.length);
     if (bold !== 3) failures.push(`${tag}: ${bold} cells of the opponents' table come from the imported spot (expected 3)`);
+    // The spot counts for its own kind of board: bold on a dry high board, not on a wet one.
+    const boldOn = async (tex) => { await p2.selectOption('#solver-texture', tex); return p2.$$eval('.solver-play tbody td strong', (c) => c.length); };
+    const boldDry = await boldOn('dryHigh'), boldWet = await boldOn('wet');
+    if (boldDry !== 3 || boldWet !== 0) failures.push(`${tag}: the Ks7d2c spot marks ${boldDry} cells on dry high boards and ${boldWet} on wet ones (expected 3 and 0)`);
+    if (!(await p2.textContent('.solver-spots')).includes('Ks7d2c (dry, ace or king high)')) failures.push(`${tag}: the imported spot does not show its board texture`);
     await p2.goto(`${url}#table`);
     await p2.waitForSelector('#level');
     await p2.selectOption('#level', '1');

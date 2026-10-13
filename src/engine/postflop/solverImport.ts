@@ -9,6 +9,7 @@ import { parseCards, type Card } from '../cards';
 import { COMBO_CARDS, NUM_COMBOS, parseRange } from '../range';
 import { classifyHand, POSTFLOP_CLASSES, type PostflopClass } from './classify';
 import { ACTIONS, builtInValue, SMALL_BET_MAX, type PostflopOverrides } from './model';
+import { boardTexture, TEXTURES, type Texture } from './texture';
 
 export const POSTFLOP_PACK_APP = 'poker-coach-postflop';
 export const POSTFLOP_PACK_VERSION = 1;
@@ -278,8 +279,24 @@ const clip01 = (x: number) => Math.min(1, Math.max(0, x));
  * actions.json) set only the raise share, since past it the overbet rule takes over. Facing-raise
  * spots set how much less often a class continues against a raise than the line says it
  * continues against a bet of that size.
+ *
+ * The same entries are also worked out for each board texture from that texture's spots alone
+ * (`byTexture`), so a dry and a wet flop keep the solver's different strategies; boards of a
+ * texture with no spot use the average of all spots, scaled by the texture's multipliers.
  */
 export function overridesFrom(spots: readonly SolverSpot[]): PostflopOverrides {
+  const out = classOverrides(spots);
+  const groups = new Map<Texture, SolverSpot[]>();
+  for (const s of spots) {
+    const t = boardTexture(readBoard(s.board));
+    groups.set(t, [...(groups.get(t) ?? []), s]);
+  }
+  if (groups.size) out.byTexture = Object.fromEntries(TEXTURES.filter((t) => groups.has(t)).map((t) => [t, classOverrides(groups.get(t)!, t)]));
+  return out;
+}
+
+/** The table entries from one set of spots; `tex` when they all share that board texture. */
+function classOverrides(spots: readonly SolverSpot[], tex?: Texture): PostflopOverrides {
   const out: PostflopOverrides = {};
   for (const kind of ['act', 'lead'] as const) {
     const table = kind === 'act' ? 'firstToAct' : 'leadIntoAggressor';
@@ -333,13 +350,16 @@ export function overridesFrom(spots: readonly SolverSpot[]): PostflopOverrides {
   }
 
   for (const cls of POSTFLOP_CLASSES) {
-    const l = line[cls] ?? { base: builtInValue('facingBet', 'base', cls), slope: builtInValue('facingBet', 'slope', cls) };
+    const fitted = line[cls];
+    const l = fitted ?? { base: builtInValue('facingBet', 'base', cls), slope: builtInValue('facingBet', 'slope', cls) };
+    // Without a fitted line, the texture's multiplier says how this class meets a bet on these boards.
+    const scale = !fitted && tex ? ACTIONS.textures[tex].continue[cls] : 1;
     let w = 0, sum = 0;
     for (const s of spots) {
       if (s.kind !== 'facingRaise' || s.f === undefined) continue;
       const c = s.classes[cls] as FacingFreq | undefined;
       if (!c || !(c.w > 0)) continue;
-      const vsBet = clip01(l.base - l.slope * Math.min(s.f, maxSize));
+      const vsBet = clip01(clip01(l.base - l.slope * Math.min(s.f, maxSize)) * scale);
       if (vsBet <= 0) continue;
       w += c.w;
       sum += c.w * clip01((c.call + c.raise) / vsBet);

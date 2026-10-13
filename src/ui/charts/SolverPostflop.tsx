@@ -4,7 +4,9 @@
 
 import { useMemo, useState } from 'react';
 import { POSTFLOP_CLASS_LABEL, POSTFLOP_CLASSES, type PostflopClass } from '../../engine/postflop/classify';
-import { ACTIONS, continueProb, firstToActFreq, postflopOverrides } from '../../engine/postflop/model';
+import { continueProb, firstToActFreq, postflopOverrides, responseFor, type PostflopOverrides } from '../../engine/postflop/model';
+import { boardTexture, TEXTURE_LABEL, TEXTURES, type Texture } from '../../engine/postflop/texture';
+import { parseCards } from '../../engine/cards';
 import {
   isFacing, makePostflopPack, parsePostflopPack, postflopPackFileName, postflopPackText, readSolverReport, SPOT_KINDS,
   type ActFreq, type FacingFreq, type PostflopPack, type ReadResult, type SolverSpot, type SpotKind,
@@ -26,7 +28,9 @@ function download(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const spotText = (s: SolverSpot) => `${s.label}: ${s.board}, ${kindLabel(s.kind).toLowerCase()}${s.f !== undefined ? ` of ${Math.round(s.f * 100)}% pot` : ''}`;
+const textureText = (board: string) => TEXTURE_LABEL[boardTexture(parseCards(board))].toLowerCase();
+
+const spotText = (s: SolverSpot) => `${s.label}: ${s.board} (${textureText(s.board)}), ${kindLabel(s.kind).toLowerCase()}${s.f !== undefined ? ` of ${Math.round(s.f * 100)}% pot` : ''}`;
 
 const EXAMPLE = 'Hand, Weight, Check, Bet 33%, Bet 75%\nAsAh, 1, 0.2, 0.5, 0.3\nKQs, 0.6, 0.7, 0.3, 0';
 
@@ -59,9 +63,13 @@ function ReadTable({ spot }: { spot: SolverSpot }) {
   );
 }
 
-/** The regular opponent's play now, with the numbers that come from imported spots in bold. */
-function PlayTable() {
-  const o = postflopOverrides();
+/**
+ * The regular opponent's play now on one board texture (or the base tables), with the numbers
+ * that come from imported spots in bold.
+ */
+function PlayTable({ tex }: { tex?: Texture }) {
+  const all = postflopOverrides();
+  const o: PostflopOverrides = tex ? all.byTexture?.[tex] ?? {} : all;
   const mark = (on: boolean, text: string) => (on ? <strong>{text}</strong> : text);
   const has = (part: Partial<Record<PostflopClass, number>> | undefined, cls: PostflopClass) => part?.[cls] !== undefined;
   return (
@@ -80,18 +88,21 @@ function PlayTable() {
         </thead>
         <tbody>
           {POSTFLOP_CLASSES.map((cls) => {
-            const act = firstToActFreq(cls);
-            const lead = firstToActFreq(cls, true);
+            const act = firstToActFreq(cls, false, undefined, tex);
+            const lead = firstToActFreq(cls, true, undefined, tex);
             const line = has(o.facingBet?.base, cls);
+            const half = responseFor(cls, 0.5, true, false, undefined, 1, tex);
+            const vsBet = continueProb(cls, 0.5, false, undefined, 1, tex);
+            const vsRaise = continueProb(cls, 0.5, true, undefined, 1, tex);
             return (
               <tr key={cls}>
                 <th scope="row">{POSTFLOP_CLASS_LABEL[cls]}</th>
                 <td className="n num">{mark(has(o.firstToAct?.betSmall, cls), pct(act.small + act.big))}</td>
                 <td className="n num">{mark(has(o.leadIntoAggressor?.betSmall, cls), pct(lead.small + lead.big))}</td>
-                <td className="n num">{mark(line, pct(continueProb(cls, 0.5)))}</td>
-                <td className="n num">{mark(line, pct(continueProb(cls, 1)))}</td>
-                <td className="n num">{mark(has(o.facingBet?.raise, cls), pct(ACTIONS.facingBet.raise[cls]))}</td>
-                <td className="n num">{mark(has(o.facingRaise?.continue, cls), `×${ACTIONS.facingRaise.continue[cls].toFixed(2)}`)}</td>
+                <td className="n num">{mark(line, pct(vsBet))}</td>
+                <td className="n num">{mark(line, pct(continueProb(cls, 1, false, undefined, 1, tex)))}</td>
+                <td className="n num">{mark(has(o.facingBet?.raise, cls), pct(half.call + half.raise > 0 ? half.raise / (half.call + half.raise) : 0))}</td>
+                <td className="n num">{mark(has(o.facingRaise?.continue, cls), `×${(vsBet > 0 ? vsRaise / vsBet : 0).toFixed(2)}`)}</td>
               </tr>
             );
           })}
@@ -114,6 +125,7 @@ export function SolverPostflop() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ pack: PostflopPack; file: string } | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [tableTex, setTableTex] = useState<Texture | ''>('');
 
   // Read the report as it is pasted, so mistakes show before anything is saved.
   const read = useMemo((): { ok: true; r: ReadResult } | { ok: false; error: string } | null => {
@@ -202,7 +214,7 @@ export function SolverPostflop() {
           : (
             <>
               <p className="small" id="solver-check" role="status">
-                Read {read.r.combos.toLocaleString()} combos on {read.r.spot.board} with the actions {read.r.actions.join(', ')}.
+                Read {read.r.combos.toLocaleString()} combos on {read.r.spot.board}, a {textureText(read.r.spot.board)} board, with the actions {read.r.actions.join(', ')}.
                 {read.r.ignored.length > 0 && <> Skipped the columns {read.r.ignored.join(', ')}.</>}
               </p>
               <ReadTable spot={read.r.spot} />
@@ -216,10 +228,19 @@ export function SolverPostflop() {
       <div className="custom-list" role="group" aria-labelledby="solver-play-h">
         <h3 id="solver-play-h">How the regular opponent plays now</h3>
         <p className="small muted">
-          {spots.length ? 'Bold numbers come from your imported spots; the rest are built in. ' : ''}
+          {spots.length ? 'Bold numbers come from your imported spots on that kind of board; the rest are built in. ' : ''}
           Each cell is the share of that class taking the action, before the floor that keeps a whole range from folding too much to a bet.
+          Opponents play differently on each kind of board: spots you import count for their own kind of board, and their average,
+          adjusted for the board, fills in the kinds you have no spots for.
         </p>
-        <PlayTable />
+        <label className="custom-name">
+          <span>Board</span>
+          <select id="solver-texture" value={tableTex} onChange={(e) => setTableTex(e.target.value as Texture | '')}>
+            <option value="">Before adjusting for the board</option>
+            {TEXTURES.map((t) => <option key={t} value={t}>{TEXTURE_LABEL[t]}</option>)}
+          </select>
+        </label>
+        <PlayTable tex={tableTex || undefined} />
       </div>
 
       <div className="custom-pack" role="group" aria-labelledby="solver-pack-h">
