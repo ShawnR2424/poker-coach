@@ -2,6 +2,15 @@
 
 Each milestone was merged as its own pull request.
 
+## Keyboard and screen reader
+
+- The cash table and postflop spots can be played from the keyboard: F folds, C (or K) checks or calls, 1 to 9 pick the bet or raise sizes left to right, and A goes all-in. Tournament spots take F and A (C for a call). A hint under the buttons lists the keys on screens with a keyboard.
+- Focus follows the play. When an action's button goes away, focus moves to the next button to press (the first action, Continue, Next hand, Next spot, the equity slider, Next quiz), so a whole hand can be played with the action keys and Enter.
+- The 13x13 hand grids are proper grids for screen readers, in rows of thirteen, and one Tab stop: the arrow keys move between hands, Home and End go to the ends of a row (with Ctrl, of the grid), and Enter or Space picks or paints a hand. The range quiz marks painted hands as selected.
+- Screen readers hear the game: a new hand with your seat and cards, every opponent's action and each street's cards in order, when it is your turn, each grade ("Mistake. This is a fold") and the hand result. Tournament and postflop spots are read when they are dealt. Cards are named in full ("10 of hearts") on the table, in the hand result and in the decisions table.
+- Fixed problems the axe-core checker found on every screen: grid cells outside rows, labels on elements that cannot carry them (the board, seats, shown cards), card faces with no role, wide tables that scroll but could not be reached by keyboard, a second main landmark and an unlabelled range box in the engine lab, no top-level heading, and text below 4.5:1 contrast on folded seats and colored grid cells. Folded seats now recede with a dashed border instead of fading their text, and grid labels on colored cells have a dark outline.
+- New `a11y.test.ts` checks card names, grid movement, the shortcut keys, what the table announces and spoken grades. The smoke test runs the axe-core rules on every screen and on a grade, a hand result and a tournament grade, plays three cash hands and a tournament spot with the keyboard alone checking where focus lands and what is announced, and moves through the quiz grid with the arrow keys.
+
 ## App update prompt
 
 - When a new version is published, the open app now says so: a banner under the top bar reads "A new version of Poker Coach is ready" with Reload and Later. Reload switches to the new version and reloads the page; Later leaves the open page as it is, and the new version starts the next time the app is opened. Saved hands, sessions and settings are kept either way.

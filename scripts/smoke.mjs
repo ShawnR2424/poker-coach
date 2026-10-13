@@ -4,7 +4,7 @@
 // 200bb stacks, and with the rake on. Fails on a console error, a horizontal scrollbar, or a
 // hero turn that never offers a way to act. Checks the mixes in close practice spots, the Session tab's progress charts, a range quiz,
 // every chart in the chart explorer, importing charts by pasting ranges and by chart pack, the equity calculator, mistake review cards made from the imported sample hands, the
-// the grouped navigation and first-run guide, opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
+// the grouped navigation and first-run guide, keyboard-only play and accessibility audits of every screen, opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
 // review cards, backup and
 // restore into a new browser, and
 // that the app can be installed, offers a new build and reloads into it when asked, and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
@@ -127,7 +127,7 @@ async function playHand(page, where) {
 }
 
 /**
- * Range quizzes: a drag across the grid paints a stretch of hands, a key press toggles one, the
+ * Range quizzes: a drag across the grid paints a stretch of hands, the arrow keys and Space paint one, the
  * range check shows the true range beside the painting, the equity check shows the trainer's
  * exact equity, and the score survives a reload.
  */
@@ -145,12 +145,17 @@ async function quizCheck(page, tag) {
   await page.mouse.down();
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 36 });
   await page.mouse.up();
-  await page.waitForFunction(() => document.querySelector('.paint-grid button[data-cls="A2s"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 2000 }).catch(() => {});
-  const painted = await page.$$eval('.paint-grid button[aria-pressed="true"]', (b) => b.map((x) => x.dataset.cls));
+  await page.waitForFunction(() => document.querySelector('.paint-grid button[data-cls="A2s"]')?.getAttribute('aria-selected') === 'true', null, { timeout: 2000 }).catch(() => {});
+  const painted = await page.$$eval('.paint-grid button[aria-selected="true"]', (b) => b.map((x) => x.dataset.cls));
   if (painted.length !== 13 || !painted.includes('AKs') || !painted.includes('A2s')) failures.push(`${tag}: dragging across the top row painted ${painted.join(' ') || 'nothing'}`);
-  await page.focus('.paint-grid button[data-cls="KK"]');
+  // The arrow keys move from AA down to KK, and Space paints it.
+  await page.focus('.paint-grid button[data-cls="AA"]');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowRight');
+  const at = await page.evaluate(() => document.activeElement?.dataset?.cls);
+  if (at !== 'KK') failures.push(`${tag}: the arrow keys moved from AA to ${at ?? 'nothing'}, expected KK`);
   await page.keyboard.press('Space');
-  if ((await page.getAttribute('.paint-grid button[data-cls="KK"]', 'aria-pressed')) !== 'true') failures.push(`${tag}: a key press does not paint a hand`);
+  if ((await page.getAttribute('.paint-grid button[data-cls="KK"]', 'aria-selected')) !== 'true') failures.push(`${tag}: a key press does not paint a hand`);
   const shown = await page.textContent('#painted-pct');
   if (shown !== `${((6 + 6 + 12 * 4) / 1326 * 100).toFixed(1)}%`) failures.push(`${tag}: painting AA, KK and the suited aces shows ${shown} of hands`);
   await noOverflow(page, `${tag}, quiz`);
@@ -842,6 +847,77 @@ for (const vp of VIEWPORTS) {
   }
 
   console.log(`${tag}: ${played} hands across levels ${LEVELS.join(', ')} and 9-handed plus leak practice (${drills} postflop drills), ${rows} in the session (${replays.length} replayed, ${stepped} stepped through), ${spots.length} spots, ${imported} imported hands, ${requests.length} mocked coach requests`);
+  await ctx.close();
+}
+
+// Keyboard and screen reader: every screen passes the axe-core accessibility checks (also with a
+// grade and a hand result showing), hands at the cash table and a tournament spot are played with
+// the keyboard alone, focus moves to the next button to press, and the table's news is announced.
+{
+  const tag = `${RUN}, keyboard`;
+  const ctx = await newContext(VIEWPORTS[0]);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => pageError(tag, e));
+  await page.addInitScript(() => { try { localStorage.setItem('welcome:v1', '1'); } catch { /* storage blocked */ } });
+  const axeSource = readFileSync(join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js'), 'utf8');
+  let audited = 0;
+  const audit = async (where) => {
+    if (!(await page.evaluate(() => !!window.axe))) await page.addScriptTag({ content: axeSource });
+    const { violations } = await page.evaluate(() => window.axe.run(document, { resultTypes: ['violations'] }));
+    audited++;
+    for (const v of violations) failures.push(`${tag}, ${where}: ${v.id} (${v.impact}) on ${v.nodes.length} element(s), e.g. ${v.nodes[0].target.join(' ')}`);
+  };
+  for (const t of ['table', 'tournament', 'spots', 'quiz', 'review', 'equity', 'charts', 'import', 'lab', 'session', 'settings']) {
+    await page.goto(`${url}#${t}`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(300);
+    await audit(t);
+  }
+
+  // Cash table, keys only: C checks or calls, then Enter on the button that took focus.
+  await page.goto(`${url}#table`);
+  await page.selectOption('#level', '1');
+  const focused = () => page.evaluate(() => (document.activeElement && document.activeElement !== document.body ? (document.activeElement.textContent ?? '').trim() : ''));
+  let hands = 0, graded = 0, keyed = 0;
+  const said = new Set();
+  for (let step = 0; step < 30 && hands < 3; step++) {
+    await page.waitForFunction(() => document.querySelector('.hand-result') || document.querySelector('.feedback') || document.querySelector('.action-bar .act:not([disabled])'), null, { timeout: TURN_TIMEOUT });
+    await page.waitForTimeout(120);
+    said.add(await page.textContent('#announcer'));
+    if (await page.$('.action-bar .act:not([disabled])')) {
+      if (!(await focused()).match(/^(Fold|Check|Call)/)) failures.push(`${tag}: at a decision, focus is on "${await focused()}", not the first action`);
+      await page.keyboard.press('c');
+      keyed++;
+    } else {
+      const panel = (await page.$('.hand-result')) ? 'hand result' : 'grade';
+      const f = await focused();
+      if (panel === 'grade') graded++;
+      if (!/^(Continue|Next hand)/.test(f)) failures.push(`${tag}: after the ${panel} appeared, focus is on "${f || 'nothing'}"`);
+      if (panel === 'grade' && graded === 1) await audit('a grade');
+      if (panel === 'hand result') {
+        if (hands === 0) await audit('a hand result');
+        hands++;
+      }
+      await page.keyboard.press('Enter');
+    }
+  }
+  if (hands < 3) failures.push(`${tag}: only ${hands} hands finished with the keyboard alone`);
+  const spoken = [...said].join(' ');
+  if (!/New hand\. You are \w+ with \w+ of \w+/.test(spoken)) failures.push(`${tag}: a new hand was not announced with the hero's cards (heard: ${spoken.slice(0, 200)})`);
+  if (!/(Correct|Mistake|Playable)/.test(spoken)) failures.push(`${tag}: no grade was announced`);
+  const cardNames = await page.$$eval('.hero-strip [role="img"], .table-wrap [role="img"]', (e) => e.map((x) => x.getAttribute('aria-label')));
+  if (!cardNames.length || cardNames.some((n) => !/^(ace|king|queen|jack|10|[2-9]) of (clubs|diamonds|hearts|spades)$/.test(n))) failures.push(`${tag}: table cards are not named for screen readers (${cardNames.slice(0, 3).join(', ')})`);
+
+  // A tournament spot: F folds, the grade takes focus on Next spot.
+  await page.goto(`${url}#tournament`);
+  await page.waitForSelector('.action-bar .act.fold', { timeout: TURN_TIMEOUT });
+  await page.keyboard.press('f');
+  await page.waitForSelector('.feedback');
+  await page.waitForTimeout(120);
+  if ((await focused()) !== 'Next spot') failures.push(`${tag}: after a tournament answer, focus is on "${await focused()}"`);
+  await audit('a tournament grade');
+
+  console.log(`${tag}: ${audited} accessibility audits clean, ${hands} cash hands and a tournament spot played by keyboard (${keyed} key actions, ${graded} grades)`);
   await ctx.close();
 }
 

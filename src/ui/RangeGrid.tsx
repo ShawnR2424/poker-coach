@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatCards, type Card } from '../engine/cards';
+import { HandGrid } from './HandGrid';
 import { ALL_CLASSES, CLASS_COMBOS, COMBO_CARDS, classOfCombo, type HandClass, type Range } from '../engine/range';
 
 interface Props {
@@ -43,8 +44,8 @@ export function RangeGrid({ range, dead, hero }: Props) {
 
   return (
     <div className="grid-wrap">
-      <div className="range-grid" role="grid" aria-label="Range grid">
-        {cells.map((c) => {
+      <HandGrid label="Range grid" count={cells.length} cell={(i, nav) => {
+          const c = cells[i];
           const share = c.total ? c.live / c.total : 0;
           const crossed = c.inRange > 0 && c.live === 0;
           return (
@@ -52,17 +53,18 @@ export function RangeGrid({ range, dead, hero }: Props) {
               key={c.cls}
               type="button"
               role="gridcell"
+              {...nav}
+              aria-selected={selected === c.cls}
               className={`cell${share >= 0.5 ? ' strong' : ''}${c.cls === heroClass ? ' hero' : ''}${crossed ? ' crossed' : ''}${selected === c.cls ? ' selected' : ''}`}
               style={{ ['--fill' as string]: share.toFixed(3) }}
               onClick={() => setSelected(selected === c.cls ? null : c.cls)}
               title={`${c.cls}: ${fmt(c.live)} of ${c.total} combos`}
-              aria-label={`${c.cls}, ${fmt(c.live)} of ${c.total} combos in range`}
+              aria-label={`${c.cls}, ${fmt(c.live)} of ${c.total} combos in range${c.cls === heroClass ? ', your hand' : ''}`}
             >
               {c.cls}
             </button>
           );
-        })}
-      </div>
+        }} />
       <p className="cell-detail" aria-live="polite">
         {sel ? (
           <>

@@ -12,6 +12,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { ReplayView } from './ReplayView';
 import { newSession, useSessions } from './store';
 import './session.css';
+import { ScrollBox } from '../ScrollBox';
 
 const ICON = { correct: '✅', playable: '👍', mistake: '⚠️' } as const;
 const sign = (x: number) => (x > 0 ? '+' : x < 0 ? '−' : '');
@@ -54,7 +55,7 @@ export function SessionScreen() {
       {saved.past.length > 0 && (
         <section className="panel" aria-labelledby="past-h">
           <h2 id="past-h">Earlier sessions</h2>
-          <div className="table-scroll">
+          <ScrollBox label="Earlier sessions">
             <table className="data">
               <thead>
                 <tr><th scope="col">Started</th><th scope="col" className="n">Hands</th><th scope="col" className="n">Result</th><th scope="col" className="n">Open leaks</th><th scope="col"><span className="sr-only">View</span></th></tr>
@@ -74,7 +75,7 @@ export function SessionScreen() {
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollBox>
         </section>
       )}
     </div>
@@ -125,7 +126,7 @@ function SessionView({ session }: { session: Session }) {
         {leaks.length ? (
           <>
             <p className="muted small">A leak is marked fixed when its spot comes up again and you play it without a mistake. It reopens if it shows up again. With “Practice my leaks” on, about half of new hands lean toward spots where your open leaks show up.</p>
-            <div className="table-scroll">
+            <ScrollBox label="Leaks this session">
               <table className="data">
                 <thead>
                   <tr><th scope="col">Leak</th><th scope="col" className="n">Times</th><th scope="col" className="n">Last seen</th><th scope="col">Status</th></tr>
@@ -147,7 +148,7 @@ function SessionView({ session }: { session: Session }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollBox>
           </>
         ) : (
           <p className="muted">No leaks tagged so far.</p>
@@ -161,7 +162,7 @@ function SessionView({ session }: { session: Session }) {
 
       <section className="panel" aria-labelledby="hands-h">
         <h2 id="hands-h">Hands</h2>
-        <div className="table-scroll">
+        <ScrollBox label="Hands">
           <table className="data hands">
             <thead>
               <tr>
@@ -202,7 +203,7 @@ function SessionView({ session }: { session: Session }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollBox>
       </section>
     </>
   );
@@ -223,7 +224,7 @@ function TendencyPanel({ hands }: { hands: Session['hands'] }) {
       <p className="muted small">
         With “Opponents adapt to me” on, opponents compare your latest {ADAPT.window} postflop decisions of each kind with the trainer's best play in the same spots. Once a rate has {ADAPT.minSample} decisions behind it and differs from the best play's by more than {Math.round(100 * ADAPT.gap)} points, every opponent adjusts, and the range reads and grades use the adjusted style.
       </p>
-      <div className="table-scroll">
+      <ScrollBox label="How opponents read you">
         <table className="data">
           <thead>
             <tr><th scope="col">Postflop</th><th scope="col" className="n">You</th><th scope="col" className="n">Best play</th><th scope="col" className="n">Decisions</th></tr>
@@ -239,7 +240,7 @@ function TendencyPanel({ hands }: { hands: Session['hands'] }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       <p className="small">
         {a ? `Opponents are ${a.adjustments.map((x) => ADJUSTMENT_SHORT[x.kind]).join(' and ')}.` : 'Opponents play their usual styles against you.'}
       </p>

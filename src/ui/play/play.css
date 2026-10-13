@@ -5,9 +5,9 @@
 
 /* Grids */
 .range-grid { position: relative; }
-.grid-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--surface); }
+.grid-loading-static { width: 100%; max-width: 560px; aspect-ratio: 1; margin: 0; display: grid; place-items: center; background: var(--surface-2); border-radius: var(--radius); }
 .cell.cat { color: var(--fg); background: var(--surface-2); }
-.cell.cat.strong, .cell.strat.strong { color: #ffffff; text-shadow: 0 0 2px rgb(0 0 0 / 0.45); }
+.cell.cat.strong, .cell.strat.strong { color: #ffffff; text-shadow: 0 0 2px #000000, 0 0 1px #000000; }
 .cell.strat { display: grid; place-items: center; color: var(--fg); }
 .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; }
 .legend li { display: flex; align-items: center; gap: 6px; }

@@ -4,6 +4,7 @@
 import { useRef } from 'react';
 import type { RangeScore } from '../../engine/quiz/quiz';
 import { ALL_CLASSES, CLASS_COMBOS, type HandClass } from '../../engine/range';
+import { HandGrid } from '../HandGrid';
 
 interface Props {
   painted: ReadonlySet<HandClass>;
@@ -35,13 +36,14 @@ export function PaintGrid({ painted, onChange, reveal, hero }: Props) {
 
   if (reveal) {
     return (
-      <div className="range-grid paint-grid revealed" role="grid" aria-label="Their range compared with your painting">
-        {ALL_CLASSES.map((cls) => {
+      <HandGrid className="paint-grid revealed" label="Their range compared with your painting" count={ALL_CLASSES.length} cell={(i, nav) => {
+          const cls = ALL_CLASSES[i];
           const c = reveal.cells.get(cls)!;
           return (
             <span
               key={cls}
               role="gridcell"
+              {...nav}
               className={`cell mark-${c.mark}${c.share >= 0.5 ? ' strong' : ''}${cls === hero ? ' hero' : ''}`}
               style={{ ['--fill' as string]: c.share.toFixed(3) }}
               title={`${cls}: played ${Math.round(c.share * 100)}% of the time; ${MARK_TEXT[c.mark]}`}
@@ -50,16 +52,15 @@ export function PaintGrid({ painted, onChange, reveal, hero }: Props) {
               {cls}
             </span>
           );
-        })}
-      </div>
+        }} />
     );
   }
 
   return (
-    <div
-      className="range-grid paint-grid"
-      role="grid"
-      aria-label="Paint the range"
+    <HandGrid
+      className="paint-grid"
+      label="Paint the range: arrow keys move, Enter or Space paints a hand in or out"
+      count={ALL_CLASSES.length}
       onPointerDown={(e) => {
         const cls = clsAt(e.clientX, e.clientY);
         if (!cls) return;
@@ -75,17 +76,18 @@ export function PaintGrid({ painted, onChange, reveal, hero }: Props) {
       onPointerUp={() => { stroke.current = null; }}
       onPointerCancel={() => { stroke.current = null; }}
       onPointerLeave={() => { stroke.current = null; }}
-    >
-      {ALL_CLASSES.map((cls) => {
+      cell={(i, nav) => {
+        const cls = ALL_CLASSES[i];
         const on = painted.has(cls);
         return (
           <button
             key={cls}
             type="button"
             role="gridcell"
+            {...nav}
             data-cls={cls}
             className={`cell${on ? ' painted' : ''}${cls === hero ? ' hero' : ''}`}
-            aria-pressed={on}
+            aria-selected={on}
             aria-label={`${cls}, ${CLASS_COMBOS.get(cls)!.length} combos, ${on ? 'painted' : 'not painted'}`}
             // Pointer strokes paint on pointer down; keyboard presses (detail 0) toggle here.
             onClick={(e) => {
@@ -98,7 +100,7 @@ export function PaintGrid({ painted, onChange, reveal, hero }: Props) {
             {cls}
           </button>
         );
-      })}
-    </div>
+      }}
+    />
   );
 }

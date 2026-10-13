@@ -13,6 +13,7 @@ import { SpotsScreen } from './spots/SpotsScreen';
 import { GROUPS, groupOf, openFor, parseLastUsed, tabFromHash, tabsIn, type Group, type LastUsed, type Tab } from './app/nav';
 import { Welcome } from './app/Welcome';
 import { UpdateBanner } from './app/UpdateBanner';
+import { Announcer } from './Announcer';
 import './app/nav.css';
 
 // Tournament mode carries its own equity table, so it loads only when opened.
@@ -121,7 +122,7 @@ export function App() {
   return (
     <>
       <header className="topbar">
-        <p className="brand">Poker Coach <span className="approx">approximate GTO</span></p>
+        <h1 className="brand">Poker Coach <span className="approx">approximate GTO</span></h1>
         <nav className="nav-groups" aria-label="Sections">{groupButtons}</nav>
         <div className="topbar-end">
           <label className="theme-pick">
@@ -150,6 +151,7 @@ export function App() {
         </nav>
       )}
       <UpdateBanner />
+      <Announcer />
       <Welcome onPlay={() => go('table')} />
       <main>{screenFor(tab)}</main>
       <nav className="bottombar" aria-label="Sections">{groupButtons}</nav>

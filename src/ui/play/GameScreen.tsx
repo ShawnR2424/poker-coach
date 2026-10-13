@@ -1,7 +1,7 @@
 // The practice loop for every level: deal a hand, show the range read at each hero decision,
 // grade it, let opponents respond, and show the result.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { preflopCategory, categorizeRange, type CellCategory, type PreflopCategory } from '../../engine/categories';
 import { formatCards } from '../../engine/cards';
 import { describeScore, evaluate } from '../../engine/evaluator';
@@ -42,6 +42,8 @@ import { TableView } from '../table/TableView';
 import { Timeline } from '../table/Timeline';
 import { heroTiles, seatViews, timeline, STREET_LABEL } from '../table/view';
 import { FeedbackPanel } from './FeedbackPanel';
+import { announce } from '../Announcer';
+import { cardsName, tableNews, told, type Told } from '../a11y';
 import { HandResult, type DecisionLog } from './HandResult';
 import { RangeReadPanel, type ReadView } from './RangeReadPanel';
 
@@ -181,6 +183,22 @@ export function GameScreen() {
     try { localStorage.setItem(ADAPT_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
     nextHand(level, opts, on);
   };
+
+  // Tell screen readers what happens at the table: a new hand, each action and card, and whose turn it is.
+  const toldRef = useRef<{ game: GameHand | null; told: Told }>({ game: null, told: { actions: 0, board: 0 } });
+  // A layout effect, so the table's news is said before a grade or result panel's own news.
+  useLayoutEffect(() => {
+    const t = toldRef.current;
+    let intro = '';
+    if (t.game !== game) {
+      t.game = game;
+      t.told = { actions: 0, board: 0 };
+      intro = `New hand. You are ${state.players[hero].position} with ${cardsName(state.players[hero].hole)}. `;
+    }
+    const news = tableNews(state, hero, t.told, heroToAct);
+    t.told = told(state);
+    announce(`${intro}${news}`.trim());
+  }, [game, state, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Record each finished hand in the session once.
   const recorded = useRef<GameHand | null>(null);

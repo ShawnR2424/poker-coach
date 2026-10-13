@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { leakTrend, mistakeTrend, sessionsInOrder, summarize, TREND_MIN, TREND_WINDOW, type SessionSummary, type TrendPoint } from '../../engine/session/progress';
 import type { SavedSessions } from '../../engine/session/session';
+import { ScrollBox } from '../ScrollBox';
 
 const pct = (x: number | null) => (x === null ? '–' : `${Math.round(x * 100)}%`);
 const bb1 = (x: number | null) => (x === null ? '–' : `${x.toFixed(1)}bb`);
@@ -35,7 +36,7 @@ export function ProgressPanel({ saved }: { saved: SavedSessions }) {
       {leaks.length > 0 && <LeakTable rows={leaks} sessions={summaries} />}
       <details>
         <summary>Show the numbers as a table</summary>
-        <div className="table-scroll">
+        <ScrollBox label="Progress by session">
           <table className="data" id="progress-table">
             <thead>
               <tr><th scope="col">Session</th><th scope="col">Started</th><th scope="col" className="n">Hands</th><th scope="col" className="n">Decisions</th><th scope="col" className="n">Mistakes</th><th scope="col" className="n">EV given up / 100 hands</th></tr>
@@ -53,7 +54,7 @@ export function ProgressPanel({ saved }: { saved: SavedSessions }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollBox>
       </details>
     </section>
   );
@@ -237,7 +238,7 @@ function LeakTable({ rows, sessions }: { rows: ReturnType<typeof leakTrend>; ses
       <figcaption>
         <strong>Leaks by session</strong> <span className="muted">times per 100 graded decisions; darker is more often</span>
       </figcaption>
-      <div className="table-scroll">
+      <ScrollBox label="Leaks by street">
         <table className="data leak-grid" id="leak-grid">
           <thead>
             <tr>
@@ -260,7 +261,7 @@ function LeakTable({ rows, sessions }: { rows: ReturnType<typeof leakTrend>; ses
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
     </figure>
   );
 }

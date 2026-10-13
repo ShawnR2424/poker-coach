@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CellCategory } from '../../engine/categories';
 import { classOfCombo, type HandClass } from '../../engine/range';
 import type { Card } from '../../engine/cards';
+import { HandGrid } from '../HandGrid';
 
 interface Props<C extends string> {
   cells: CellCategory<C>[] | null;
@@ -22,8 +23,8 @@ export function CategoryGrid<C extends string>({ cells, removed, hero, info, ord
   const selected = sel && cells ? cells.find((c) => c.cls === sel) : null;
   return (
     <div className="grid-wrap">
-      <div className="range-grid" role="grid" aria-label="Opponent range by matchup">
-        {(cells ?? []).map((c) => {
+      {cells ? <HandGrid label="Opponent range by matchup" count={cells.length} cell={(i, nav) => {
+          const c = cells[i];
           const crossed = removed.has(c.cls);
           const style = c.category ? { background: `var(${colorVar[c.category]})` } : undefined;
           return (
@@ -31,17 +32,17 @@ export function CategoryGrid<C extends string>({ cells, removed, hero, info, ord
               key={c.cls}
               type="button"
               role="gridcell"
+              {...nav}
               className={`cell cat${c.category ? ' strong' : ''}${c.cls === heroClass ? ' hero' : ''}${crossed ? ' crossed' : ''}${sel === c.cls ? ' selected' : ''}`}
               style={style}
               onClick={() => setSel(sel === c.cls ? null : c.cls)}
-              aria-label={`${c.cls}: ${c.category ? info[c.category].label : crossed ? 'just removed' : 'not in range'}`}
+              aria-label={`${c.cls}: ${c.category ? info[c.category].label : crossed ? 'just removed' : 'not in range'}${c.cls === heroClass ? ', your hand' : ''}`}
+              aria-selected={sel === c.cls}
             >
               {c.cls}
             </button>
           );
-        })}
-        {!cells && <p className="muted small grid-loading">Working out matchups…</p>}
-      </div>
+        }} /> : <p className="muted small grid-loading-static">Working out matchups…</p>}
       <ul className="legend">
         {order.map((k) => (
           <li key={k}><i style={{ background: `var(${colorVar[k]})` }} />{info[k].label}</li>

@@ -1,5 +1,6 @@
 import type { Frequencies } from '../../engine/preflop/charts';
 import { ALL_CLASSES, type HandClass } from '../../engine/range';
+import { HandGrid } from '../HandGrid';
 
 interface Props {
   freqs: Map<HandClass, Frequencies>;
@@ -14,24 +15,26 @@ interface Props {
 export function StrategyGrid({ freqs, heroClass, names, marked, label = 'Your strategy for this spot' }: Props) {
   return (
     <div className="grid-wrap">
-      <div className="range-grid" role="grid" aria-label={label}>
-        {ALL_CLASSES.map((cls) => {
+      <HandGrid label={label} count={ALL_CLASSES.length} cell={(i, nav) => {
+          const cls = ALL_CLASSES[i];
           const f = freqs.get(cls)!;
           const r = f.raise * 100, c = (f.raise + f.call) * 100;
           const bg = `linear-gradient(to right, var(--act-raise) 0 ${r}%, var(--act-call) ${r}% ${c}%, var(--act-fold) ${c}% 100%)`;
+          const text = `${cls}: ${names.raise} ${Math.round(f.raise * 100)}%, ${names.call} ${Math.round(f.call * 100)}%, ${names.fold} ${Math.round(f.fold * 100)}%${marked?.hands.has(cls) ? ` (${marked.label.toLowerCase()})` : ''}${cls === heroClass ? ', your hand' : ''}`;
           return (
             <span
               key={cls}
               role="gridcell"
+              {...nav}
+              aria-label={text}
               className={`cell strat${f.fold < 0.5 ? ' strong' : ''}${cls === heroClass ? ' hero' : ''}${marked?.hands.has(cls) ? ' marked' : ''}`}
               style={{ background: bg }}
-              title={`${cls}: ${names.raise} ${Math.round(f.raise * 100)}%, ${names.call} ${Math.round(f.call * 100)}%, ${names.fold} ${Math.round(f.fold * 100)}%${marked?.hands.has(cls) ? ` (${marked.label.toLowerCase()})` : ''}`}
+              title={text}
             >
               {cls}
             </span>
           );
-        })}
-      </div>
+        }} />
       <ul className="legend">
         <li><i style={{ background: 'var(--act-raise)' }} />{cap(names.raise)}</li>
         <li><i style={{ background: 'var(--act-call)' }} />{cap(names.call)}</li>

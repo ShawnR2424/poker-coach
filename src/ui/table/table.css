@@ -1,5 +1,5 @@
 /* Table screen: felt oval on top, then hero strip, timeline, range read and actions in one column. */
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .topbar {
   display: flex;
@@ -11,7 +11,7 @@
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; margin-right: auto; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: normal; line-height: normal; margin-right: auto; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .approx {
   font-family: var(--font-body);
   font-size: 0.72rem;
@@ -92,7 +92,9 @@
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
   text-align: center;
 }
-.seat.folded { opacity: 0.45; }
+/* Folded seats recede by border and shadow, not opacity, so their text stays readable. */
+.seat.folded { border-style: dashed; box-shadow: none; color: var(--fg-muted); background: var(--surface-2); }
+.seat.folded .seat-pos { font-weight: 400; }
 .seat.hero { border-color: var(--hero); }
 .seat.aggressor { border-color: var(--bad); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 35%, transparent); }
 .seat.acting { box-shadow: 0 0 0 3px color-mix(in srgb, var(--hero) 45%, transparent); }
@@ -223,3 +225,11 @@
 .custom-row { display: flex; gap: 6px; }
 .custom-row input { flex: 1; }
 .chosen { background: var(--felt-soft); border-radius: 8px; padding: 10px 12px; }
+
+/* Keyboard shortcut hint under the action buttons; touch screens have no keys to show. */
+.keys-hint { margin: 8px 0 0; }
+.keys-hint kbd, kbd {
+  font-family: var(--font-mono); font-size: 0.85em;
+  padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+}
+@media (pointer: coarse) { .keys-hint { display: none; } }

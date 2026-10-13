@@ -16,11 +16,11 @@ export function TableView({ state, seats, hero }: Props) {
   const bb = state.config.bb;
   const boardSize = state.board.length;
   return (
-    <div className="table-wrap" aria-label="Poker table">
+    <div className="table-wrap" role="group" aria-label="Poker table">
       <div className="felt" aria-hidden="true" />
       <div className="table-center">
         <p className="street-label">{STREET_LABEL[state.street]}</p>
-        <div className="board-cards" aria-label="Board">
+        <div className="board-cards" role="group" aria-label={boardSize ? 'Board' : 'Board, no cards yet'}>
           {Array.from({ length: 5 }, (_, i) =>
             i < boardSize ? (
               <PlayingCard key={i} card={state.board[i]} size="sm" highlight={boardSize > 3 ? i === boardSize - 1 : false} />
@@ -43,6 +43,7 @@ export function TableView({ state, seats, hero }: Props) {
         return (
           <div key={s.index} className="seat-slot" style={style}>
             <div
+              role="group"
               className={`seat${s.folded ? ' folded' : ''}${s.isHero ? ' hero' : ''}${s.isAggressor ? ' aggressor' : ''}${s.badge.kind === 'yourturn' ? ' acting' : ''}`}
               aria-label={`${s.isHero ? 'You, ' : ''}${s.position}, stack ${dollars(s.stack)}, ${s.badge.text || 'waiting'}`}
             >
@@ -57,7 +58,7 @@ export function TableView({ state, seats, hero }: Props) {
                 <span className="card-backs" aria-hidden="true"><i /><i /></span>
               )}
               {!s.isHero && s.hole && (
-                <span className="shown-cards" aria-label="Shown cards">{s.hole.map((c) => <PlayingCard key={c} card={c} size="xs" />)}</span>
+                <span className="shown-cards" role="group" aria-label="Shown cards">{s.hole.map((c) => <PlayingCard key={c} card={c} size="xs" />)}</span>
               )}
             </div>
             {s.committed > 0 && (

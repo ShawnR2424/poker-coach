@@ -6,6 +6,10 @@ import { comboIndex, NUM_COMBOS } from '../../engine/range';
 import type { DecisionRecord } from '../../engine/session/session';
 import { runEquity } from '../../workers/equityClient';
 import { bbs, dollars } from '../table/format';
+import { ScrollBox } from '../ScrollBox';
+import { Arrival } from '../Arrival';
+import { CardText } from '../CardText';
+import { sentence } from '../a11y';
 
 export type DecisionLog = DecisionRecord;
 
@@ -48,13 +52,14 @@ export function HandResult({ state, hero, log, onNext, stopNote }: { state: Hand
 
   return (
     <section className="hand-result" aria-labelledby="hr-h">
+      <Arrival text={sentence(headline)} />
       <h2 id="hr-h">{headline}</h2>
       {state.result?.wentToShowdown && (
         <ul className="showdown">
           {state.players.map((p, i) =>
             state.result!.scores[i] !== null ? (
               <li key={i}>
-                <strong>{i === hero ? 'You' : p.position}</strong> {formatCards(p.hole)}: {describeScore(state.result!.scores[i]!)}
+                <strong>{i === hero ? 'You' : p.position}</strong> <CardText text={formatCards(p.hole)} />: {describeScore(state.result!.scores[i]!)}
                 {state.result!.pots.some((pt) => pt.winners.includes(i)) && <span className="badge badge-call">Winner</span>}
               </li>
             ) : null,
@@ -68,27 +73,27 @@ export function HandResult({ state, hero, log, onNext, stopNote }: { state: Hand
         <ul className="showdown">
           {opponents.map(({ p, i }) => (
             <li key={i}>
-              <strong>{p.position}</strong> had {formatCards(p.hole)}
+              <strong>{p.position}</strong> had <CardText text={formatCards(p.hole)} />
               {!me.folded && <> · your preflop equity against it: <span className="num">{eqs.has(i) ? pct(eqs.get(i)!) : '…'}</span></>}
             </li>
           ))}
         </ul>
       )}
-      <div className="table-scroll">
+      <ScrollBox label="Your decisions this hand">
         <table className="math verdicts">
           <thead><tr><th>Spot</th><th>Hand</th><th>You</th><th>Verdict</th></tr></thead>
           <tbody>
             {log.map((d, k) => (
               <tr key={k}>
-                <td>{d.label}</td>
-                <td className="num">{d.hand}</td>
+                <td><CardText text={d.label} /></td>
+                <td className="num"><CardText text={d.hand} /></td>
                 <td>{d.you}</td>
                 <td><span aria-hidden="true">{ICON[d.verdict]}</span> {d.heading}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       {takeaways.length > 0 && (
         <div className="concept">
           <p className="eyebrow">Takeaways</p>

@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import type { Choice } from '../../engine/preflop/charts';
 import { choiceName, strategyGrid, type Decision, type Feedback } from '../../engine/preflop/coach';
 import { StrategyGrid } from './StrategyGrid';
+import { Arrival } from '../Arrival';
+import { gradeSaid } from '../a11y';
 
 const BADGE: Record<string, { icon: string; label: string }> = {
   correct: { icon: '✅', label: 'Correct' },
@@ -17,6 +19,7 @@ export function FeedbackPanel({ fb, decision, onContinue, voice, continueLabel =
   const name = (c: Choice) => choiceName(decision.spot.kind, c, decision.canCheck);
   return (
     <section className={`feedback verdict-${g.verdict}`} aria-labelledby="fb-h">
+      <Arrival text={gradeSaid(BADGE[g.verdict].label, g.heading)} />
       <p className="verdict-badge"><span aria-hidden="true">{BADGE[g.verdict].icon}</span> {BADGE[g.verdict].label}</p>
       <h2 id="fb-h">{g.heading}</h2>
       <ul className="why">{fb.bullets.map((b) => <li key={b}>{b}</li>)}</ul>

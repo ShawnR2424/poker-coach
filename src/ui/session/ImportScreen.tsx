@@ -10,6 +10,7 @@ import { dollars } from '../table/format';
 import { RealPlayReport } from './RealPlayReport';
 import { recordHands } from './store';
 import './session.css';
+import { ScrollBox } from '../ScrollBox';
 
 const ICON = { correct: '✅', playable: '👍', mistake: '⚠️' } as const;
 const sign = (x: number) => (x > 0 ? '+' : x < 0 ? '−' : '');
@@ -123,7 +124,7 @@ function ImportPreview({ hands, skipped, onSave }: { hands: ImportedHand[]; skip
             Result {sign(t.net)}{dollars(Math.abs(t.net))} after rake.
           </p>
           {leaks.length > 0 && <p className="small">Most frequent leaks: {leaks.map((l) => `${l.tag} (${l.count})`).join(', ')}.</p>}
-          <div className="table-scroll">
+          <ScrollBox label="Hands">
             <table className="data hands">
               <thead>
                 <tr><th scope="col">Hand</th><th scope="col">Spot</th><th scope="col">Cards</th><th scope="col">Verdicts</th><th scope="col" className="n">Result</th><th scope="col">Lesson</th></tr>
@@ -144,7 +145,7 @@ function ImportPreview({ hands, skipped, onSave }: { hands: ImportedHand[]; skip
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollBox>
           <div className="import-actions">
             <button type="button" className="primary" onClick={() => onSave(true)}>Save as a new session</button>
             <button type="button" onClick={() => onSave(false)}>Add to this session</button>

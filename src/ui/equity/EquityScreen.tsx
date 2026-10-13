@@ -10,6 +10,7 @@ import { RangeGrid } from '../RangeGrid';
 import { chartPresets } from './presets';
 import '../session/session.css';
 import './equity.css';
+import { ScrollBox } from '../ScrollBox';
 
 const KEY = 'equity:v1';
 const SAMPLES = [100_000, 400_000] as const;
@@ -122,7 +123,7 @@ export function EquityScreen() {
         <p className="small muted eq-help">
           Give each player an exact hand (<code>AhKd</code>), a range in standard notation (<code>QQ+, AKs, AQo:0.5</code>), <code>random</code> for any two cards, or a range from the trainer's 100bb charts.
         </p>
-        <div className="presets" aria-label="Examples">
+        <div className="presets" role="group" aria-label="Examples">
           {EXAMPLES.map((ex) => (
             <button key={ex.name} type="button" className="chip" onClick={() => setInputs({ ...ex.inputs })}>{ex.name}</button>
           ))}
@@ -199,7 +200,7 @@ export function EquityScreen() {
                 <span key={i} className={`p${i + 1}`} style={{ flexGrow: p.equity }} title={`Player ${i + 1}: ${pct(p.equity)}`} />
               ))}
             </div>
-            <div className="table-scroll">
+            <ScrollBox label="Equity by player">
               <table className="data eq-table">
                 <thead>
                   <tr><th scope="col">Player</th><th scope="col" className="eq-holding-h">Holding</th><th scope="col" className="n">Combos</th><th scope="col" className="n">Equity</th><th scope="col" className="n">Wins</th><th scope="col" className="n">Splits</th></tr>
@@ -220,7 +221,7 @@ export function EquityScreen() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </ScrollBox>
             <p className="small muted" id="eq-method">
               {res.exact
                 ? `Exact: every deal counted (${res.deals.toLocaleString()} deals, ${Math.round(out!.ms)} ms).`
