@@ -7,6 +7,7 @@ import { importBlock, splitHands, type ImportedHand, type SkippedHand } from '..
 import { SAMPLE_HANDS } from '../../engine/session/sampleHands';
 import { leakStats, totals } from '../../engine/session/session';
 import { dollars } from '../table/format';
+import { RealPlayReport } from './RealPlayReport';
 import { recordHands } from './store';
 import './session.css';
 
@@ -102,6 +103,8 @@ export function ImportScreen() {
       </section>
 
       {stage.kind === 'read' && <ImportPreview hands={stage.hands} skipped={stage.skipped} onSave={save} />}
+
+      <RealPlayReport />
     </div>
   );
 }

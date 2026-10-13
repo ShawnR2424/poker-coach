@@ -244,6 +244,14 @@ A solver strategy report gives each combo's action frequencies at one decision o
 - The result of an imported hand is what the history says the hero collected minus what they put in, so it is after rake, unlike practice hands. The amounts are shown in dollars whatever the currency.
 - Imported hands are saved under their own level, so they never count toward a practice level's progress. Their leaks and postflop tendencies count like any other hand's: they steer leak-targeted practice, and adaptive opponents read them.
 
+## Real-play report
+
+- The report on the Import tab covers every imported hand in the saved sessions: the current one and up to 20 earlier ones (`src/engine/session/realPlay.ts`). Practice hands are left out, since their preflop action is scripted to reach each level's spot.
+- VPIP counts hands where the hero called, completed the small blind or raised before the flop; PFR, hands where the hero raised. A 3-bet opportunity is a preflop decision facing exactly one raise the hero did not make; fold to 3-bet counts hands where the hero opened and then faced a re-raise. Saw flop counts hands that reached the flop without the hero folding. These are stored with each hand when it is imported, so they last after its replay is trimmed; hands imported before the report existed are read from their replay while they still have one.
+- The win rate is the result in big blinds after rake, per 100 hands from 10 hands on. Results by seat use the same numbers.
+- Grades by street count each decision's verdict. EV lost is the sum of each postflop decision's loss against the best play, in big blinds, the same number the feedback shows. Preflop decisions are graded against the charts, which carry no EV, so they count toward grades and leaks but not EV lost.
+- Leaks are ranked by the postflop EV lost on the decisions that showed them, then by how often they showed. The costliest decisions are the five postflop decisions that lost the most EV and were not graded correct.
+
 ## Backup and restore
 
 - A backup is one JSON file, `{ app: "poker-coach", v: 1, savedAt, data }`, where `data` holds each saved item exactly as the browser stores it: the sessions and hands, the review deck, quiz history, the tournament settings and tally, the table and level settings, the chart explorer and equity calculator fields, any imported charts, and the theme.

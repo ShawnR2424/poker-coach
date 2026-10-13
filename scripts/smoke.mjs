@@ -721,6 +721,13 @@ for (const vp of VIEWPORTS) {
   if (previewHead !== '3 hands graded, 1 skipped') failures.push(`${tag}: import preview says "${previewHead}"`);
   await noOverflow(page, `${tag}, import preview`);
   await page.click('button:has-text("Save as a new session")');
+  // The real-play report sums up the saved imports: three hands, a row per seat, the streets played.
+  await page.waitForSelector('#real-tiles');
+  const realNote = await page.textContent('.real-play .measure');
+  const seats = await page.$$eval('.real-positions tbody tr', (r) => r.length);
+  const streets = await page.$$eval('.real-streets tbody tr', (r) => r.length);
+  if (!realNote.includes('(3 hands)') || seats < 2 || streets < 2) failures.push(`${tag}: the real-play report reads "${realNote}" with ${seats} seats and ${streets} streets`);
+  await noOverflow(page, `${tag}, real-play report`);
   await page.goto(`${url}#session`);
   const imported = await page.$$eval('table.hands tbody tr', (r) => r.filter((x) => x.textContent.includes('Imported hand')).length);
   if (imported !== 3) failures.push(`${tag}: the new session shows ${imported} imported hands, expected 3`);

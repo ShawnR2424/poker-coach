@@ -3,6 +3,7 @@
 // records can be saved to localStorage and read back.
 
 import type { PostflopMove } from './adapt';
+import type { RealStats } from './realPlay';
 import type { HandReplay } from './replay';
 
 export type Verdict = 'correct' | 'playable' | 'mistake';
@@ -49,6 +50,8 @@ export interface HandRecord {
   lesson: string;
   /** Everything needed to step through the hand again (hands saved before replays existed have none). */
   replay?: HandReplay;
+  /** Imported hands: the preflop stats for the real-play report, kept when the replay is trimmed. */
+  real?: RealStats;
 }
 
 export interface Session {

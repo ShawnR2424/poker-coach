@@ -16,6 +16,7 @@ import { gradePreflop, heroDecision, preflopLeaksAtRisk } from '../preflop/coach
 import { hasChart, spotFor } from '../preflop/spot';
 import type { PostflopMove } from './adapt';
 import { postflopSpotAt, replayOptions } from './gradeAt';
+import { realStats } from './realPlay';
 import { replayStates, type HandReplay } from './replay';
 import { handLesson, type DecisionRecord, type HandRecord } from './session';
 
@@ -380,6 +381,7 @@ export function importParsed(p: ParsedHand, at = new Date().toISOString()): Omit
     decisions,
     lesson: handLesson(decisions, net, true),
     replay,
+    real: realStats(replay),
   };
 }
 
