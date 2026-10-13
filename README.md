@@ -72,7 +72,7 @@ Continuous integration runs the typecheck, unit tests and smoke test on every pu
 
 ## Install as an app
 
-The production build is a progressive web app: `public/manifest.webmanifest` names the app and its icons, and `sw.js`, written at build time by `scripts/sw-plugin.ts`, caches every file of the build on the first visit so the app opens and plays offline. Each build gets a new cache, and the app picks up a new build the next time it is opened online. The Claude coach voice still needs a connection.
+The production build is a progressive web app: `public/manifest.webmanifest` names the app and its icons, and `sw.js`, written at build time by `scripts/sw-plugin.ts`, caches every file of the build on the first visit so the app opens and plays offline. Each build gets a new cache. A new build installs in the background and waits; the open app shows a banner offering to reload into it (or Later), checks for one whenever it comes back into view and hourly, and starts the new build the next time it is opened if the banner was put off. The Settings tab also has a Check for updates button. The Claude coach voice still needs a connection.
 
 Browsers only install an app served over HTTPS (or from `localhost`), so it has to be opened from a web address:
 
@@ -159,7 +159,7 @@ src/engine/              Framework-free poker logic; all amounts are integer chi
   calc/equityCalc.ts       Equity calculator: two to four hands or ranges, exact when affordable, sampled otherwise
   coach/explain.ts         Facts and reply checks for the optional Claude coach voice
 src/workers/             Equity Web Worker and its client
-src/ui/                  React UI: table/, play/, spots/, charts/, equity/, quiz/, review/, session/, coach/ (settings and the Claude client), app/ (installing and offline use), and the engine lab
+src/ui/                  React UI: table/, play/, spots/, charts/, equity/, quiz/, review/, session/, coach/ (settings and the Claude client), app/ (navigation, installing, offline use and updates), and the engine lab
 data/                    Editable strategy data (see above)
 public/                  App manifest and icons, copied into the build as is
 scripts/                 Data generation, the service worker build plugin, icon rendering and the browser smoke test
@@ -184,7 +184,7 @@ docs/                    Model notes and spec coverage
 - An imported hand rebuilds exactly: every action follows the betting order, the stacks, cards and board match the history, and the result is what the history says the hero collected. A hand the trainer plays, written out as a PokerStars hand history, imports back to the same actions and result; this is checked on seeded hands from levels 3 to 5. Hands the trainer cannot model (tournaments, heads-up, antes, straddles, run-it-twice, other games) are skipped with the reason. The smoke test imports the sample hands, saves them and opens each replay.
 - With the rake on, stacks plus rake add up to the starting chips over hundreds of random hands, nothing is raked before the flop or from an uncalled excess, and a raked hand replays to the same result. The rake never makes an option's EV higher, leaves folding at zero and never costs more than the cap, heads-up and multiway.
 - A backup keeps every saved item exactly and never the API key, round-trips into an empty browser, and a restore replaces this browser's data rather than merging into it. Files that are not backups, are from a newer version or hold unreadable data are refused. The smoke test saves a backup, refuses a file that is not one, and restores it into a new browser with the same hands and review cards.
-- The production build passes Chromium's installability check (manifest, icons, service worker), and with the network off it still opens and plays a hand. The smoke test checks this.
+- The production build passes Chromium's installability check (manifest, icons, service worker), and with the network off it still opens and plays a hand. A new build waits for the update prompt rather than replacing the running app. The smoke test checks both.
 - Every practice spot grades the way its lesson says: the model's best action is one the lesson recommends, and the actions the lesson warns against are graded mistakes.
 - The progress numbers are checked on hand-built sessions: sessions come in the order played, the rolling mistake rate follows its window across sessions, EV given up per 100 hands counts only hands that recorded it, and each leak's rate per session matches its count. The smoke test checks the charts after the hands it plays, including the hover tooltip.
 - Range quizzes deal the player's hand from their own chart for the line and score the painting against exactly the chart the trainer's opponents play. The best possible painting is found exactly and no other painting beats it; random and one-hand-off paintings are checked against it on every kind of line. The smoke test paints by dragging and by keyboard, checks both results and that the score survives a reload.

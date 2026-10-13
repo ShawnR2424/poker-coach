@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { SYSTEM_PROMPT } from '../../engine/coach/explain';
 import { useInstall } from '../app/install';
+import { useUpdate } from '../app/update';
 import { BackupPanel } from './BackupPanel';
 import { MODEL_NAME } from './model';
 import { coachVoiceOn, setCoachSettings, useCoachSettings } from './settings';
@@ -98,6 +99,31 @@ function InstallPanel() {
         </p>
       )}
       {app.offline && <p className="note ok" id="offline-status">Saved for offline use.</p>}
+      <UpdateCheck />
     </section>
+  );
+}
+
+const UPDATE_TEXT = {
+  none: '',
+  checking: 'Checking…',
+  current: 'You have the latest version.',
+  ready: 'A new version is ready. Reload to use it.',
+  reloading: 'Reloading…',
+} as const;
+
+/** Checks for a new version on demand; the app also checks on its own when it comes back into view. */
+function UpdateCheck() {
+  const update = useUpdate();
+  if (!update.available) return null;
+  return (
+    <div className="update-check">
+      {update.status === 'ready' ? (
+        <button type="button" className="primary" id="update-apply" onClick={update.apply}>Reload to update</button>
+      ) : (
+        <button type="button" id="update-check" disabled={update.status === 'checking' || update.status === 'reloading'} onClick={() => void update.check()}>Check for updates</button>
+      )}
+      <span className="small muted" id="update-status" aria-live="polite">{UPDATE_TEXT[update.status]}</span>
+    </div>
   );
 }
