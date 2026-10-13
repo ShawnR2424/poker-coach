@@ -1,6 +1,7 @@
 // Vite plugin that writes sw.js, the service worker that lets the installed app run offline.
 // It lists every file of the build so the first visit caches the whole app, and names the
-// cache after a hash of those names, so each new build replaces the old cache.
+// cache after a hash of those names, so each new build replaces the old cache. A new build waits
+// until the page's update prompt (src/ui/app/update.ts) asks it to take over.
 
 import { createHash } from 'node:crypto';
 import { readdirSync } from 'node:fs';
@@ -29,8 +30,17 @@ const FILES = ${JSON.stringify(files)};
 // Fonts come from Google Fonts; they are cached the first time they load.
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
+// The first install takes over at once. A new version waits while an older one is in control,
+// so open pages keep the files they started with, until the page asks it to take over (the
+// update prompt's Reload) or every window of the app has closed.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => {
+    if (!self.registration.active) return self.skipWaiting();
+  }));
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {

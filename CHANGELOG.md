@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## App update prompt
+
+- When a new version is published, the open app now says so: a banner under the top bar reads "A new version of Poker Coach is ready" with Reload and Later. Reload switches to the new version and reloads the page; Later leaves the open page as it is, and the new version starts the next time the app is opened. Saved hands, sessions and settings are kept either way.
+- The app checks for a new version each time it comes back into view and every hour while open. The install panel on the Settings tab has a Check for updates button that says whether the app is up to date.
+- A new build's service worker now waits instead of taking over the open page at once. Before, it replaced the cache under a running page, so a screen that loads on demand (Tournament, Equity) could fail to open until the app was reloaded by hand. If such a screen's file is still missing, the page now reloads once to the current build.
+- New `update.test.ts` checks that a new version is offered only when an older one is in control, that nothing switches until Reload, that the page reloads once the new version controls it, the check throttling and offline checks, and the one-time reload for a missing screen file. The smoke test publishes a changed service worker under the running app and checks that it waits, that the prompt appears, that Later hides it, and that Reload installs the new version and clears the old cache.
+
 ## Real-play report
 
 - The Import tab has a new Your real play report covering every imported hand in the saved sessions: win rate in bb/100 after rake, VPIP, PFR, 3-bet and fold to 3-bet, a table by seat (hands, result, VPIP, PFR, mistake share), a table by street (grades and postflop EV lost), the leaks that cost the most EV, and the five costliest decisions.

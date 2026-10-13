@@ -49,3 +49,15 @@
   .bottombar .tab-count { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; }
   main { padding-bottom: calc(var(--bottombar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* The new-version prompt, under the top bar. */
+.update-banner-slot:empty { padding: 0; }
+.update-banner-slot { padding-inline: 16px; padding-block: 12px 0; }
+.update-banner {
+  max-width: 868px; margin-inline: auto;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 10px 14px; border: 1px solid var(--felt); border-radius: var(--radius); background: var(--surface);
+}
+.update-banner p { margin: 0; min-width: 0; flex: 1 1 260px; }
+.update-actions { display: flex; gap: 8px; }
+.update-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }

@@ -12,6 +12,7 @@ import { dueCards } from '../engine/review/review';
 import { SpotsScreen } from './spots/SpotsScreen';
 import { GROUPS, groupOf, openFor, parseLastUsed, tabFromHash, tabsIn, type Group, type LastUsed, type Tab } from './app/nav';
 import { Welcome } from './app/Welcome';
+import { UpdateBanner } from './app/UpdateBanner';
 import './app/nav.css';
 
 // Tournament mode carries its own equity table, so it loads only when opened.
@@ -148,6 +149,7 @@ export function App() {
           ))}
         </nav>
       )}
+      <UpdateBanner />
       <Welcome onPlay={() => go('table')} />
       <main>{screenFor(tab)}</main>
       <nav className="bottombar" aria-label="Sections">{groupButtons}</nav>

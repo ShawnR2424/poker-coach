@@ -2,6 +2,7 @@
 // offline use, and tracks whether the browser offers to install it.
 
 import { useEffect, useState } from 'react';
+import { reloadOnStaleChunk, watchForUpdates } from './update';
 
 /** The browser's install prompt (Chromium only; not in the DOM typings). */
 interface InstallPrompt extends Event {
@@ -24,10 +25,20 @@ export function registerServiceWorker() {
     deferred = null;
     notify();
   });
+  // A screen that loads on demand from a build no longer on the server: reload to the current one.
+  window.addEventListener('vite:preloadError', (e) => {
+    let storage: Storage | null = null;
+    try { storage = sessionStorage; } catch { /* storage unavailable */ }
+    if (reloadOnStaleChunk(storage, () => location.reload())) e.preventDefault();
+  });
   if (!import.meta.env.PROD || !window.isSecureContext) return;
   try {
     // Sandboxed frames (such as an embedded preview) refuse service workers; the app works without one.
-    navigator.serviceWorker?.register('./sw.js').then(() => navigator.serviceWorker.ready).then(notify, () => {});
+    const sw = navigator.serviceWorker;
+    sw?.register('./sw.js').then((reg) => {
+      watchForUpdates(reg, { container: sw, reload: () => location.reload() });
+      return sw.ready;
+    }).then(notify, () => {});
   } catch {
     /* service workers unavailable here */
   }

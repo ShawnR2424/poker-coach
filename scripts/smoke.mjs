@@ -7,7 +7,7 @@
 // the grouped navigation and first-run guide, opponent stats on the Play and Session tabs, tournament push/fold and reshove spots and their
 // review cards, backup and
 // restore into a new browser, and
-// that the app can be installed and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
+// that the app can be installed, offers a new build and reloads into it when asked, and opens and plays a hand with the network off. Also checks that the optional Claude coach voice
 // makes no request while it is off, and, against a mocked API, that its reply is shown or
 // held back when it contains a number the trainer did not compute, and that adaptive opponents
 // adjust to a session that folds and bets far more than the best play.
@@ -845,8 +845,8 @@ for (const vp of VIEWPORTS) {
   await ctx.close();
 }
 
-// Installable app: the manifest and icons load, the service worker takes control, and the app
-// opens and deals a hand with the network off.
+// Installable app: the manifest and icons load, the service worker takes control, a new build
+// waits until the update prompt's Reload, and the app opens and deals a hand with the network off.
 {
   const tag = `${RUN}, app`;
   const ctx = await browser.newContext(VIEWPORTS[0].ctx);
@@ -876,6 +876,37 @@ for (const vp of VIEWPORTS) {
   } catch {
     failures.push(`${tag}: the service worker never took control`);
   }
+  // A new build on the server: its service worker installs and waits, the page offers to reload,
+  // Later puts that off, and Reload switches to the new version. The new build is the current one
+  // with its cache renamed, which is all the browser needs to see a new sw.js.
+  let updated = false;
+  {
+    const swFile = join(process.cwd(), 'dist', 'sw.js');
+    const original = readFileSync(swFile, 'utf8');
+    const oldCache = /poker-coach-[0-9a-f]{12}/.exec(original)?.[0];
+    const newCache = oldCache === 'poker-coach-000000000000' ? 'poker-coach-111111111111' : 'poker-coach-000000000000';
+    writeFileSync(swFile, original.replace(`'${oldCache}'`, `'${newCache}'`));
+    try {
+      await page.evaluate(() => { window.beforeUpdate = true; });
+      await page.click('#update-check');
+      await page.waitForSelector('#update-banner', { timeout: 15000 });
+      if (!(await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting))) failures.push(`${tag}: the new version did not wait for the player`);
+      await noOverflow(page, `${tag}, update prompt`);
+      await page.click('#update-later');
+      if (await page.$('#update-banner')) failures.push(`${tag}: Later did not put off the update`);
+      await Promise.all([page.waitForEvent('load'), page.click('#update-apply')]);
+      await page.waitForSelector('#offline-status');
+      if (await page.evaluate(() => window.beforeUpdate)) failures.push(`${tag}: Reload to update did not reload the page`);
+      await page.waitForFunction((c) => caches.keys().then((k) => k.length === 1 && k[0] === c), newCache, { timeout: 10000 })
+        .catch(async () => failures.push(`${tag}: after the update the caches are ${(await page.evaluate(() => caches.keys())).join(', ')}, expected only ${newCache}`));
+      if (await page.$('#update-banner')) failures.push(`${tag}: the update prompt is still shown after updating`);
+      updated = true;
+    } catch (e) {
+      failures.push(`${tag}: the update prompt did not work (${e.message.split('\n')[0]})`);
+    } finally {
+      writeFileSync(swFile, original);
+    }
+  }
   // Chromium's own installability check: manifest, icons, service worker and secure origin.
   const installabilityErrors = BROWSER === 'chromium' ? (await (await ctx.newCDPSession(page)).send('Page.getInstallabilityErrors')).installabilityErrors : [];
   for (const e of installabilityErrors) failures.push(`${tag}: not installable: ${e.errorId}`);
@@ -896,7 +927,7 @@ for (const vp of VIEWPORTS) {
   }
   if (BROWSER !== 'webkit') await ctx.setOffline(false);
   const installable = BROWSER === 'chromium' ? `${installabilityErrors.length} installability errors, ` : '';
-  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installable}service worker in control, a hand played offline`);
+  console.log(`${tag}: manifest with ${manifest?.icons.length ?? 0} icons, ${installable}service worker in control, ${updated ? 'a new version installed from the update prompt, ' : ''}a hand played offline`);
   await ctx.close();
 }
 
