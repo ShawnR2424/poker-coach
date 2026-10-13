@@ -10,6 +10,7 @@ import {
   type ActFreq, type FacingFreq, type PostflopPack, type ReadResult, type SolverSpot, type SpotKind,
 } from '../../engine/postflop/solverImport';
 import { savePostflop, savedPostflopPack } from './customPostflop';
+import { ScrollBox } from '../ScrollBox';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const kindLabel = (k: SpotKind) => SPOT_KINDS.find((s) => s.kind === k)!.label;
@@ -36,7 +37,7 @@ function ReadTable({ spot }: { spot: SolverSpot }) {
   const cols = facing ? (['fold', 'call', 'raise'] as const) : (['check', 'small', 'big'] as const);
   const names = facing ? ['Fold', 'Call', 'Raise'] : ['Check', 'Bet up to half pot', 'Bet more'];
   return (
-    <div className="table-scroll">
+    <ScrollBox label="What each hand class does">
       <table className="data solver-read">
         <thead>
           <tr><th scope="col">Hand class</th><th scope="col" className="n">Share of range</th>{names.map((n) => <th key={n} scope="col" className="n">{n}</th>)}</tr>
@@ -54,7 +55,7 @@ function ReadTable({ spot }: { spot: SolverSpot }) {
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollBox>
   );
 }
 
@@ -64,7 +65,7 @@ function PlayTable() {
   const mark = (on: boolean, text: string) => (on ? <strong>{text}</strong> : text);
   const has = (part: Partial<Record<PostflopClass, number>> | undefined, cls: PostflopClass) => part?.[cls] !== undefined;
   return (
-    <div className="table-scroll">
+    <ScrollBox label="Opponent postflop play">
       <table className="data solver-play">
         <thead>
           <tr>
@@ -96,7 +97,7 @@ function PlayTable() {
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollBox>
   );
 }
 

@@ -13,6 +13,8 @@ import { PlayingCard } from '../PlayingCard';
 import { PaintGrid } from './PaintGrid';
 import '../session/session.css';
 import './quiz.css';
+import { Arrival } from '../Arrival';
+import { cardsName } from '../a11y';
 
 const HISTORY_KEY = 'quiz-history';
 const pct = (x: number, digits = 0) => `${(x * 100).toFixed(digits)}%`;
@@ -148,6 +150,8 @@ export function QuizScreen() {
       {stage !== 'paint' && score && (
         <section className="panel" aria-labelledby="equity-q" ref={resultRef}>
           <p className="eyebrow">Your equity</p>
+          {stage === 'equity' && <Arrival text={`The flop comes ${cardsName(quiz.board)}. Estimate your equity against the whole range.`} focus="#equity-guess" />}
+          {stage === 'done' && <Arrival text={equity === null ? 'Skipped.' : `Your equity is ${Math.round(equity)}%${skipped ? '' : `; you guessed ${guess}%`}.`} focus="#next-quiz" />}
           <h2 id="equity-q">The flop comes</h2>
           <div className="quiz-board">
             {quiz.board.map((c) => <PlayingCard key={c} card={c} />)}

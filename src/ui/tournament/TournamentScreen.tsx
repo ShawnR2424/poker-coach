@@ -21,6 +21,10 @@ import '../charts/charts.css';
 import '../play/play.css';
 import '../session/session.css';
 import './tournament.css';
+import { ScrollBox } from '../ScrollBox';
+import { Arrival } from '../Arrival';
+import { announce } from '../Announcer';
+import { cardsName, gradeSaid, isTyping, shortcutFor, useClaimFocus } from '../a11y';
 
 const KEY = 'tournament:v1';
 const BADGE = { correct: { icon: '✅', label: 'Correct' }, playable: { icon: '👍', label: 'Playable, not best' }, mistake: { icon: '⚠️', label: 'Mistake' } };
@@ -128,15 +132,7 @@ export function TournamentScreen() {
         <>
           <SpotView s={solved} />
           {!result ? (
-            <div className="action-bar">
-              <div className="action-buttons">
-                <button type="button" className="act fold" onClick={() => act(false)}>Fold</button>
-                <button type="button" className="act allin" onClick={() => act(true)}>
-                  {solved.kind === 'call' ? 'Call' : 'All-in'}
-                  <span className="num">{bb(playAmount(solved))}</span>
-                </button>
-              </div>
-            </div>
+            <SpotActions key={spotKey(solved)} s={solved} onAct={act} />
           ) : (
             <Feedback s={solved} a={result} onNext={next} />
           )}
@@ -211,6 +207,44 @@ export function mistakeOf(s: SolvedSpot, a: TournamentAnswer): TournamentMistake
   };
 }
 
+const spotKey = (s: SolvedSpot) => `${s.kind}:${s.spot.stacks.join(',')}:${s.spot.hero}:${s.spot.hand.join('')}`;
+
+/**
+ * Fold or play, by button or key (F folds; A, or C for a call, plays). Says the spot aloud when
+ * it is dealt, and takes focus when the last button pressed is gone, so Enter keeps going.
+ */
+function SpotActions({ s, onAct }: { s: SolvedSpot; onAct: (played: boolean) => void }) {
+  const fold = useRef<HTMLButtonElement>(null);
+  useClaimFocus(fold);
+  const playName = s.kind === 'call' ? 'Call' : 'All-in';
+  const keys = useRef<(e: KeyboardEvent) => void>(() => {});
+  keys.current = (e) => {
+    if (e.defaultPrevented || isTyping(e.target)) return;
+    const t = shortcutFor(e.key, { ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey });
+    if (!t) return;
+    if (t.kind === 'fold') { e.preventDefault(); onAct(false); }
+    else if (t.kind === 'allin' || (t.kind === 'passive' && s.kind === 'call')) { e.preventDefault(); onAct(true); }
+  };
+  useEffect(() => {
+    announce(`${spotHeading(s)}. You hold ${cardsName(s.spot.hand)}, ${bb(s.spot.stacks[s.spot.hero])}.`);
+    const f = (e: KeyboardEvent) => keys.current(e);
+    window.addEventListener('keydown', f);
+    return () => window.removeEventListener('keydown', f);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="action-bar">
+      <div className="action-buttons">
+        <button ref={fold} type="button" className="act fold" aria-keyshortcuts="F" onClick={() => onAct(false)}>Fold</button>
+        <button type="button" className="act allin" aria-keyshortcuts={s.kind === 'call' ? 'C A' : 'A'} onClick={() => onAct(true)}>
+          {playName}
+          <span className="num">{bb(playAmount(s))}</span>
+        </button>
+      </div>
+      <p className="keys-hint small muted" aria-hidden="true">Keys: <kbd>F</kbd> fold · <kbd>{s.kind === 'call' ? 'C' : 'A'}</kbd> {playName.toLowerCase()}</p>
+    </div>
+  );
+}
+
 /** The table, the hero's hand and every seat's stack and action. `heading` replaces the default title. */
 export function SpotView({ s, heading }: { s: SolvedSpot; heading?: ReactNode }) {
   const { spot } = s;
@@ -227,7 +261,7 @@ export function SpotView({ s, heading }: { s: SolvedSpot; heading?: ReactNode })
         <span className="t-cards">{spot.hand.map((c) => <PlayingCard key={c} card={c} />)}</span>
         <span><span className="eyebrow">Your hand</span> <strong>{handClass(spot)}</strong> · <span className="num">{bb(spot.stacks[spot.hero])}</span></span>
       </div>
-      <div className="table-scroll">
+      <ScrollBox label="Seats and stacks">
         <table className="data t-seats">
           <thead><tr><th scope="col">Seat</th><th scope="col" className="n">Stack</th><th scope="col">This hand</th></tr></thead>
           <tbody>
@@ -243,7 +277,7 @@ export function SpotView({ s, heading }: { s: SolvedSpot; heading?: ReactNode })
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
     </section>
   );
 }
@@ -285,10 +319,11 @@ export function Feedback({ s, a, onNext, nextLabel = 'Next spot', children }: { 
 
   return (
     <section className={`feedback verdict-${a.verdict}`} aria-labelledby="t-fb-h">
+      <Arrival text={gradeSaid(BADGE[a.verdict].label, heading)} />
       <p className="verdict-badge"><span aria-hidden="true">{BADGE[a.verdict].icon}</span> {BADGE[a.verdict].label}</p>
       <h2 id="t-fb-h">{heading}</h2>
       <ul className="why">{bullets.map((b) => <li key={b}>{b}</li>)}</ul>
-      <div className="table-scroll">
+      <ScrollBox label="Expected value of each action">
         <table className="data t-ev">
           <thead>
             <tr>
@@ -307,7 +342,7 @@ export function Feedback({ s, a, onNext, nextLabel = 'Next spot', children }: { 
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       <p className="small muted">
         {icm
           ? 'Values are your expected share of the prize pool by ICM, converted to big blinds at the average chip\'s value, so they compare with chip numbers. '

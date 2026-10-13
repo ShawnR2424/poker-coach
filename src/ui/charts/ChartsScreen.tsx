@@ -14,6 +14,7 @@ import { SolverPostflop } from './SolverPostflop';
 import { savedPack } from './customCharts';
 import '../session/session.css';
 import './charts.css';
+import { ScrollBox } from '../ScrollBox';
 
 const KEY = 'charts:v1';
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -140,7 +141,7 @@ export function ChartsScreen() {
           ) : (
             <>
               <ul className="why">{s.notes.map((n) => <li key={n}>{n}</li>)}</ul>
-              <div className="table-scroll">
+              <ScrollBox label="Chart changes">
                 <table className="data chart-changes">
                   <thead>
                     <tr>
@@ -163,7 +164,7 @@ export function ChartsScreen() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollBox>
             </>
           )}
         </section>

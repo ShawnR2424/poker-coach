@@ -3,6 +3,7 @@
 
 import { importedHands, realPlayReport, share, type Rate } from '../../engine/session/realPlay';
 import { useSessions } from './store';
+import { ScrollBox } from '../ScrollBox';
 
 const pct = (x: Rate) => {
   const s = share(x);
@@ -44,7 +45,7 @@ export function RealPlayReport() {
       </p>
 
       <h3>By position</h3>
-      <div className="table-scroll">
+      <ScrollBox label="Results by seat">
         <table className="data real-positions">
           <thead><tr><th scope="col">Seat</th><th scope="col" className="n">Hands</th><th scope="col" className="n">Won (bb)</th><th scope="col" className="n">VPIP</th><th scope="col" className="n">PFR</th><th scope="col" className="n">Mistakes</th></tr></thead>
           <tbody>
@@ -60,10 +61,10 @@ export function RealPlayReport() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
 
       <h3>By street</h3>
-      <div className="table-scroll">
+      <ScrollBox label="Grades by street">
         <table className="data real-streets">
           <thead><tr><th scope="col">Street</th><th scope="col" className="n">Decisions</th><th scope="col" className="n">✅</th><th scope="col" className="n">👍</th><th scope="col" className="n">⚠️</th><th scope="col" className="n">EV lost (bb)</th></tr></thead>
           <tbody>
@@ -79,7 +80,7 @@ export function RealPlayReport() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       <p className="small muted">EV lost is measured against the trainer's best play after the flop. Preflop decisions are graded against the charts, which carry no EV, so they show grades only.</p>
 
       {r.leaks.length > 0 && (

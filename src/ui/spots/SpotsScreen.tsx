@@ -17,6 +17,8 @@ import { TableView } from '../table/TableView';
 import { Timeline } from '../table/Timeline';
 import { heroTiles, seatViews, STREET_LABEL, timeline } from '../table/view';
 import { comboTableReason, PostflopFeedbackPanel, PostflopReadPanel, usePostflopRead, villainLine } from './PostflopPanels';
+import { announce } from '../Announcer';
+import { cardsName } from '../a11y';
 
 export function SpotsScreen() {
   const [idx, setIdx] = useState(0);
@@ -59,6 +61,10 @@ export function SpotsScreen() {
     setIdx(i);
     window.scrollTo({ top: 0 });
   };
+  // Say each spot aloud when it opens (or is tried again).
+  useEffect(() => {
+    if (!fb) announce(`Spot ${idx + 1}: ${def.title}. ${def.setup} Board ${cardsName(state.board)}; you hold ${cardsName(state.players[hero].hole)}. Your turn.`);
+  }, [idx, fb]); // eslint-disable-line react-hooks/exhaustive-deps
   const seats = seatViews(state, hero, {}, new Set(), true);
   const heroCards = state.players[hero].hole;
   const madeHand = describeScore(evaluate([...heroCards, ...state.board]));

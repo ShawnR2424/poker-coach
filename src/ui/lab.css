@@ -60,6 +60,8 @@ label.inline select { width: auto; }
 .normalized { font-size: 0.85rem; overflow-wrap: anywhere; }
 .normalized code { font-family: var(--font-mono); }
 .grid-wrap { display: grid; gap: 8px; }
+/* Rows exist for screen readers; the cells lay out on the grid itself. */
+.grid-row { display: contents; }
 .range-grid {
   display: grid;
   grid-template-columns: repeat(13, 1fr);
@@ -80,7 +82,8 @@ label.inline select { width: auto; }
   background: color-mix(in srgb, var(--felt) calc(var(--fill) * 100%), var(--surface-2));
   position: relative;
 }
-.cell.strong { color: var(--felt-ink); }
+/* Light text with a dark halo stays readable on any fill, in both themes. */
+.cell.strong { color: #ffffff; text-shadow: 0 0 2px #000000, 0 0 1px #000000; }
 .cell.hero { outline: 2px solid var(--hero); outline-offset: -2px; z-index: 1; }
 .cell.selected { outline: 2px solid var(--fg); outline-offset: -2px; z-index: 2; }
 .cell.crossed::after {

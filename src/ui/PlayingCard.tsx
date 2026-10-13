@@ -1,4 +1,5 @@
 import { RANKS, isRed, rankOf, suitOf, type Card } from '../engine/cards';
+import { cardName } from './a11y';
 
 const SUIT_GLYPHS = ['♣', '♦', '♥', '♠'];
 
@@ -7,10 +8,11 @@ export function PlayingCard({ card, size = 'md', highlight = false }: { card: Ca
   return (
     <span
       className={`pcard pcard-${size}${isRed(card) ? ' red' : ''}${highlight ? ' newest' : ''}`}
-      aria-label={`${rank} of ${['clubs', 'diamonds', 'hearts', 'spades'][suitOf(card)]}`}
+      role="img"
+      aria-label={cardName(card)}
     >
-      <span className="pcard-rank">{rank}</span>
-      <span className="pcard-suit">{SUIT_GLYPHS[suitOf(card)]}</span>
+      <span className="pcard-rank" aria-hidden="true">{rank}</span>
+      <span className="pcard-suit" aria-hidden="true">{SUIT_GLYPHS[suitOf(card)]}</span>
     </span>
   );
 }

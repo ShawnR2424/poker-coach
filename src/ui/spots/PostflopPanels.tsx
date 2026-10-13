@@ -13,6 +13,8 @@ import type { PostflopStep } from '../../engine/postflop/narrow';
 import { analyze, type Analysis, type DecisionBasics, type PostflopSituation } from '../../engine/postflop/recommend';
 import { summarizeRange, type HandClass, type Range } from '../../engine/range';
 import { runComboEquity, runMultiway } from '../../workers/equityClient';
+import { Arrival } from '../Arrival';
+import { gradeSaid } from '../a11y';
 import { CategoryGrid } from '../play/CategoryGrid';
 import { dollars } from '../table/format';
 import { POSTFLOP_COLORS } from './colors';
@@ -309,6 +311,7 @@ interface FeedbackProps {
 export const PostflopFeedbackPanel = forwardRef<HTMLElement, FeedbackProps>(function PostflopFeedbackPanel({ fb, analysis, bb, concept, multiway, split, chosenSplit, voice, children }, ref) {
   return (
     <section ref={ref} className={`feedback verdict-${fb.grade.verdict}`} aria-labelledby="pf-fb">
+      <Arrival text={gradeSaid(BADGE[fb.grade.verdict].label, fb.grade.heading)} />
       <p className="verdict-badge"><span aria-hidden="true">{BADGE[fb.grade.verdict].icon}</span> {BADGE[fb.grade.verdict].label}</p>
       <h2 id="pf-fb">{fb.grade.heading}</h2>
       <ul className="why">{fb.bullets.map((b) => <li key={b}>{b}</li>)}</ul>

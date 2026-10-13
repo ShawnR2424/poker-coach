@@ -8,6 +8,7 @@ import { comboCount, formatRange, parseRange, removeDead, type Range } from '../
 import { runEquity, type EquityOutcome } from '../workers/equityClient';
 import { CardSlot, PlayingCard } from './PlayingCard';
 import { RangeGrid } from './RangeGrid';
+import { ScrollBox } from './ScrollBox';
 
 const PRESETS: { name: string; text: string }[] = [
   { name: 'UTG open (sample)', text: '22+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo' },
@@ -79,7 +80,7 @@ export function Lab() {
     update({ villains: spot.villains.map((v, j) => (j === i ? text : v)) });
 
   return (
-    <main className="lab">
+    <div className="lab">
       <header className="lab-head">
         <p className="eyebrow">Poker Coach · Engine lab</p>
         <h1>Engine lab</h1>
@@ -102,10 +103,10 @@ export function Lab() {
           </label>
         </div>
         <div className="cards-line">
-          <div className="cards-group" aria-label="Hero hand">
+          <div className="cards-group" role="group" aria-label="Hero hand">
             {hero.cards.length === 2 ? hero.cards.map((c) => <PlayingCard key={c} card={c} />) : <><CardSlot /><CardSlot /></>}
           </div>
-          <div className="cards-group board" aria-label="Board">
+          <div className="cards-group board" role="group" aria-label="Board">
             {Array.from({ length: 5 }, (_, i) =>
               board.cards[i] !== undefined ? (
                 <PlayingCard key={i} card={board.cards[i]} size="sm" highlight={i === board.cards.length - 1 && i >= 3} />
@@ -174,7 +175,7 @@ export function Lab() {
                 </button>
               ))}
             </div>
-            <textarea id={`range-${i}`} rows={3} value={text} onChange={(e) => setVillain(i, e.target.value)} />
+            <textarea id={`range-${i}`} aria-label={`Villain ${i + 1} range`} rows={3} value={text} onChange={(e) => setVillain(i, e.target.value)} />
             {v.range && live && (
               <>
                 <div className="stats">
@@ -202,7 +203,7 @@ export function Lab() {
       <footer className="muted small foot">
         Approximate GTO trainer, engine build. Ranges shown are sample data for testing, not final charts.
       </footer>
-    </main>
+    </div>
   );
 }
 
@@ -237,7 +238,7 @@ function PotMath({ equity }: { equity: number | null }) {
         <label>Bet size (bb)<input id="bet" type="number" min={0} step={0.5} value={betBB} onChange={(e) => setBet(Number(e.target.value))} /></label>
         <label>Effective stack (bb)<input id="stack" type="number" min={0} step={0.5} value={stackBB} onChange={(e) => setStack(Number(e.target.value))} /></label>
       </div>
-      <div className="table-scroll">
+      <ScrollBox label="Pot math">
         <table className="math">
           <tbody>
             {rows.map(([k, v, how]) => (
@@ -245,7 +246,7 @@ function PotMath({ equity }: { equity: number | null }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       {!valid && <p className="errors">Enter a positive pot and bet.</p>}
     </section>
   );

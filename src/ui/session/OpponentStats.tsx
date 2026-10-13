@@ -7,6 +7,7 @@ import { PROFILE_IDS, PROFILES, type ProfileId } from '../../engine/postflop/mod
 import { MIN_ACTIONS, MIN_FACING, poolStats, readStats, styleStats } from '../../engine/session/hud';
 import type { HandRecord } from '../../engine/session/session';
 import './session.css';
+import { ScrollBox } from '../ScrollBox';
 
 const pct = (x: number | null) => (x === null ? '–' : `${Math.round(x * 100)}%`);
 
@@ -31,7 +32,7 @@ export function OpponentStats({ hands, styles = PROFILE_IDS, compact = false }: 
         Each opponent's style is on its seat tag. Below are each style's postflop numbers over this session's practice hands (hands after the flop, how often it folded when facing a bet, and how often it bet or raised), next to the whole table's.
         {compact ? '' : ' Preflop numbers such as VPIP and PFR are left out: every style opens and defends from the same charts, and the table sets up the preflop action to reach each level\'s spot.'}
       </p>
-      <div className="table-scroll">
+      <ScrollBox label="Opponent stats">
         <table className="data">
           <thead>
             <tr>
@@ -58,7 +59,7 @@ export function OpponentStats({ hands, styles = PROFILE_IDS, compact = false }: 
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollBox>
       <ul className="opp-notes small">
         {rows.map(({ id, s, read }) => (
           <li key={id}>
