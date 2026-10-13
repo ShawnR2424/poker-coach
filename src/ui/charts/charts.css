@@ -26,3 +26,10 @@ table.chart-changes { max-width: 520px; }
 .custom-size, .custom-name { display: grid; gap: 4px; max-width: 320px; }
 .custom-list ul { margin: 0; padding-left: 20px; columns: 2 220px; }
 #custom-error { overflow-wrap: anywhere; }
+.solver-fields { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.solver-fields label { display: grid; gap: 4px; min-width: 0; }
+.solver-fields span { font-size: 0.85rem; }
+.solver-postflop textarea { width: 100%; }
+.solver-example { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--surface-2); font-size: 0.8rem; overflow-x: auto; }
+table.solver-read { max-width: 560px; }
+.solver-spots { columns: 1 !important; }

@@ -3,6 +3,7 @@
 import { calcEquity, type CalcResult } from '../engine/calc/equityCalc';
 import { classEquities } from '../engine/classEquity';
 import { comboEquities, computeEquity, type EquityResult } from '../engine/equity';
+import { postflopOverrides } from '../engine/postflop/model';
 import { analyzeMultiway, type MultiwayResult, type MultiwaySituation } from '../engine/postflop/multiway';
 import type { HandClass, Range } from '../engine/range';
 import type { EquityJob, EquityReply } from './equity.worker';
@@ -107,7 +108,7 @@ export async function runComboEquity(hero: number[], board: number[], range: Ran
 
 /** EV of every hero action and per-opponent combo equities for a multiway decision. */
 export async function runMultiway(sit: MultiwaySituation): Promise<MultiwayResult> {
-  const r = await send({ kind: 'multiway', sit });
+  const r = await send({ kind: 'multiway', sit, tables: postflopOverrides() });
   if (r.kind !== 'multiway') throw new Error('Unexpected reply');
   return r.result;
 }

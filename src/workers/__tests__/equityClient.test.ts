@@ -9,9 +9,10 @@ class FailingWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: Event) => void) | null = null;
   posted = 0;
+  jobs: unknown[] = [];
   static last: FailingWorker | null = null;
   constructor() { FailingWorker.last = this; }
-  postMessage() { this.posted++; }
+  postMessage(job: unknown) { this.posted++; this.jobs.push(job); }
   fail() { this.onerror?.(new Event('error', { cancelable: true })); }
 }
 
@@ -39,5 +40,16 @@ describe('equity client', () => {
     const again = await runEquity(hero, [], [parseRange('KK')], 2000);
     expect(again.result.equity).toBeGreaterThan(0.75);
     expect(FailingWorker.last!.posted).toBe(posted);
+  });
+
+  it('sends imported postflop tables along with each multiway job', async () => {
+    vi.stubGlobal('Worker', FailingWorker);
+    const { setPostflopOverrides } = await import('../../engine/postflop/model');
+    const { runMultiway } = await import('../equityClient');
+    const tables = { firstToAct: { betSmall: { air: 0.5 } } };
+    setPostflopOverrides(tables);
+    void runMultiway({} as never).catch(() => {});
+    expect(FailingWorker.last?.jobs[0]).toMatchObject({ kind: 'multiway', tables });
+    setPostflopOverrides({});
   });
 });
