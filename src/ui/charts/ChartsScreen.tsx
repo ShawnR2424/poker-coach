@@ -10,6 +10,7 @@ import {
 } from '../../engine/preflop/explorer';
 import { StrategyGrid } from '../play/StrategyGrid';
 import { CustomCharts } from './CustomCharts';
+import { SolverPostflop } from './SolverPostflop';
 import { savedPack } from './customCharts';
 import '../session/session.css';
 import './charts.css';
@@ -169,6 +170,8 @@ export function ChartsScreen() {
       )}
 
       <CustomCharts key={`${kind}|${key}`} kind={kind} chartKey={key} />
+
+      <SolverPostflop />
 
       <p className="small muted chart-source">
         {custom

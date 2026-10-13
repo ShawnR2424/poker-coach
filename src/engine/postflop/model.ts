@@ -18,6 +18,46 @@ export const ACTIONS = table as unknown as {
   laterStreets: { betSize: number };
 };
 
+/** The tables as shipped, before any imported solver frequencies replace their entries. */
+const BUILT_IN = JSON.parse(JSON.stringify(table)) as typeof ACTIONS;
+
+/**
+ * Per-class entries that replace the built-in tables, worked out from imported solver output
+ * (see solverImport.ts). A class left out of an entry keeps its built-in value.
+ */
+export interface PostflopOverrides {
+  firstToAct?: { betSmall?: Partial<ByClass>; betBig?: Partial<ByClass> };
+  leadIntoAggressor?: { betSmall?: Partial<ByClass>; betBig?: Partial<ByClass> };
+  facingBet?: { base?: Partial<ByClass>; slope?: Partial<ByClass>; raise?: Partial<ByClass> };
+  facingRaise?: { continue?: Partial<ByClass> };
+}
+
+/** Every table entry an override can replace, as [table, entry] pairs. */
+export const OVERRIDE_FIELDS = [
+  ['firstToAct', 'betSmall'], ['firstToAct', 'betBig'],
+  ['leadIntoAggressor', 'betSmall'], ['leadIntoAggressor', 'betBig'],
+  ['facingBet', 'base'], ['facingBet', 'slope'], ['facingBet', 'raise'],
+  ['facingRaise', 'continue'],
+] as const;
+
+type Tables = Record<string, Record<string, ByClass>>;
+let overrides: PostflopOverrides = {};
+
+/** Puts the built-in tables back, then replaces the entries in `o`. Every reader of ACTIONS sees the result. */
+export function setPostflopOverrides(o: PostflopOverrides) {
+  overrides = o;
+  const live = ACTIONS as unknown as Tables;
+  const shipped = BUILT_IN as unknown as Tables;
+  const given = o as unknown as Record<string, Record<string, Partial<ByClass>> | undefined>;
+  for (const [t, field] of OVERRIDE_FIELDS) Object.assign(live[t][field], shipped[t][field], given[t]?.[field] ?? {});
+}
+
+export const postflopOverrides = () => overrides;
+
+/** The shipped value of one table entry, whatever is imported. */
+export const builtInValue = (t: (typeof OVERRIDE_FIELDS)[number][0], field: string, cls: PostflopClass): number =>
+  (BUILT_IN as unknown as Tables)[t][field][cls];
+
 export type ProfileId = 'regular' | 'nit' | 'station' | 'aggro';
 export interface Profile {
   label: string;

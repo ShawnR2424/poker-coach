@@ -3,13 +3,14 @@
 import { calcEquity, type CalcResult } from '../engine/calc/equityCalc';
 import { classEquities } from '../engine/classEquity';
 import { comboEquities, computeEquity, type EquityResult } from '../engine/equity';
+import { setPostflopOverrides, type PostflopOverrides } from '../engine/postflop/model';
 import { analyzeMultiway, type MultiwayResult, type MultiwaySituation } from '../engine/postflop/multiway';
 
 export type EquityJob =
   | { id: number; kind: 'equity'; hero: number[]; board: number[]; villains: Float32Array[]; iterations?: number }
   | { id: number; kind: 'classEquity'; hero: number[]; board: number[]; range: Float32Array; iterations?: number }
   | { id: number; kind: 'comboEquity'; hero: number[]; board: number[]; range: Float32Array }
-  | { id: number; kind: 'multiway'; sit: MultiwaySituation }
+  | { id: number; kind: 'multiway'; sit: MultiwaySituation; tables?: PostflopOverrides }
   | { id: number; kind: 'calc'; players: Float32Array[]; board: number[]; dead: number[]; samples?: number };
 
 export type EquityReply =
@@ -33,6 +34,8 @@ self.onmessage = (e: MessageEvent<EquityJob>) => {
       const result = comboEquities(job.hero, job.board, job.range);
       post({ id: job.id, ok: true, kind: 'comboEquity', result, ms: performance.now() - t0 });
     } else if (job.kind === 'multiway') {
+      // The worker has no saved settings of its own, so the page sends any imported solver tables.
+      if (job.tables) setPostflopOverrides(job.tables);
       post({ id: job.id, ok: true, kind: 'multiway', result: analyzeMultiway(job.sit), ms: performance.now() - t0 });
     } else if (job.kind === 'calc') {
       const result = calcEquity({ players: job.players, board: job.board, dead: job.dead, samples: job.samples });

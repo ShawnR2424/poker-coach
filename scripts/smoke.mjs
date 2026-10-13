@@ -553,6 +553,62 @@ for (const vp of VIEWPORTS) {
     await fresh.close();
   }
 
+  // Postflop solver spots, in a new browser: a pasted report is read by hand class, a bad one is
+  // refused, an added spot changes the opponents' table and is played at the table, the spots save
+  // as a pack that opens again, and removing them puts the built-in postflop play back.
+  {
+    const fresh = await newContext(vp);
+    const p2 = await fresh.newPage();
+    p2.on('pageerror', (e) => pageError(`${tag}, solver spots`, e));
+    p2.on('console', (m) => { if (m.type() === 'error') failures.push(`${tag}, solver spots: console error: ${m.text()}`); });
+    await p2.goto(`${url}#charts`);
+    await p2.waitForSelector('#solver-report');
+    await p2.fill('#solver-board', 'Ks7d2c');
+    await p2.fill('#solver-report', 'Hand,Weight,Fold,Call\nAsAh,1,0,1');
+    if (!(await p2.$('#solver-error')) || !(await p2.isDisabled('#solver-add'))) failures.push(`${tag}: a report with Fold and Call was accepted as a first-to-act spot`);
+    await p2.fill('#solver-label', 'Smoke c-bet');
+    await p2.fill('#solver-report', 'Hand,Weight,Check,Bet 33%,Bet 75%\nAA,1,0,100,0\n65s,1,0,0,100\nKQo,0.5,50,50,0');
+    await p2.waitForSelector('#solver-check');
+    const readText = await p2.textContent('#solver-check');
+    const classRows = await p2.$$eval('.solver-read tbody tr', (r) => r.length);
+    if (!readText.includes('Read 19 combos') || classRows !== 3) failures.push(`${tag}: the solver report read as "${readText}" with ${classRows} hand classes`);
+    await noOverflow(p2, `${tag}, solver import`);
+    await Promise.all([p2.waitForEvent('load'), p2.click('#solver-add')]);
+    await p2.waitForSelector('#solver-status');
+    if (!(await p2.textContent('#solver-status')).includes('1 imported spot')) failures.push(`${tag}: the status does not count 1 imported spot`);
+    const bold = await p2.$$eval('.solver-play tbody td strong', (c) => c.length);
+    if (bold !== 3) failures.push(`${tag}: ${bold} cells of the opponents' table come from the imported spot (expected 3)`);
+    await p2.goto(`${url}#table`);
+    await p2.waitForSelector('#level');
+    await p2.selectOption('#level', '1');
+    for (let h = 0; h < 3; h++) if (!(await playHand(p2, `${tag}, solver spots, hand ${h + 1}`))) break;
+    await p2.goto(`${url}#charts`);
+    await p2.waitForSelector('#solver-save');
+    const [dl] = await Promise.all([p2.waitForEvent('download'), p2.click('#solver-save')]);
+    const packFile = join(mkdtempSync(join(tmpdir(), 'postflop-')), dl.suggestedFilename());
+    await dl.saveAs(packFile);
+    const pack = JSON.parse(readFileSync(packFile, 'utf8'));
+    if (pack.app !== 'poker-coach-postflop' || pack.spots?.[0]?.label !== 'Smoke c-bet') failures.push(`${tag}: the saved postflop pack does not hold the spot`);
+    pack.name = 'Smoke postflop';
+    pack.spots.push({ ...pack.spots[0], label: 'Second', board: 'Ah8d3c' });
+    writeFileSync(packFile, JSON.stringify(pack));
+    await p2.setInputFiles('#solver-file', packFile);
+    await p2.waitForSelector('#solver-pack-use');
+    await Promise.all([p2.waitForEvent('load'), p2.click('#solver-pack-use')]);
+    await p2.waitForSelector('#solver-status');
+    const status = await p2.textContent('#solver-status');
+    if (!status.includes('2 imported spots') || !status.includes('Smoke postflop')) failures.push(`${tag}: after opening a postflop pack the status says "${status}"`);
+    writeFileSync(packFile, '{"app":"poker-coach-postflop","v":1,"spots":[]}');
+    await p2.setInputFiles('#solver-file', packFile);
+    await p2.waitForSelector('.solver-postflop .custom-pack .errors');
+    await p2.click('#solver-clear');
+    await Promise.all([p2.waitForEvent('load'), p2.click('#solver-clear-yes')]);
+    await p2.waitForSelector('#solver-status');
+    if (!(await p2.textContent('#solver-status')).includes('built-in postflop estimates') || (await p2.$('.solver-play tbody td strong'))) failures.push(`${tag}: removing the spots did not put the built-in postflop play back`);
+    console.log(`${tag}: a solver spot read, added and played, a postflop pack saved and opened, the built-in play put back`);
+    await fresh.close();
+  }
+
   // Equity calculator: an exact matchup, a range from a chart in a three-way pot on a flop, a card
   // clash reported as an error, and the fields kept after a reload.
   await page.goto(`${url}#equity`);

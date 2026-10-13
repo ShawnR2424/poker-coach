@@ -2,6 +2,13 @@
 
 Each milestone was merged as its own pull request.
 
+## Import solver postflop play
+
+- The Charts tab has a new Postflop play from a solver panel. Paste or open the strategy report a solver exports for one decision (one row per combo or hand, one column per action), enter the board, the situation and the size faced, and the panel shows what each hand class does before you add the spot. It reads comma, tab or semicolon separated reports with shares or percentages, weight, frequency or combos columns, bet sizes as percentages of the pot or in chips, and skips EV and equity columns.
+- Added spots are averaged into the opponents' postflop tables by hand class: bet shares when first to act or leading, the continue line and raise share facing a bet (fitted to the bet sizes imported), and the continue share facing a raise. The regular opponent plays the imported numbers, the other styles still scale them, and they drive the grades, range reads and the hero's range split everywhere the tables are read, including the equity worker. The panel shows the regular opponent's play with the imported numbers in bold.
+- Spots save as a postflop pack file that opens again on another device, and are kept in the browser and in backups. Any spot can be removed, or all of them to put the built-in estimates back.
+- New `solverImport.test.ts` checks the report formats and errors, the averaging and line fitting, that the tables change for every reader and reset cleanly, packs and backups; `equityClient.test.ts` checks the tables reach the worker. The smoke test adds a bad and a good report, plays hands with the import, saves and opens a pack, and removes the spots.
+
 ## Real-browser testing
 
 - CI now runs the full browser smoke test in WebKit (the engine behind Safari) and Firefox as well as Chromium, and on an emulated iPhone 14 and Pixel 7 with each phone's screen size, pixel ratio, user agent and touch input. Each run plays hands at every level and checks the quizzes, charts, imports, tournament spots, review cards, backup and restore, and that the app opens and plays offline.
