@@ -2,6 +2,14 @@
 
 Each milestone was merged as its own pull request.
 
+## Board-aware play
+
+- Opponents now play differently on different boards. Every flop, turn and river is sorted into one of five textures: dry and ace or king high, dry and queen high or lower, connected or two-tone, paired, and three of a suit. Each texture scales how often each hand class bets small or big and how often it continues facing a bet (`textures` in `data/postflop/actions.json`). On a dry ace-high flop players bet small and often, even with nothing; on a connected or two-tone board strong hands and draws bet bigger and weak pairs fold more; on a three-suited board one-pair hands bet much less.
+- The texture reaches everything the tables drive: the bots, the range narrowing and range reads, the defense floor, the EV of each option and so the grades, the hero's range split, multiway spots and the equity worker.
+- Postflop feedback names the board ("Board: connected or two-tone.") and what that kind of board changes.
+- Imported solver spots keep their board differences. Spots are still averaged into the tables, and are now also averaged per texture: on a texture with imported spots, opponents play the solver's figures for the classes those spots cover; textures without spots use the average of all spots, adjusted for the board. The Charts tab has a Board selector to see the opponent's play on each texture, and lists each imported spot with its texture.
+- New `texture.test.ts` checks the textures of flops, turns and rivers (wheel straights, two-tone boards with spread or close ranks, flushes), that every texture's table is complete, the direction of the changes, valid response splits on every texture and style, solver spots kept per texture with the average elsewhere, and the board line in the feedback. The smoke test checks the board line in every practice spot's feedback and that an imported spot counts for its own texture only.
+
 ## Keyboard and screen reader
 
 - The cash table and postflop spots can be played from the keyboard: F folds, C (or K) checks or calls, 1 to 9 pick the bet or raise sizes left to right, and A goes all-in. Tournament spots take F and A (C for a call). A hint under the buttons lists the keys on screens with a keyboard.

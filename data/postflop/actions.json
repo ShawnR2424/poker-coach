@@ -133,5 +133,203 @@
       "weakDraw": 0.35,
       "air": 0.05
     }
+  },
+  "textures": {
+    "_about": "Multipliers on the class tables by board texture (src/engine/postflop/texture.ts). betSmall and betBig scale how often each class bets small or big, first to act and when leading into the last aggressor; continue scales how often it continues facing a bet, before the defense floor. 'about' is the line the feedback shows. A texture with imported solver spots uses the solver's figures for the classes those spots cover, in place of the multiplier. These are estimates for a low-stakes regular, not solver output.",
+    "dryHigh": {
+      "about": "On a dry ace- or king-high board the preflop raiser has most of the strong hands, so players bet small and often, even with nothing, and weak pairs call more readily since few cards change much.",
+      "betSmall": {
+        "setPlus": 1.1,
+        "twoPair": 1.1,
+        "overpair": 1.15,
+        "topPairGood": 1.15,
+        "topPairWeak": 1.15,
+        "middlePair": 1.1,
+        "weakPair": 1.1,
+        "strongDraw": 1.0,
+        "weakDraw": 1.3,
+        "air": 1.4
+      },
+      "betBig": {
+        "setPlus": 0.8,
+        "twoPair": 0.8,
+        "overpair": 0.7,
+        "topPairGood": 0.6,
+        "topPairWeak": 0.5,
+        "middlePair": 0.6,
+        "weakPair": 0.5,
+        "strongDraw": 0.8,
+        "weakDraw": 0.6,
+        "air": 0.5
+      },
+      "continue": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 1,
+        "topPairGood": 1,
+        "topPairWeak": 1.05,
+        "middlePair": 1.1,
+        "weakPair": 1.1,
+        "strongDraw": 1,
+        "weakDraw": 0.85,
+        "air": 0.8
+      }
+    },
+    "dryLow": {
+      "about": "On a dry queen-high or lower board ranges are closer, so players bet a little less big, and overcards keep calling more since many turns give them a pair.",
+      "betSmall": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 1.05,
+        "topPairGood": 1.05,
+        "topPairWeak": 1.05,
+        "middlePair": 1,
+        "weakPair": 1,
+        "strongDraw": 1,
+        "weakDraw": 1.1,
+        "air": 1.1
+      },
+      "betBig": {
+        "setPlus": 0.9,
+        "twoPair": 0.9,
+        "overpair": 1.1,
+        "topPairGood": 0.9,
+        "topPairWeak": 0.8,
+        "middlePair": 0.8,
+        "weakPair": 0.8,
+        "strongDraw": 0.9,
+        "weakDraw": 0.8,
+        "air": 0.8
+      },
+      "continue": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 1,
+        "topPairGood": 1,
+        "topPairWeak": 1,
+        "middlePair": 1.05,
+        "weakPair": 1.05,
+        "strongDraw": 1,
+        "weakDraw": 1.1,
+        "air": 1
+      }
+    },
+    "wet": {
+      "about": "On a connected or two-tone board strong hands and draws bet bigger to charge the draws, players make fewer small bets, and weak pairs and air fold more to a bet while draws continue more.",
+      "betSmall": {
+        "setPlus": 0.7,
+        "twoPair": 0.7,
+        "overpair": 0.8,
+        "topPairGood": 0.8,
+        "topPairWeak": 0.8,
+        "middlePair": 0.8,
+        "weakPair": 0.8,
+        "strongDraw": 0.7,
+        "weakDraw": 0.8,
+        "air": 0.7
+      },
+      "betBig": {
+        "setPlus": 1.35,
+        "twoPair": 1.35,
+        "overpair": 1.3,
+        "topPairGood": 1.2,
+        "topPairWeak": 1.0,
+        "middlePair": 0.8,
+        "weakPair": 0.8,
+        "strongDraw": 1.4,
+        "weakDraw": 1.0,
+        "air": 0.8
+      },
+      "continue": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 0.95,
+        "topPairGood": 0.95,
+        "topPairWeak": 0.9,
+        "middlePair": 0.85,
+        "weakPair": 0.8,
+        "strongDraw": 1.05,
+        "weakDraw": 1.05,
+        "air": 0.75
+      }
+    },
+    "paired": {
+      "about": "On a paired board few hands improve, so players bet small more often and big less often, and small pairs hold up better against a bet.",
+      "betSmall": {
+        "setPlus": 0.9,
+        "twoPair": 1,
+        "overpair": 1.15,
+        "topPairGood": 1.2,
+        "topPairWeak": 1.2,
+        "middlePair": 1.1,
+        "weakPair": 1.1,
+        "strongDraw": 1,
+        "weakDraw": 1.2,
+        "air": 1.3
+      },
+      "betBig": {
+        "setPlus": 1.1,
+        "twoPair": 1,
+        "overpair": 0.8,
+        "topPairGood": 0.7,
+        "topPairWeak": 0.6,
+        "middlePair": 0.5,
+        "weakPair": 0.5,
+        "strongDraw": 0.8,
+        "weakDraw": 0.6,
+        "air": 0.5
+      },
+      "continue": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 1,
+        "topPairGood": 1,
+        "topPairWeak": 1,
+        "middlePair": 1.05,
+        "weakPair": 1.1,
+        "strongDraw": 1,
+        "weakDraw": 0.9,
+        "air": 0.85
+      }
+    },
+    "monotone": {
+      "about": "With three cards of a suit out, one-pair hands bet much less and fold more to a bet, while flushes and flush draws bet and continue more.",
+      "betSmall": {
+        "setPlus": 1.1,
+        "twoPair": 0.9,
+        "overpair": 0.8,
+        "topPairGood": 0.8,
+        "topPairWeak": 0.7,
+        "middlePair": 0.6,
+        "weakPair": 0.5,
+        "strongDraw": 1.1,
+        "weakDraw": 0.6,
+        "air": 0.6
+      },
+      "betBig": {
+        "setPlus": 1.3,
+        "twoPair": 0.8,
+        "overpair": 0.6,
+        "topPairGood": 0.5,
+        "topPairWeak": 0.4,
+        "middlePair": 0.3,
+        "weakPair": 0.3,
+        "strongDraw": 0.9,
+        "weakDraw": 0.4,
+        "air": 0.5
+      },
+      "continue": {
+        "setPlus": 1,
+        "twoPair": 1,
+        "overpair": 0.9,
+        "topPairGood": 0.85,
+        "topPairWeak": 0.8,
+        "middlePair": 0.75,
+        "weakPair": 0.7,
+        "strongDraw": 1.1,
+        "weakDraw": 0.9,
+        "air": 0.7
+      }
+    }
   }
 }

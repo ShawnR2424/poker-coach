@@ -7,7 +7,8 @@ import type { Card } from '../cards';
 import type { HandState } from '../hand';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, POSTFLOP_CLASS_LABEL, STRONG_CLASSES, type PostflopClass } from './classify';
-import { firstToActFreq, rangeDefense, responseFor, SMALL_BET_MAX, type Defense, type Profile } from './model';
+import { firstToActFreq, rangeDefense, responseFor, SMALL_BET_MAX, textureOf, type Defense, type Profile } from './model';
+import type { Texture } from './texture';
 import type { ActionContext, PostflopStep } from './narrow';
 import { BOARD_LEN, facedShare } from './narrow';
 
@@ -173,12 +174,12 @@ export interface RangeActions {
   heroFreq: Record<RangeAction, number>;
 }
 
-function freqsFor(cls: PostflopClass, ctx: ActionContext, canRaise: boolean, profile?: Profile, defense: Defense | number = 1): Partial<Record<RangeAction, number>> {
+function freqsFor(cls: PostflopClass, ctx: ActionContext, canRaise: boolean, profile?: Profile, defense: Defense | number = 1, tex?: Texture): Partial<Record<RangeAction, number>> {
   if (ctx.currentBet > ctx.committed) {
-    const r = responseFor(cls, facedShare(ctx), canRaise, ctx.beingRaised, profile, defense);
+    const r = responseFor(cls, facedShare(ctx), canRaise, ctx.beingRaised, profile, defense, tex);
     return { fold: r.fold, call: r.call, raise: r.raise };
   }
-  const f = firstToActFreq(cls, ctx.intoAggressor, profile);
+  const f = firstToActFreq(cls, ctx.intoAggressor, profile, tex);
   return { check: f.check, betSmall: f.small, betBig: f.big };
 }
 
@@ -209,12 +210,13 @@ export function rangeActions(
     byClass.set(cls, (byClass.get(cls) ?? 0) + w);
     total += w;
   }
-  const defense = facing ? rangeDefense([...byClass.keys()], [...byClass.values()], facedShare(ctx), ctx.beingRaised, profile) : 1;
+  const tex = textureOf(board);
+  const defense = facing ? rangeDefense([...byClass.keys()], [...byClass.values()], facedShare(ctx), ctx.beingRaised, profile, tex) : 1;
   const rows: RangeActionRow[] = actions.map((action) => {
     let sum = 0;
     const parts: { cls: PostflopClass; w: number }[] = [];
     for (const [cls, w] of byClass) {
-      const p = freqsFor(cls, ctx, canRaise, profile, defense)[action] ?? 0;
+      const p = freqsFor(cls, ctx, canRaise, profile, defense, tex)[action] ?? 0;
       if (p * w > 0) parts.push({ cls, w: p * w });
       sum += p * w;
     }
@@ -226,7 +228,7 @@ export function rangeActions(
   });
   if (!(total > 0)) return null;
   const heroClass = classifyHand(hole, board);
-  const hf = freqsFor(heroClass, ctx, canRaise, profile, defense);
+  const hf = freqsFor(heroClass, ctx, canRaise, profile, defense, tex);
   const heroFreq = Object.fromEntries(actions.map((a) => [a, hf[a] ?? 0])) as Record<RangeAction, number>;
   return { rows, heroClass, heroFreq };
 }

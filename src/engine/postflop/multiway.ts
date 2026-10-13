@@ -12,7 +12,7 @@ import { breakEvenFoldPct, potOdds, spr as sprOf } from '../math';
 import { COMBO_CARDS, NUM_COMBOS, type Range } from '../range';
 import { classifyHand, type PostflopClass } from './classify';
 import { strongShare } from './heroRange';
-import { laterStreetValue, rangeDefense, realization, responseFor, type Profile } from './model';
+import { laterStreetValue, rangeDefense, realization, responseFor, textureOf, type Profile } from './model';
 import { afterRake, heroOptions, type Analysis, type DecisionBasics, type HeroOption, type OptionRow } from './recommend';
 
 export interface MultiwayVillain {
@@ -79,6 +79,7 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
   const equity = computeEquity({ hero: sit.hero, board: sit.board, villains: sit.villains.map((v) => v.range), iterations: iterations * 4, seed }).equity;
   const heroClass = classifyHand(sit.hero, sit.board);
   const R = realization(sit.street, sit.heroInPosition, heroClass);
+  const tex = textureOf(sit.board);
   const P = sit.pot, hc = sit.heroCommitted, H = sit.heroBehind;
   const rows: OptionRow[] = [];
   const net = (amount: number) => afterRake(amount, sit);
@@ -94,7 +95,7 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
     for (let k = 0; k < p.idx.length; k++) {
       const x = range[p.idx[k]];
       if (!(x > 0)) continue;
-      t += x * laterStreetValue(sit.street, p.cls[k], comboEqs[j][p.idx[k]], pot, behind, sit.villains[j].profile);
+      t += x * laterStreetValue(sit.street, p.cls[k], comboEqs[j][p.idx[k]], pot, behind, sit.villains[j].profile, tex);
       tw += x;
     }
     const scale = others === 0 ? 1 : Math.min(1, eqAll / Math.max(1e-9, hu[j]));
@@ -126,11 +127,11 @@ export function analyzeMultiway(sit: MultiwaySituation, opts: { iterations?: num
       const canRaise = !heroAllIn && v.behind > cv;
       const beingRaised = v.committed > 0;
       const p = vs[j];
-      const defense = rangeDefense(p.cls, p.w, f, beingRaised, v.profile);
+      const defense = rangeDefense(p.cls, p.w, f, beingRaised, v.profile, tex);
       let fold = 0, call = 0, raise = 0;
       const callRange = new Float32Array(NUM_COMBOS);
       for (let k = 0; k < p.idx.length; k++) {
-        const resp = responseFor(p.cls[k], f, canRaise, beingRaised, v.profile, defense);
+        const resp = responseFor(p.cls[k], f, canRaise, beingRaised, v.profile, defense, tex);
         fold += p.w[k] * resp.fold;
         call += p.w[k] * resp.call;
         raise += p.w[k] * resp.raise;

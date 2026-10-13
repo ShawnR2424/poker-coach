@@ -63,6 +63,26 @@ On top of the per-class numbers, a whole range facing a bet or a raise defends a
 
 The same tables do two jobs. They narrow an opponent's range after each action they take, and they predict how the opponent responds to the hero's bets. The bots also act from them, so the range the trainer shows always contains the opponent's real hand.
 
+### Board texture
+
+The hand classes say how a hand connects with the board; the texture says what kind of board it is. Every board, from the flop on, is sorted by all the cards dealt so far into one of five textures (`src/engine/postflop/texture.ts`), taking the first that applies:
+
+1. **Three of a suit**: three or more cards of one suit.
+2. **Paired**: two or more cards of one rank.
+3. **Connected or two-tone**: three different ranks fit within five consecutive ranks (the ace also plays low), so a straight is possible; or, before the river, two cards share a suit and two ranks are within two of each other, as on 9h8h3c.
+4. **Dry, ace or king high**: anything else with an ace or king on top, such as As7d2c or the two-tone Kh7h2c.
+5. **Dry, queen high or lower**: the rest.
+
+For each texture, `textures` in `data/postflop/actions.json` gives every class a multiplier on how often it bets small, how often it bets big (first to act and when leading into the last aggressor alike), and how often it continues facing a bet. Bet shares that add up to more than one are scaled back as before, and the continue chance is capped at always; the style multipliers, the facing-raise table and the defense floor apply on top, so a range still defends the floor on any board. The multipliers are estimates, like the rest of the tables:
+
+- **Dry, ace or king high.** The preflop raiser has most of the strong hands, so most classes bet small more often (air 1.4 times as often) and big less often, and weak and middle pairs continue a little more against a bet, while overcards and air give up more.
+- **Dry, queen high or lower.** Ranges are closer. Slightly fewer big bets except with overpairs, and overcards continue more, since many turns pair them.
+- **Connected or two-tone.** Strong made hands and strong draws bet big more (1.2 to 1.4 times) and small less, and against a bet weak pairs (0.8), middle pairs and air fold more while draws continue more.
+- **Paired.** Few hands improve, so most classes bet small more and big less, and small pairs hold up better against a bet.
+- **Three of a suit.** One-pair hands bet much less (big bets 0.3 to 0.6 times as often) and fold more against a bet; made hands that use a hole card, such as flushes, bet more, and flush draws continue more.
+
+The texture reaches every reader of the tables: the bots, the range narrowing and the range text, the defense floor, the EV of each option and so the grades, the hero's own range split, multiway spots and the equity worker. Postflop feedback names the texture and what it changes. Before the flop there is no texture.
+
 ### Adapting to the hero
 
 With "Opponents adapt to me" on (the default), each new hand starts from the hero's latest 40 graded postflop decisions of each kind in the current session (`src/engine/session/adapt.ts`, thresholds in `data/postflop/adapt.json`):
@@ -189,15 +209,16 @@ With two or more opponents still in:
 
 ## Imported solver spots
 
-A solver strategy report gives each combo's action frequencies at one decision on one board. The postflop model works by hand class and does not depend on the board, so a report is boiled down to classes and the imported spots are averaged into the class tables (`src/engine/postflop/solverImport.ts`):
+A solver strategy report gives each combo's action frequencies at one decision on one board. The postflop model works by hand class and by [board texture](#board-texture), so a report is boiled down to classes, and the imported spots are averaged into the class tables both over all spots and per texture (`src/engine/postflop/solverImport.ts`):
 
 - **Reading a report.** Each row's combos are dealt out on the spot's board (combos that use a board card are dropped) and sorted into the ten hand classes. A row's frequencies are normalized to add up to one, and each combo counts with its weight: the weight or frequency column, a combos column divided among the hand's combos, or one when there is no weight column. A class's frequencies are the weighted average of its combos.
 - **Bet sizes.** First to act, bets up to half the pot count as small and bigger bets, all-ins and bets with no size as big, matching how the model sorts bets. Facing a bet, any bet or all-in column counts as a raise.
 - **First to act and leads.** A class's small and big bet shares are the weighted averages over every spot of that kind; they replace the class's `betSmall` and `betBig` in `firstToAct` or `leadIntoAggressor`.
 - **Facing a bet.** Each spot gives a class's continue share (call plus raise) at one bet size. With two or more sizes, the class's straight line (`base` and `slope`) is fitted to them by weighted least squares, with the slope kept at zero or above. With one size the built-in slope is kept and the base moves so the line passes through the imported share. Bets above 1.5 times the pot, where the overbet rule takes over, are left out of the fit. The raise share is the class's raises divided by its continues over every facing-bet spot, overbets included.
 - **Facing a raise.** Each spot's continue share is divided by what the class's line gives against a bet of the same size, and the weighted average replaces the class's `facingRaise.continue` multiplier.
+- **By texture.** The same averages are also worked out from each texture's spots alone. On a board of a texture with imported spots, a class those spots cover plays the solver's figures for that texture, with no texture multiplier on top. A class or texture no spot covers uses the average over all spots, scaled by the texture's multipliers. A facing-raise spot on a texture with no facing-bet spot for that class is compared with the built-in line scaled by the texture.
 - **What stays.** Classes and tables no imported spot covers keep their built-in values. The defense floor still applies on top; solver strategies usually defend enough already, so it rarely moves them. The imported numbers are the regular opponent's; the nit, calling station and aggressive styles still scale them by their multipliers, and adaptive opponents still adjust them to the hero.
-- **Limits.** Averaging into classes loses what a solver gets from the board: a class plays the same on a dry king-high flop as on a wet connected one, and the turn and river use the same tables as the flop. Spots are best added for the boards and lines the trainer deals most. The hero's own range split (below) uses the same tables, so it moves with the import too.
+- **Limits.** Averaging into classes and five textures still loses some of what a solver gets from the board: a class plays the same on every board of one texture (Ks7d2c and As8d3c alike), and the turn and river use the flop's tables, sorted by the texture of the board so far. Spots are best added on several textures, for the lines the trainer deals most. The hero's own range split (below) uses the same tables, so it moves with the import too.
 - The tables are put in place when the app starts, and adding or removing spots reloads the app. The equity worker receives the tables with each multiway job, since it has no saved settings of its own. A saved pack that no longer passes the checks is ignored.
 
 ## Equity calculator
@@ -264,12 +285,13 @@ When switched on in Settings, Claude rewrites the trainer's feedback in a coachi
 
 ## Known gaps
 
-- No solver: the built-in preflop charts and postflop tables are estimates unless you import your own (see [Imported charts](#imported-charts) and [Imported solver spots](#imported-solver-spots)), imported postflop play is averaged by hand class rather than kept per board, and the postflop model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, measured when the floor was added, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
+- No solver: the built-in preflop charts and postflop tables are estimates unless you import your own (see [Imported charts](#imported-charts) and [Imported solver spots](#imported-solver-spots)), imported postflop play is averaged by hand class within each of five board textures rather than kept per board, and the postflop model has no notion of balancing a range across bets and checks. Mixed spots (above) come from how close the EVs are, not from balance, so a spot a solver would mix can still show one play when one option's EV is clearly ahead, and the best play leans to the aggressive option whenever it is slightly ahead. In a seeded sample of 300 level 3 hands, measured when the floor was added, raising was best in 64 of 161 heads-up decisions facing a bet and checking in 102 of 434 with no bet to face, down from 89 of 159 and up from 50 of 405 before the defense floor; a solver would raise less and check more.
 - The defense floor spreads the extra defense across classes in proportion to how often each already continues. A real defender adds the hands that do best against the bettor's range, so the calling range can be a little weaker than it should be.
 - Tournament mode covers push/fold and reshoves over a 2bb open: no smaller raises, limps or calls of an open, at most two players call an all-in (with the three-way odds estimated from head-to-head equities), and the opener's range is a cash-game 40bb chart rather than a tournament one. Its payouts are fixed presets, not a real tournament's structure.
 - Hand classes ignore blockers within a class and the texture of future cards beyond draw and realization factors.
 - Only 40bb, 100bb and 200bb charts exist, and the 40bb and 200bb ones are rule-based adjustments of the 100bb charts. Stacks are always equal at the start of a hand.
 - Bet sizing for the hero is graded among preset sizes plus any custom size played; sizes the hero did not consider are not searched.
+- Board textures are five fixed buckets with hand-set multipliers: a board on the edge of two textures switches all at once, and the multipliers are not fitted to data unless solver spots replace them.
 - Adaptive opponents only watch two postflop rates, adjust in fixed steps rather than in proportion to the gap, and adjust the same way on every street and board. They do not adapt preflop.
 - The rake in later-street value is judged at the pot when the hand goes on, so a pot that crosses the cap on a later street is slightly over-raked in the estimate.
-- Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. An overbet bluff against a capped range now grades best only rarely: in a seeded sample of 400 level 3 spots where a regular, aggressive or calling-station opponent had checked and the hero held under 35% equity with no draw, an overbet shove graded best in 1 of 88, down from 9 of 88 before the top-up. Against a nit it can still grade best, since a nit overfolds by design.
+- Later-street value is a rough estimate: one bet per street, no bluffing or raising on later streets, and no runout dependence. An overbet bluff against a capped range now grades best only rarely: in a seeded sample of 400 level 3 spots where a regular, aggressive or calling-station opponent had checked and the hero held under 35% equity with no draw, an overbet shove graded best in 1 of 88, down from 9 of 88 before the top-up (measured before board textures were added). Against a nit it can still grade best, since a nit overfolds by design.
