@@ -1012,6 +1012,8 @@ if (BROWSER !== 'webkit') await server.close();
 for (const n of notes) console.log(`Note: ${n}`);
 if (failures.length) {
   console.error(`\n${failures.length} problem(s):\n${failures.map((f) => `- ${f}`).join('\n')}`);
+  // In GitHub Actions, each problem also becomes an annotation on the check, readable without the log.
+  if (process.env.GITHUB_ACTIONS) for (const f of failures) console.log(`::error title=Smoke test (${RUN})::${f.replace(/%/g, '%25').replace(/\r?\n/g, '%0A')}`);
   process.exit(1);
 }
 console.log(`Smoke test passed (${RUN}).`);
